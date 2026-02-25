@@ -3,7 +3,6 @@
 import time
 import webbrowser
 
-import requests
 import typer
 from rich.console import Console
 
@@ -16,8 +15,6 @@ console = Console()
 
 # OAuth client ID for CLI (public client, no secret required)
 CLI_CLIENT_ID = "campus-cli"
-DEVICE_CODE_ENDPOINT = "/oauth/device_authorize"
-TOKEN_ENDPOINT = "/oauth/token"
 
 
 class DeviceAuthError(Exception):
@@ -26,9 +23,12 @@ class DeviceAuthError(Exception):
     pass
 
 
-def request_device_code() -> dict:
+def request_device_code(campus_auth) -> dict:
     """
     Request a device code from the authorization server.
+
+    Args:
+        campus_auth: Campus auth client from campus-api-python
 
     Returns:
         Dict containing device_code, user_code, verification_uri, expires_in, interval.
@@ -36,27 +36,18 @@ def request_device_code() -> dict:
     Raises:
         DeviceAuthError: If the request fails.
     """
-    url = f"{config.api_endpoint}{DEVICE_CODE_ENDPOINT}"
-
     try:
-        response = requests.post(
-            url,
-            data={
-                "client_id": CLI_CLIENT_ID,
-            },
-            headers={"Accept": "application/json"},
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
+        return campus_auth.oauth.request_device_code(client_id=CLI_CLIENT_ID)
+    except Exception as e:
         raise DeviceAuthError(f"Failed to request device code: {e}") from e
 
 
-def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> dict:
+def poll_for_token(campus_auth, device_code: str, interval: int, max_attempts: int = 60) -> dict:
     """
     Poll the token endpoint until the user completes authentication.
 
     Args:
+        campus_auth: Campus auth client from campus-api-python
         device_code: The device code from the initial request.
         interval: Seconds to wait between poll attempts.
         max_attempts: Maximum number of polling attempts.
@@ -67,47 +58,35 @@ def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> d
     Raises:
         DeviceAuthError: If polling times out or the request fails.
     """
-    url = f"{config.api_endpoint}{TOKEN_ENDPOINT}"
-
     for attempt in range(max_attempts):
         try:
-            response = requests.post(
-                url,
-                data={
-                    "client_id": CLI_CLIENT_ID,
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": device_code,
-                },
-                headers={"Accept": "application/json"},
+            response = campus_auth.oauth.poll_for_token(
+                client_id=CLI_CLIENT_ID,
+                device_code=device_code
             )
-
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 400:
-                # Check for authorization pending or slow down
-                error = response.json().get("error", "")
-                if error == "authorization_pending":
-                    # User hasn't completed auth yet, continue polling
-                    console.print(".", end="", flush=True)
-                    time.sleep(interval)
-                    continue
-                elif error == "slow_down":
-                    # Server is asking us to poll less frequently
-                    time.sleep(interval + 5)
-                    continue
-                elif error == "expired_token":
-                    raise DeviceAuthError("Device code has expired. Please try logging in again.")
-                elif error == "access_denied":
-                    raise DeviceAuthError("Access was denied by the user.")
-            else:
-                response.raise_for_status()
-
-        except requests.RequestException as e:
-            # Don't fail on network errors during polling, just retry
-            if attempt < max_attempts - 1:
+            return response
+        except Exception as e:
+            error_str = str(e)
+            # Check for authorization pending or slow down
+            if "authorization_pending" in error_str.lower():
+                # User hasn't completed auth yet, continue polling
+                console.print(".", end="", flush=True)
                 time.sleep(interval)
                 continue
-            raise DeviceAuthError(f"Failed to poll for token: {e}") from e
+            elif "slow_down" in error_str.lower():
+                # Server is asking us to poll less frequently
+                time.sleep(interval + 5)
+                continue
+            elif "expired_token" in error_str.lower() or "expired" in error_str.lower():
+                raise DeviceAuthError("Device code has expired. Please try logging in again.")
+            elif "access_denied" in error_str.lower():
+                raise DeviceAuthError("Access was denied by the user.")
+            # Don't fail on network errors during polling, just retry
+            elif attempt < max_attempts - 1:
+                time.sleep(interval)
+                continue
+            else:
+                raise DeviceAuthError(f"Failed to poll for token: {e}") from e
 
     raise DeviceAuthError("Authentication timed out. Please try again.")
 
@@ -129,7 +108,16 @@ def login_cmd(
     2. Display a code for you to enter at the verification URL
     3. Poll for the token while you complete authentication in a browser
     4. Store the received token in your credential manager
+
+    The auth endpoint is determined by the CAMPUS_ENV environment variable.
     """
+    # Import campus-python client
+    try:
+        import campus_python
+    except ImportError:
+        print_error("campus-python library not found. Please install it first.")
+        raise typer.Exit(1)
+
     # Check if already logged in
     existing_token = credentials.get_token()
     if existing_token:
@@ -139,9 +127,13 @@ def login_cmd(
         return
 
     try:
+        # Initialize campus client in device mode (no credentials required)
+        campus = campus_python.Campus(timeout=60, mode="device")
+        campus_auth = campus.auth
+
         # Step 1: Request device code
         console.print("[bold]Requesting device code...[/bold]")
-        device_auth_data = request_device_code()
+        device_auth_data = request_device_code(campus_auth)
 
         user_code = device_auth_data["user_code"]
         verification_uri = device_auth_data["verification_uri"]
@@ -151,7 +143,7 @@ def login_cmd(
 
         # Step 2: Display instructions to user
         console.print("\n[bold cyan]To authenticate, use a web browser to open:[/bold cyan]")
-        console.print(f"[link]{verification_uri}[/link]\n")
+        console.print(f"[link={verification_uri}]{verification_uri}[/link]\n")
         console.print(f"[bold]Enter the following code:[/bold] [bold yellow]{user_code}[/bold yellow]\n")
 
         # Open browser automatically
@@ -163,9 +155,10 @@ def login_cmd(
         console.print("[dim](Polling for token...)[/dim]")
 
         token_data = poll_for_token(
+            campus_auth,
             device_code=device_code,
             interval=interval,
-            max_attempts=int(expires_in / interval),
+            max_attempts=max(1, int(expires_in / interval)),
         )
 
         console.print("\n")  # New line after polling dots
@@ -243,7 +236,6 @@ def status_cmd(
     if token:
         if output_json:
             import json
-
             console.print(json.dumps({"authenticated": True}))
         else:
             print_success("Authenticated")
@@ -251,7 +243,6 @@ def status_cmd(
     else:
         if output_json:
             import json
-
             console.print(json.dumps({"authenticated": False}))
         else:
             console.print("[yellow]Not authenticated[/yellow]")
