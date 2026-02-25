@@ -39,9 +39,12 @@ A command-line interface tool for interacting with the Campus API, enabling user
   - Windows: `%USERPROFILE%\campus-cli\credentials.json`
 
 #### Authentication Flow
-- OAuth 2.0 with browser-based authentication
-- User receives a clickable URL to authenticate
-- Callback handling for token exchange
+- OAuth 2.0 Device Authorization Flow (RFC 8628)
+- CLI requests device code and displays user code
+- User enters code at verification URL in browser
+- CLI polls token endpoint until authentication completes
+- Stores access and refresh tokens in credential store
+- Uses public client ID (`campus-cli`) - no secret required
 
 #### API Integration
 - Uses `campus-api-python` library
