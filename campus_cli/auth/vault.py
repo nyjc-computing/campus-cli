@@ -1,39 +1,13 @@
 """Vault management commands."""
 
-from typing import Optional
-
 import typer
 from rich.console import Console
 
-from campus_cli.credentials import credentials
+from campus_cli.auth.common import get_api_client
 from campus_cli.utils.output import print_error, print_json, print_success, print_table
 
 vault_app = typer.Typer(help="Vault management commands")
 console = Console()
-
-
-def get_api_client():
-    """
-    Get an authenticated API client.
-
-    Returns:
-        An authenticated campus API client.
-
-    Raises:
-        typer.Exit: If authentication fails.
-    """
-    token = credentials.get_token()
-    if not token:
-        print_error("Not authenticated. Run 'campus auth login' first.")
-        raise typer.Exit(1)
-
-    try:
-        from campus_api import CampusClient
-
-        return CampusClient(token=token)
-    except ImportError:
-        print_error("campus-api-python library not available.")
-        raise typer.Exit(1) from None
 
 
 @vault_app.command("list")
@@ -65,6 +39,8 @@ def vault_list(
                 rows=[[key] for key in result["keys"]],
             )
 
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to list vault: {e}")
         raise typer.Exit(1) from e
@@ -73,7 +49,7 @@ def vault_list(
 @vault_app.command("get")
 def vault_get(
     vault: str = typer.Option(..., "--vault", "-v", help="Vault label"),
-    key: Optional[str] = typer.Option(None, "--key", "-k", help="Specific key to retrieve"),
+    key: str | None = typer.Option(None, "--key", "-k", help="Specific key to retrieve"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """
@@ -115,6 +91,8 @@ def vault_get(
                 for k, v in result["entries"].items():
                     console.print(f"  {k}: {v}")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to get vault: {e}")
         raise typer.Exit(1) from e
@@ -147,6 +125,8 @@ def vault_set(
         else:
             print_success(f"Set '{key}' in vault '{vault}'.")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to set vault entry: {e}")
         raise typer.Exit(1) from e
@@ -172,6 +152,8 @@ def vault_delete(
         # TODO: Implement actual API call
         print_success(f"Deleted '{key}' from vault '{vault}'.")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to delete vault entry: {e}")
         raise typer.Exit(1) from e

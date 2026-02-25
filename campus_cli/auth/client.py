@@ -1,39 +1,13 @@
 """OAuth client management commands."""
 
-from typing import Optional
-
 import typer
 from rich.console import Console
 
-from campus_cli.credentials import credentials
+from campus_cli.auth.common import get_api_client
 from campus_cli.utils.output import print_error, print_json, print_success, print_table
 
 client_app = typer.Typer(help="OAuth client management commands")
 console = Console()
-
-
-def get_api_client():
-    """
-    Get an authenticated API client.
-
-    Returns:
-        An authenticated campus API client.
-
-    Raises:
-        typer.Exit: If authentication fails.
-    """
-    token = credentials.get_token()
-    if not token:
-        print_error("Not authenticated. Run 'campus auth login' first.")
-        raise typer.Exit(1)
-
-    try:
-        from campus_api import CampusClient
-
-        return CampusClient(token=token)
-    except ImportError:
-        print_error("campus-api-python library not available.")
-        raise typer.Exit(1) from None
 
 
 @client_app.command("new")
@@ -69,6 +43,8 @@ def client_new(
             console.print(f"Client Secret: [bold]{result['client_secret']}[/bold]")
             console.print("\n[yellow]Note: Store the client secret securely.[/yellow]")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to create client: {e}")
         raise typer.Exit(1) from e
@@ -107,6 +83,8 @@ def client_get(
             console.print(f"[bold]Scopes:[/bold] {', '.join(result['scopes'])}")
             console.print(f"[bold]Created:[/bold] {result['created_at']}")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to get client: {e}")
         raise typer.Exit(1) from e
@@ -115,8 +93,8 @@ def client_get(
 @client_app.command("update")
 def client_update(
     client_id: str = typer.Option(..., "--client-id", "-i", help="Client ID"),
-    name: Optional[str] = typer.Option(None, "--name", "-n", help="New client name"),
-    description: Optional[str] = typer.Option(
+    name: str | None = typer.Option(None, "--name", "-n", help="New client name"),
+    description: str | None = typer.Option(
         None, "--description", "-d", help="New client description"
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -145,6 +123,8 @@ def client_update(
         else:
             print_success(f"Client '{client_id}' updated successfully!")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to update client: {e}")
         raise typer.Exit(1) from e
@@ -169,6 +149,8 @@ def client_delete(
         # TODO: Implement actual API call
         print_success(f"Client '{client_id}' deleted successfully.")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to delete client: {e}")
         raise typer.Exit(1) from e
@@ -195,6 +177,8 @@ def client_revoke(
         # TODO: Implement actual API call
         print_success(f"Access revoked for client '{client_id}'.")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to revoke client: {e}")
         raise typer.Exit(1) from e

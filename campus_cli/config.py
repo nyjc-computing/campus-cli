@@ -3,7 +3,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 class ConfigError(Exception):
@@ -17,7 +17,7 @@ class Config:
 
     DEFAULT_API_ENDPOINT = "https://api.campus.nyc"
 
-    def __init__(self, config_path: Optional[Path] = None) -> None:
+    def __init__(self, config_path: Path | None = None) -> None:
         """
         Initialize configuration.
 
@@ -59,7 +59,9 @@ class Config:
     def _save(self) -> None:
         """Save configuration to file."""
         try:
-            with open(self._config_path, "w", encoding="utf-8") as f:
+            # Set restrictive permissions on the file
+            fd = os.open(self._config_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, indent=2)
         except (IOError, OSError) as e:
             raise ConfigError(f"Failed to save configuration: {e}") from e

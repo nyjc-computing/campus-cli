@@ -18,11 +18,9 @@ class CredentialStorage:
     """Abstract credential storage with keyring backend and file fallback."""
 
     SERVICE_NAME = "campus-cli"
-    USERNAME = "user"
 
     def __init__(self) -> None:
         """Initialize credential storage."""
-        self._use_fallback = False
         self._fallback_path = self._get_fallback_path()
 
     def _get_fallback_path(self) -> Path:

@@ -1,7 +1,5 @@
 """Campus CLI - Command-line interface for Campus API."""
 
-from typing import Optional
-
 import typer
 from rich.console import Console
 
@@ -17,7 +15,7 @@ console = Console()
 @app.callback()
 def callback(
     ctx: typer.Context,
-    api_endpoint: Optional[str] = typer.Option(
+    api_endpoint: str | None = typer.Option(
         None,
         "--api-endpoint",
         "-e",

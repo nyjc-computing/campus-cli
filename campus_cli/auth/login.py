@@ -2,7 +2,6 @@
 
 import time
 import webbrowser
-from typing import Optional
 
 import requests
 import typer
@@ -191,7 +190,7 @@ def login_cmd(
         console.print("\n")  # New line after polling dots
         print_error(str(e))
         raise typer.Exit(1) from e
-    except Exception as e:
+    except (CredentialError, KeyError, ValueError, TypeError) as e:
         console.print("\n")  # New line after polling dots
         print_error(f"Authentication failed: {e}")
         raise typer.Exit(1) from e
