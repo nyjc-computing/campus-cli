@@ -16,6 +16,8 @@ class Config:
     """Configuration manager for Campus CLI."""
 
     DEFAULT_API_ENDPOINT = "https://api.campus.nyc"
+    DEFAULT_AUTO_REFRESH = True
+    DEFAULT_REFRESH_THRESHOLD = 300  # 5 minutes
 
     def __init__(self, config_path: Path | None = None) -> None:
         """
@@ -46,6 +48,8 @@ class Config:
             # Create default config
             self._config = {
                 "api_endpoint": self.DEFAULT_API_ENDPOINT,
+                "auto_refresh": self.DEFAULT_AUTO_REFRESH,
+                "refresh_threshold": self.DEFAULT_REFRESH_THRESHOLD,
             }
             self._save()
             return
@@ -99,6 +103,26 @@ class Config:
     def api_endpoint(self, value: str) -> None:
         """Set the API endpoint URL."""
         self.set("api_endpoint", value)
+
+    @property
+    def auto_refresh(self) -> bool:
+        """Get whether to automatically refresh expired tokens."""
+        return self.get("auto_refresh", self.DEFAULT_AUTO_REFRESH)
+
+    @auto_refresh.setter
+    def auto_refresh(self, value: bool) -> None:
+        """Set whether to automatically refresh expired tokens."""
+        self.set("auto_refresh", value)
+
+    @property
+    def refresh_threshold(self) -> int:
+        """Get the seconds before expiry to trigger refresh."""
+        return self.get("refresh_threshold", self.DEFAULT_REFRESH_THRESHOLD)
+
+    @refresh_threshold.setter
+    def refresh_threshold(self, value: int) -> None:
+        """Set the seconds before expiry to trigger refresh."""
+        self.set("refresh_threshold", value)
 
 
 # Global config instance

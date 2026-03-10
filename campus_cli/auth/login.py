@@ -6,6 +6,7 @@ import webbrowser
 import typer
 from rich.console import Console
 
+from campus_cli.auth.common import RefreshError, get_token_status, refresh_access_token
 from campus_cli.config import config
 from campus_cli.credentials import CredentialError, credentials
 from campus_cli.utils.output import print_error, print_success
@@ -42,7 +43,7 @@ def request_device_code(campus_auth) -> dict:
         raise DeviceAuthError(f"Failed to request device code: {e}") from e
 
 
-def poll_for_token(campus_auth, device_code: str, interval: int, max_attempts: int = 60) -> dict:
+def poll_for_token(campus_auth, device_code: str, interval: int, max_attempts: int = 60):
     """
     Poll the token endpoint until the user completes authentication.
 
@@ -53,7 +54,7 @@ def poll_for_token(campus_auth, device_code: str, interval: int, max_attempts: i
         max_attempts: Maximum number of polling attempts.
 
     Returns:
-        Dict containing access_token, refresh_token, expires_in, token_type.
+        OAuthToken instance containing access_token, refresh_token, expiry information.
 
     Raises:
         DeviceAuthError: If polling times out or the request fails.
@@ -120,7 +121,7 @@ def login_cmd(
 
     # Check if already logged in
     existing_token = credentials.get_token()
-    if existing_token:
+    if existing_token and not credentials.is_token_expired():
         console.print("[yellow]Already authenticated.[/yellow]")
         if output_token:
             console.print(existing_token)
@@ -154,7 +155,7 @@ def login_cmd(
         console.print("\nWaiting for authentication to complete...")
         console.print("[dim](Polling for token...)[/dim]")
 
-        token_data = poll_for_token(
+        token_response = poll_for_token(
             campus_auth,
             device_code=device_code,
             interval=interval,
@@ -164,11 +165,13 @@ def login_cmd(
         console.print("\n")  # New line after polling dots
 
         # Step 4: Store tokens
-        access_token = token_data.get("access_token")
-        refresh_token = token_data.get("refresh_token")
+        # token_response is an OAuthToken instance with id, expiry_seconds, refresh_token
+        access_token = token_response.id
+        expires_in = token_response.expiry_seconds
+        refresh_token = getattr(token_response, "refresh_token", None)
 
         if access_token:
-            credentials.set_token(access_token)
+            credentials.set_token(access_token, expires_in=expires_in)
             if refresh_token:
                 credentials.set_refresh_token(refresh_token)
 
@@ -218,6 +221,66 @@ def logout_cmd(
         raise typer.Exit(1) from e
 
 
+@login_app.command("refresh")
+def refresh_cmd(
+    output_token: bool = typer.Option(
+        False,
+        "--output-token",
+        "-t",
+        help="Output the new access token to stdout",
+    ),
+    output_json: bool = typer.Option(
+        False,
+        "--json",
+        help="Output status as JSON",
+    ),
+) -> None:
+    """
+    Refresh the access token using the stored refresh token.
+
+    Manually refresh your access token. This is also done automatically
+    when running commands (if auto_refresh is enabled).
+    """
+    if not credentials.get_token():
+        print_error("Not authenticated. Run 'campus auth login' first.")
+        raise typer.Exit(1)
+
+    try:
+        new_token = refresh_access_token()
+
+        if output_json:
+            import json
+            from datetime import datetime, timezone
+
+            expires_at = credentials.get_token_expires_at()
+            console.print(json.dumps({
+                "success": True,
+                "access_token": new_token,
+                "expires_at": expires_at,
+            }))
+        else:
+            print_success("Token refreshed successfully!")
+            if output_token:
+                console.print(new_token)
+
+            expires_at = credentials.get_token_expires_at()
+            if expires_at:
+                from datetime import datetime, timezone
+
+                try:
+                    expiry_dt = datetime.fromisoformat(expires_at)
+                    if expiry_dt.tzinfo is None:
+                        expiry_dt = expiry_dt.replace(tzinfo=timezone.utc)
+                    console.print(f"Expires at: {expiry_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+                except ValueError:
+                    console.print(f"Expires at: {expires_at}")
+
+    except RefreshError as e:
+        print_error(str(e))
+        print_error("Please run 'campus auth login' to authenticate again.")
+        raise typer.Exit(1) from e
+
+
 @login_app.command("status")
 def status_cmd(
     output_json: bool = typer.Option(
@@ -229,21 +292,43 @@ def status_cmd(
     """
     Check authentication status.
 
-    Shows whether you are currently authenticated.
+    Shows whether you are currently authenticated and token expiry information.
     """
-    token = credentials.get_token()
+    status = get_token_status()
 
-    if token:
-        if output_json:
-            import json
-            console.print(json.dumps({"authenticated": True}))
-        else:
+    if output_json:
+        import json
+        console.print(json.dumps(status))
+    else:
+        if status["authenticated"]:
             print_success("Authenticated")
             console.print("You are logged in to Campus API.")
-    else:
-        if output_json:
-            import json
-            console.print(json.dumps({"authenticated": False}))
+
+            if status["expires_at"]:
+                from datetime import datetime, timezone
+
+                try:
+                    expiry_dt = datetime.fromisoformat(status["expires_at"])
+                    if expiry_dt.tzinfo is None:
+                        expiry_dt = expiry_dt.replace(tzinfo=timezone.utc)
+                    now = datetime.now(timezone.utc)
+
+                    if status["is_expired"]:
+                        console.print("[red bold]Token has expired.[/red bold]")
+                    else:
+                        remaining = expiry_dt - now
+                        minutes = int(remaining.total_seconds() // 60)
+                        seconds = int(remaining.total_seconds() % 60)
+                        console.print(f"Token expires in: [cyan]{minutes}m {seconds}s[/cyan]")
+
+                    console.print(f"Expires at: {expiry_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+                except ValueError:
+                    console.print(f"Expires at: {status['expires_at']}")
+            else:
+                console.print("[dim](No expiry information available)[/dim]")
+
+            if status["can_refresh"]:
+                console.print("Auto-refresh: [green]enabled[/green]" if config.auto_refresh else "Auto-refresh: [yellow]disabled[/yellow]")
         else:
             console.print("[yellow]Not authenticated[/yellow]")
             console.print("Run [bold]campus auth login[/bold] to authenticate.")

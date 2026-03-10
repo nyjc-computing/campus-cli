@@ -2,8 +2,8 @@
 
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import keyring
 
@@ -64,7 +64,7 @@ class CredentialStorage:
         except (IOError, OSError) as e:
             raise CredentialError(f"Failed to write credentials file: {e}") from e
 
-    def get_password(self, key: str) -> Optional[str]:
+    def get_password(self, key: str) -> str | None:
         """
         Retrieve a password/credential by key.
 
@@ -134,7 +134,7 @@ class CredentialStorage:
         del data[key]
         self._write_fallback_file(data)
 
-    def get_token(self) -> Optional[str]:
+    def get_token(self) -> str | None:
         """
         Get the stored OAuth access token.
 
@@ -143,20 +143,29 @@ class CredentialStorage:
         """
         return self.get_password("access_token")
 
-    def set_token(self, token: str) -> None:
+    def set_token(self, token: str, expires_in: int | None = None) -> None:
         """
         Store the OAuth access token.
 
         Args:
             token: The access token to store.
+            expires_in: Optional seconds until expiry. If provided, calculates expiry timestamp.
         """
         self.set_password("access_token", token)
+        if expires_in is not None:
+            # Calculate expiry timestamp
+            expires_at = datetime.now(timezone.utc) + datetime.timedelta(seconds=expires_in)
+            self.set_token_expires_at(expires_at.isoformat())
 
     def delete_token(self) -> None:
         """Delete the stored OAuth access token."""
         self.delete_password("access_token")
+        try:
+            self.delete_password("token_expires_at")
+        except CredentialError:
+            pass  # May not exist
 
-    def get_refresh_token(self) -> Optional[str]:
+    def get_refresh_token(self) -> str | None:
         """
         Get the stored OAuth refresh token.
 
@@ -177,6 +186,53 @@ class CredentialStorage:
     def delete_refresh_token(self) -> None:
         """Delete the stored OAuth refresh token."""
         self.delete_password("refresh_token")
+
+    def get_token_expires_at(self) -> str | None:
+        """
+        Get the token expiry timestamp.
+
+        Returns:
+            ISO format expiry timestamp or None if not found.
+        """
+        return self.get_password("token_expires_at")
+
+    def set_token_expires_at(self, expires_at: str) -> None:
+        """
+        Store the token expiry timestamp.
+
+        Args:
+            expires_at: ISO format timestamp string.
+        """
+        self.set_password("token_expires_at", expires_at)
+
+    def is_token_expired(self, threshold_seconds: int = 0) -> bool:
+        """
+        Check if the stored token is expired or will expire within threshold.
+
+        Args:
+            threshold_seconds: Seconds before actual expiry to consider token expired.
+                              Useful for proactive refresh.
+
+        Returns:
+            True if token is expired or will expire within threshold, False otherwise.
+            Also returns True if no expiry info is stored (conservative approach).
+        """
+        expires_at_str = self.get_token_expires_at()
+        if not expires_at_str:
+            # No expiry info - assume valid if token exists
+            return self.get_token() is None
+
+        try:
+            expires_at = datetime.fromisoformat(expires_at_str)
+            # Ensure we're comparing UTC times
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+            now = datetime.now(timezone.utc)
+            return now >= (expires_at - datetime.timedelta(seconds=threshold_seconds))
+        except (ValueError, TypeError):
+            # Invalid expiry data - assume expired to be safe
+            return True
 
 
 # Global credential storage instance
