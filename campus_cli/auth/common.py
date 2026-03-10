@@ -1,5 +1,9 @@
 """Shared utilities for auth commands."""
 
+import os
+from typing import Callable
+
+import requests
 import typer
 
 from campus_cli.config import config
@@ -11,6 +15,35 @@ class RefreshError(Exception):
     """Exception raised for token refresh errors."""
 
     pass
+
+
+def get_auth_urls() -> dict:
+    """
+    Get OAuth endpoint URLs based on CAMPUS_ENV environment variable.
+
+    Returns:
+        Dict with device_code_url and token_url.
+    """
+    env = os.getenv("CAMPUS_ENV", os.getenv("ENV", "development"))
+
+    match env:
+        case "development":
+            base_url = "https://campusauth-development.up.railway.app"
+        case "testing":
+            # Use local hostname
+            hostname = os.getenv("HOSTNAME", "localhost:8000")
+            base_url = f"https://{hostname}"
+        case "staging":
+            base_url = "https://auth.campus.nyjc.dev"
+        case "production":
+            base_url = "https://auth.campus.nyjc.app"
+        case _:
+            base_url = "https://campusauth-development.up.railway.app"
+
+    return {
+        "device_code_url": f"{base_url}/oauth/device_authorize",
+        "token_url": f"{base_url}/oauth/token",
+    }
 
 
 def refresh_access_token() -> str:
@@ -27,29 +60,16 @@ def refresh_access_token() -> str:
     if not refresh_token:
         raise RefreshError("No refresh token available. Please login again.")
 
-    try:
-        import campus_python
-    except ImportError as e:
-        raise RefreshError("campus-python library not available.") from e
+    urls = get_auth_urls()
 
     try:
-        # Initialize campus client in device mode
-        campus = campus_python.Campus(timeout=30, mode="device")
-        campus_auth = campus.auth
-
-        # Make refresh request - we need to call the token endpoint directly
-        # since device auth flow doesn't have a refresh method yet
-        import requests
-
-        token_url = campus_auth.oauth.token_url
         response = requests.post(
-            token_url,
+            urls["token_url"],
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": refresh_token,
                 "client_id": "campus-cli",
             },
-            headers=campus_auth.oauth.headers,
             timeout=30,
         )
 

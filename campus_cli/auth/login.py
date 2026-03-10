@@ -3,6 +3,7 @@
 import time
 import webbrowser
 
+import requests
 import typer
 from rich.console import Console
 
@@ -24,12 +25,40 @@ class DeviceAuthError(Exception):
     pass
 
 
-def request_device_code(campus_auth) -> dict:
+def get_auth_urls() -> dict:
+    """
+    Get OAuth endpoint URLs based on CAMPUS_ENV environment variable.
+
+    Returns:
+        Dict with device_code_url and token_url.
+    """
+    import os
+
+    env = os.getenv("CAMPUS_ENV", os.getenv("ENV", "development"))
+
+    match env:
+        case "development":
+            base_url = "https://campusauth-development.up.railway.app"
+        case "testing":
+            # Use local hostname
+            hostname = os.getenv("HOSTNAME", "localhost:8000")
+            base_url = f"https://{hostname}"
+        case "staging":
+            base_url = "https://auth.campus.nyjc.dev"
+        case "production":
+            base_url = "https://auth.campus.nyjc.app"
+        case _:
+            base_url = "https://campusauth-development.up.railway.app"
+
+    return {
+        "device_code_url": f"{base_url}/oauth/device_authorize",
+        "token_url": f"{base_url}/oauth/token",
+    }
+
+
+def request_device_code() -> dict:
     """
     Request a device code from the authorization server.
-
-    Args:
-        campus_auth: Campus auth client from campus-api-python
 
     Returns:
         Dict containing device_code, user_code, verification_uri, expires_in, interval.
@@ -37,57 +66,76 @@ def request_device_code(campus_auth) -> dict:
     Raises:
         DeviceAuthError: If the request fails.
     """
+    urls = get_auth_urls()
+
     try:
-        return campus_auth.oauth.request_device_code(client_id=CLI_CLIENT_ID)
-    except Exception as e:
+        response = requests.post(
+            urls["device_code_url"],
+            data={"client_id": CLI_CLIENT_ID},
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
         raise DeviceAuthError(f"Failed to request device code: {e}") from e
 
 
-def poll_for_token(campus_auth, device_code: str, interval: int, max_attempts: int = 60):
+def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> dict:
     """
     Poll the token endpoint until the user completes authentication.
 
     Args:
-        campus_auth: Campus auth client from campus-api-python
         device_code: The device code from the initial request.
         interval: Seconds to wait between poll attempts.
         max_attempts: Maximum number of polling attempts.
 
     Returns:
-        OAuthToken instance containing access_token, refresh_token, expiry information.
+        Dict containing access_token, refresh_token, expires_in.
 
     Raises:
         DeviceAuthError: If polling times out or the request fails.
     """
+    urls = get_auth_urls()
+
     for attempt in range(max_attempts):
         try:
-            response = campus_auth.oauth.poll_for_token(
-                client_id=CLI_CLIENT_ID,
-                device_code=device_code
+            response = requests.post(
+                urls["token_url"],
+                data={
+                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                    "device_code": device_code,
+                    "client_id": CLI_CLIENT_ID,
+                },
+                timeout=30,
             )
-            return response
-        except Exception as e:
-            error_str = str(e)
-            # Check for authorization pending or slow down
-            if "authorization_pending" in error_str.lower():
-                # User hasn't completed auth yet, continue polling
-                console.print(".", end="", flush=True)
-                time.sleep(interval)
-                continue
-            elif "slow_down" in error_str.lower():
-                # Server is asking us to poll less frequently
-                time.sleep(interval + 5)
-                continue
-            elif "expired_token" in error_str.lower() or "expired" in error_str.lower():
-                raise DeviceAuthError("Device code has expired. Please try logging in again.")
-            elif "access_denied" in error_str.lower():
-                raise DeviceAuthError("Access was denied by the user.")
-            # Don't fail on network errors during polling, just retry
-            elif attempt < max_attempts - 1:
-                time.sleep(interval)
-                continue
+
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 400:
+                error_data = response.json()
+                error = error_data.get("error", "")
+
+                if error == "authorization_pending":
+                    console.print(".", end="", flush=True)
+                    time.sleep(interval)
+                    continue
+                elif error == "slow_down":
+                    time.sleep(interval + 5)
+                    continue
+                elif error == "expired_token":
+                    raise DeviceAuthError("Device code has expired. Please try logging in again.")
+                elif error == "access_denied":
+                    raise DeviceAuthError("Access was denied by the user.")
+                else:
+                    raise DeviceAuthError(f"Token error: {error_data.get('error_description', error)}")
             else:
-                raise DeviceAuthError(f"Failed to poll for token: {e}") from e
+                response.raise_for_status()
+
+        except requests.RequestException as e:
+            if attempt < max_attempts - 1:
+                time.sleep(interval)
+                continue
+            raise DeviceAuthError(f"Network error during token poll: {e}") from e
 
     raise DeviceAuthError("Authentication timed out. Please try again.")
 
@@ -112,13 +160,6 @@ def login_cmd(
 
     The auth endpoint is determined by the CAMPUS_ENV environment variable.
     """
-    # Import campus-python client
-    try:
-        import campus_python
-    except ImportError:
-        print_error("campus-python library not found. Please install it first.")
-        raise typer.Exit(1)
-
     # Check if already logged in
     existing_token = credentials.get_token()
     if existing_token and not credentials.is_token_expired():
@@ -128,13 +169,9 @@ def login_cmd(
         return
 
     try:
-        # Initialize campus client in device mode (no credentials required)
-        campus = campus_python.Campus(timeout=60, mode="device")
-        campus_auth = campus.auth
-
         # Step 1: Request device code
         console.print("[bold]Requesting device code...[/bold]")
-        device_auth_data = request_device_code(campus_auth)
+        device_auth_data = request_device_code()
 
         user_code = device_auth_data["user_code"]
         verification_uri = device_auth_data["verification_uri"]
@@ -155,8 +192,7 @@ def login_cmd(
         console.print("\nWaiting for authentication to complete...")
         console.print("[dim](Polling for token...)[/dim]")
 
-        token_response = poll_for_token(
-            campus_auth,
+        token_data = poll_for_token(
             device_code=device_code,
             interval=interval,
             max_attempts=max(1, int(expires_in / interval)),
@@ -165,10 +201,9 @@ def login_cmd(
         console.print("\n")  # New line after polling dots
 
         # Step 4: Store tokens
-        # token_response is an OAuthToken instance with id, expiry_seconds, refresh_token
-        access_token = token_response.id
-        expires_in = token_response.expiry_seconds
-        refresh_token = getattr(token_response, "refresh_token", None)
+        access_token = token_data.get("access_token")
+        refresh_token = token_data.get("refresh_token")
+        expires_in = token_data.get("expires_in")
 
         if access_token:
             credentials.set_token(access_token, expires_in=expires_in)
@@ -250,7 +285,6 @@ def refresh_cmd(
 
         if output_json:
             import json
-            from datetime import datetime, timezone
 
             expires_at = credentials.get_token_expires_at()
             console.print(json.dumps({

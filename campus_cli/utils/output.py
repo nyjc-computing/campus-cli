@@ -28,7 +28,7 @@ def print_error(message: str) -> None:
     Args:
         message: The error message to print.
     """
-    console.print(f"[red bold]✗[/red bold] {message}", err=True)
+    console.print(f"[red bold]✗[/red bold] {message}", stderr=True)
 
 
 def print_warning(message: str) -> None:
