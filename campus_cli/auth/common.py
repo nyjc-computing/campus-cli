@@ -1,7 +1,5 @@
 """Shared utilities for auth commands."""
 
-from typing import Callable
-
 import requests
 import typer
 
