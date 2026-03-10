@@ -9,6 +9,7 @@ from rich.table import Table
 
 
 console = Console()
+stderr_console = Console(stderr=True)
 
 
 def print_success(message: str) -> None:
@@ -23,12 +24,12 @@ def print_success(message: str) -> None:
 
 def print_error(message: str) -> None:
     """
-    Print an error message.
+    Print an error message to stderr.
 
     Args:
         message: The error message to print.
     """
-    console.print(f"[red bold]✗[/red bold] {message}", stderr=True)
+    stderr_console.print(f"[red bold]✗[/red bold] {message}")
 
 
 def print_warning(message: str) -> None:

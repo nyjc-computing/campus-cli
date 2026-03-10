@@ -16,6 +16,7 @@ class Config:
     """Configuration manager for Campus CLI."""
 
     DEFAULT_API_ENDPOINT = "https://api.campus.nyc"
+    DEFAULT_AUTH_URL = "https://campusauth-development.up.railway.app"
     DEFAULT_AUTO_REFRESH = True
     DEFAULT_REFRESH_THRESHOLD = 300  # 5 minutes
 
@@ -103,6 +104,21 @@ class Config:
     def api_endpoint(self, value: str) -> None:
         """Set the API endpoint URL."""
         self.set("api_endpoint", value)
+
+    @property
+    def auth_url(self) -> str:
+        """Get the auth server URL (from env, config, or default)."""
+        # Check environment variable first
+        env_auth_url = os.getenv("CAMPUS_AUTH_URL")
+        if env_auth_url:
+            return env_auth_url
+        # Fall back to config file, then default
+        return self.get("auth_url", self.DEFAULT_AUTH_URL)
+
+    @auth_url.setter
+    def auth_url(self, value: str) -> None:
+        """Set the auth server URL."""
+        self.set("auth_url", value)
 
     @property
     def auto_refresh(self) -> bool:

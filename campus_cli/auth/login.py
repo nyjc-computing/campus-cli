@@ -27,28 +27,14 @@ class DeviceAuthError(Exception):
 
 def get_auth_urls() -> dict:
     """
-    Get OAuth endpoint URLs based on CAMPUS_ENV environment variable.
+    Get OAuth endpoint URLs.
+
+    Uses CAMPUS_AUTH_URL env var, config file, or default.
 
     Returns:
         Dict with device_code_url and token_url.
     """
-    import os
-
-    env = os.getenv("CAMPUS_ENV", os.getenv("ENV", "development"))
-
-    match env:
-        case "development":
-            base_url = "https://campusauth-development.up.railway.app"
-        case "testing":
-            # Use local hostname
-            hostname = os.getenv("HOSTNAME", "localhost:8000")
-            base_url = f"https://{hostname}"
-        case "staging":
-            base_url = "https://auth.campus.nyjc.dev"
-        case "production":
-            base_url = "https://auth.campus.nyjc.app"
-        case _:
-            base_url = "https://campusauth-development.up.railway.app"
+    base_url = config.auth_url
 
     return {
         "device_code_url": f"{base_url}/oauth/device_authorize",
