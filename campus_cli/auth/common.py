@@ -53,7 +53,7 @@ def refresh_access_token() -> str:
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": refresh_token,
-                "client_id": "campus-cli",
+                "client_id": "uid-client-9c48f62e",
             },
             timeout=30,
         )
