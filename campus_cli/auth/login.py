@@ -16,7 +16,7 @@ login_app = typer.Typer(help="Authentication commands")
 console = Console()
 
 # OAuth client ID for CLI (public client, no secret required)
-CLI_CLIENT_ID = "uid-client-9c48f62e"
+CLI_CLIENT_ID = "uid-client-bd1fb98e"
 
 
 class DeviceAuthError(Exception):
