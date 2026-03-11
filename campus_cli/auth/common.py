@@ -131,7 +131,7 @@ def get_api_client(auto_refresh: bool | None = None):
             raise typer.Exit(1)
 
     try:
-        from campus_api import CampusClient
+        from campus_cli.api import CampusClient
 
         return CampusClient(token=token)
     except ImportError:

@@ -21,26 +21,24 @@ def vault_list(
     Displays all keys stored in the specified vault.
     """
     try:
-        api_client = get_api_client()
-
-        # TODO: Implement actual API call
-        result = {
-            "vault": vault,
-            "keys": ["key1", "key2", "key3"],
-            "count": 3,
-        }
+        api = get_api_client()
+        keys = api.auth_vaults[vault].keys()
 
         if output_json:
-            print_json(result)
+            print_json({"vault": vault, "keys": keys, "count": len(keys)})
         else:
             console.print(f"[bold]Vault:[/bold] {vault}")
-            print_table(
-                headers=["Key"],
-                rows=[[key] for key in result["keys"]],
-            )
+            console.print(f"[bold]Keys:[/bold] {len(keys)} key(s)\n")
+            if keys:
+                print_table(headers=["Key"], rows=[[key] for key in keys])
+            else:
+                console.print("[dim]No keys found in this vault.[/dim]")
 
     except typer.Exit:
         raise
+    except KeyError:
+        print_error(f"Vault '{vault}' not found.")
+        raise typer.Exit(1) from None
     except Exception as e:
         print_error(f"Failed to list vault: {e}")
         raise typer.Exit(1) from e
@@ -59,40 +57,45 @@ def vault_get(
     If --key is not specified, returns all entries in the vault.
     """
     try:
-        api_client = get_api_client()
+        api = get_api_client()
 
-        # TODO: Implement actual API call
         if key:
-            result = {
-                "vault": vault,
-                "key": key,
-                "value": f"value-for-{key}",
-            }
+            try:
+                value = api.auth_vaults[vault][key]
+                if output_json:
+                    print_json({"vault": vault, "key": key, "value": value})
+                else:
+                    console.print(f"[bold]Vault:[/bold] {vault}")
+                    console.print(f"[bold]Key:[/bold] {key}")
+                    console.print(f"[bold]Value:[/bold] {value}")
+            except KeyError:
+                print_error(f"Key '{key}' not found in vault '{vault}'.")
+                raise typer.Exit(1) from None
         else:
-            result = {
-                "vault": vault,
-                "entries": {
-                    "key1": "value1",
-                    "key2": "value2",
-                    "key3": "value3",
-                },
-            }
+            keys = api.auth_vaults[vault].keys()
+            entries = {}
+            for k in keys:
+                try:
+                    entries[k] = api.auth_vaults[vault][k]
+                except KeyError:
+                    pass
 
-        if output_json:
-            print_json(result)
-        else:
-            if key:
-                console.print(f"[bold]Vault:[/bold] {vault}")
-                console.print(f"[bold]Key:[/bold] {key}")
-                console.print(f"[bold]Value:[/bold] {result['value']}")
+            if output_json:
+                print_json({"vault": vault, "entries": entries, "count": len(entries)})
             else:
                 console.print(f"[bold]Vault:[/bold] {vault}")
-                console.print("[bold]Entries:[/bold]")
-                for k, v in result["entries"].items():
-                    console.print(f"  {k}: {v}")
+                console.print(f"[bold]Entries:[/bold] {len(entries)} key(s)\n")
+                if entries:
+                    for k, v in entries.items():
+                        console.print(f"  [cyan]{k}:[/cyan] {v}")
+                else:
+                    console.print("[dim]No entries found in this vault.[/dim]")
 
     except typer.Exit:
         raise
+    except KeyError:
+        print_error(f"Vault '{vault}' not found.")
+        raise typer.Exit(1) from None
     except Exception as e:
         print_error(f"Failed to get vault: {e}")
         raise typer.Exit(1) from e
@@ -111,22 +114,19 @@ def vault_set(
     Stores or updates the specified key with the given value in the vault.
     """
     try:
-        api_client = get_api_client()
-
-        # TODO: Implement actual API call
-        result = {
-            "vault": vault,
-            "key": key,
-            "value": value,
-        }
+        api = get_api_client()
+        api.auth_vaults[vault][key] = value
 
         if output_json:
-            print_json(result)
+            print_json({"vault": vault, "key": key, "value": value})
         else:
             print_success(f"Set '{key}' in vault '{vault}'.")
 
     except typer.Exit:
         raise
+    except KeyError:
+        print_error(f"Vault '{vault}' not found.")
+        raise typer.Exit(1) from None
     except Exception as e:
         print_error(f"Failed to set vault entry: {e}")
         raise typer.Exit(1) from e
@@ -147,13 +147,15 @@ def vault_delete(
         typer.confirm(f"Are you sure you want to delete key '{key}' from vault '{vault}'?", abort=True)
 
     try:
-        api_client = get_api_client()
-
-        # TODO: Implement actual API call
+        api = get_api_client()
+        del api.auth_vaults[vault][key]
         print_success(f"Deleted '{key}' from vault '{vault}'.")
 
     except typer.Exit:
         raise
+    except KeyError:
+        print_error(f"Key '{key}' not found in vault '{vault}'.")
+        raise typer.Exit(1) from None
     except Exception as e:
         print_error(f"Failed to delete vault entry: {e}")
         raise typer.Exit(1) from e
