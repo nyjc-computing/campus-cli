@@ -3,7 +3,7 @@
 import requests
 import typer
 
-from campus_cli.config import config
+from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
 from campus_cli.credentials import CredentialError, credentials
 from campus_cli.utils.output import print_error
 
@@ -53,7 +53,7 @@ def refresh_access_token() -> str:
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": refresh_token,
-                "client_id": "uid-client-bd1fb98e",
+                "client_id": PUBLIC_OAUTH_CLIENT_ID,
             },
             timeout=30,
         )

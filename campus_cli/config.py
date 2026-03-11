@@ -20,6 +20,9 @@ class Config:
     DEFAULT_AUTO_REFRESH = True
     DEFAULT_REFRESH_THRESHOLD = 300  # 5 minutes
 
+    # OAuth client ID for public CLI/device apps (matches campus.config.PUBLIC_OAUTH_CLIENT_ID)
+    PUBLIC_OAUTH_CLIENT_ID = "guest"
+
     def __init__(self, config_path: Path | None = None) -> None:
         """
         Initialize configuration.

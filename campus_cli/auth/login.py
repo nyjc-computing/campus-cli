@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 
 from campus_cli.auth.common import RefreshError, get_token_status, refresh_access_token
-from campus_cli.config import config
+from campus_cli.config import config, PUBLIC_OAUTH_CLIENT_ID
 from campus_cli.credentials import CredentialError, credentials
 from campus_cli.utils.output import print_error, print_success
 
@@ -16,7 +16,9 @@ login_app = typer.Typer(help="Authentication commands")
 console = Console()
 
 # OAuth client ID for CLI (public client, no secret required)
-CLI_CLIENT_ID = "uid-client-bd1fb98e"
+# Uses PUBLIC_OAUTH_CLIENT_ID which is a special client type that
+# doesn't require database entry - all access comes from user credentials
+CLI_CLIENT_ID = PUBLIC_OAUTH_CLIENT_ID
 
 
 class DeviceAuthError(Exception):

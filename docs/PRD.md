@@ -44,7 +44,7 @@ A command-line interface tool for interacting with the Campus API, enabling user
 - User enters code at verification URL in browser
 - CLI polls token endpoint until authentication completes
 - Stores access and refresh tokens in credential store
-- Uses public client ID (`uid-client-bd1fb98e`) - no secret required
+- Uses public client ID (`guest`) - special client type that doesn't require database entry
 
 #### API Integration
 - Uses `campus-api-python` library
