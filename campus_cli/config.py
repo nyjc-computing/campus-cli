@@ -12,16 +12,18 @@ class ConfigError(Exception):
     pass
 
 
+# OAuth client ID for public CLI/device apps (matches campus.config.PUBLIC_OAUTH_CLIENT_ID)
+# This is a special public client type that doesn't require database entry
+PUBLIC_OAUTH_CLIENT_ID = "guest"
+
+
 class Config:
     """Configuration manager for Campus CLI."""
 
     DEFAULT_API_ENDPOINT = "https://api.campus.nyc"
-    DEFAULT_AUTH_URL = "https://campusauth-development.up.railway.app"
+    DEFAULT_AUTH_URL = "https://campusauth-development.up.railway.app/auth/v1"
     DEFAULT_AUTO_REFRESH = True
     DEFAULT_REFRESH_THRESHOLD = 300  # 5 minutes
-
-    # OAuth client ID for public CLI/device apps (matches campus.config.PUBLIC_OAUTH_CLIENT_ID)
-    PUBLIC_OAUTH_CLIENT_ID = "guest"
 
     def __init__(self, config_path: Path | None = None) -> None:
         """
