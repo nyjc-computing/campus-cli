@@ -10,26 +10,22 @@ client_app = typer.Typer(help="OAuth client management commands")
 console = Console()
 
 
-def _format_client(client, include_secret: bool = False) -> dict:
+def _format_client(client) -> dict:
     """Format a client model for output.
 
     Args:
         client: The campus.model.Client instance
-        include_secret: Whether to include the secret (only shown on creation)
 
     Returns:
         Dict representation of the client
     """
-    result = {
+    return {
         "id": client.id,
         "name": client.name,
         "description": client.description,
         "created_at": client.created_at.isoformat() if client.created_at else None,
         "permissions": client.permissions,
     }
-    if include_secret and hasattr(client, "secret") and client.secret:
-        result["client_secret"] = client.secret
-    return result
 
 
 def _print_client_details(client_data: dict) -> None:
@@ -44,10 +40,6 @@ def _print_client_details(client_data: dict) -> None:
 
     if client_data.get("created_at"):
         console.print(f"[bold]Created:[/bold] {client_data['created_at']}")
-
-    if "client_secret" in client_data:
-        console.print(f"[bold]Client Secret:[/bold] [bold yellow]{client_data['client_secret']}[/bold yellow]")
-        console.print("\n[yellow]Note: Store the client secret securely. It won't be shown again.[/yellow]")
 
     if client_data.get("permissions"):
         console.print(f"[bold]Permissions:[/bold]")
@@ -102,19 +94,21 @@ def client_new(
     Create a new OAuth client.
 
     Creates a new OAuth client with the specified name and description.
-    The client secret will only be shown once after creation.
+    Note: The client secret is NOT returned. Use 'campus client revoke' to
+    generate and retrieve the secret.
     """
     try:
         api = get_api_client()
         client = api.auth_clients.new(name=name, description=description)
 
-        result = _format_client(client, include_secret=True)
+        result = _format_client(client)
 
         if output_json:
             print_json(result)
         else:
             print_success(f"Client '{name}' created successfully!")
             _print_client_details(result)
+            console.print("\n[yellow]Note: Use 'campus client revoke' to generate the client secret.[/yellow]")
 
     except typer.Exit:
         raise
@@ -132,6 +126,7 @@ def client_get(
     Get details of an OAuth client.
 
     Retrieves and displays information about the specified client.
+    Note: The client secret is NOT displayed.
     """
     try:
         api = get_api_client()
@@ -220,27 +215,27 @@ def client_revoke(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """
-    Revoke an OAuth client's secret.
+    Generate a new client secret.
 
-    Revokes the client secret and generates a new one. The new secret
-    will only be shown once.
+    Revokes the current client secret and generates a new one.
+    The new secret will be displayed (this is the only way to retrieve it).
+    Use this when first creating a client or when you need to rotate the secret.
     """
     if not confirm:
         typer.confirm(
-            f"Are you sure you want to revoke the secret for client '{client_id}'?", abort=True
+            f"Are you sure you want to generate a new secret for client '{client_id}'?", abort=True
         )
 
     try:
         api = get_api_client()
-        # The revoke() method returns the new secret
         new_secret = api.auth_clients[client_id].revoke()
 
         if output_json:
-            print_json({"client_id": client_id, "new_secret": new_secret})
+            print_json({"client_id": client_id, "secret": new_secret})
         else:
-            print_success(f"Client secret revoked for '{client_id}'.")
-            console.print(f"[bold]New Client Secret:[/bold] [bold yellow]{new_secret}[/bold yellow]")
-            console.print("\n[yellow]Note: Store the new client secret securely. It won't be shown again.[/yellow]")
+            print_success(f"New secret generated for client '{client_id}'.")
+            console.print(f"[bold]Client Secret:[/bold] [bold yellow]{new_secret}[/bold yellow]")
+            console.print("\n[yellow]Note: Store this secret securely. It won't be shown again.[/yellow]")
 
     except typer.Exit:
         raise

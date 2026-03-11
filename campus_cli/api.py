@@ -1,7 +1,5 @@
 """Campus API client wrapper for campus-cli."""
 
-from campus_cli.config import config
-
 
 class CampusClient:
     """
