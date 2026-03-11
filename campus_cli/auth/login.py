@@ -101,21 +101,31 @@ def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> d
                 return response.json()
             elif response.status_code == 400:
                 error_data = response.json()
-                error = error_data.get("error", "")
+                # Campus returns structured errors with oauth_error in details
+                # {"error": {"code": "AUTH_...", "details": {"oauth_error": "authorization_pending"}}}
+                error_obj = error_data.get("error", {})
+                if isinstance(error_obj, dict):
+                    error_message = error_obj.get("message", "")
+                    oauth_error = error_obj.get("details", {}).get("oauth_error", "")
+                else:
+                    # Fallback for simple OAuth 2.0 format: {"error": "authorization_pending"}
+                    oauth_error = error_obj
+                    error_message = ""
 
-                if error == "authorization_pending":
+                if oauth_error == "authorization_pending":
                     console.print(".", end="", flush=True)
                     time.sleep(interval)
                     continue
-                elif error == "slow_down":
+                elif oauth_error == "slow_down":
                     time.sleep(interval + 5)
                     continue
-                elif error == "expired_token":
+                elif oauth_error == "expired_token":
                     raise DeviceAuthError("Device code has expired. Please try logging in again.")
-                elif error == "access_denied":
+                elif oauth_error == "access_denied":
                     raise DeviceAuthError("Access was denied by the user.")
                 else:
-                    raise DeviceAuthError(f"Token error: {error_data.get('error_description', error)}")
+                    msg = error_message or error_data.get("error_description", oauth_error)
+                    raise DeviceAuthError(f"Token error: {msg}")
             else:
                 response.raise_for_status()
 
