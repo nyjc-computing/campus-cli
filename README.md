@@ -34,6 +34,21 @@ poetry install
 poetry run pytest
 ```
 
+Run the CLI using `poetry run`:
+
+```bash
+poetry run campus --help
+```
+
+If you use `poetry shell` to activate the virtual environment and encounter `ModuleNotFoundError: No module named 'main'`, exit the shell and rebuild:
+
+```bash
+exit
+rm -f .venv/Scripts/campus.exe .venv/Scripts/campus
+poetry build && poetry install
+poetry shell
+```
+
 If you don't have Poetry installed:
 
 ```bash
