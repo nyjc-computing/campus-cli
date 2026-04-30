@@ -50,8 +50,8 @@ class CampusClient:
 
     @property
     def api_timetables(self):
-        """Access the API timetables resource."""
-        return self.campus.api.timetables
+        """Access the API timetable resource."""
+        return self.campus.api.timetable
 
     @property
     def api_assignments(self):
@@ -62,3 +62,8 @@ class CampusClient:
     def api_circles(self):
         """Access the API circles resource."""
         return self.campus.api.circles
+
+    @property
+    def api_submissions(self):
+        """Access the API submissions resource."""
+        return self.campus.api.submissions
