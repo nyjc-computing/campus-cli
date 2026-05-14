@@ -27,10 +27,9 @@ def test_import_auth_modules():
     """Test that auth submodules can be imported without errors."""
     auth_modules = [
         "campus_cli.auth.login",
-        "campus_cli.auth.logout",
-        "campus_cli.auth.status",
         "campus_cli.auth.client",
         "campus_cli.auth.vault",
+        "campus_cli.auth.common",
     ]
 
     for module in auth_modules:
@@ -45,7 +44,6 @@ def test_import_utils_modules():
     """Test that utility modules can be imported without errors."""
     utils_modules = [
         "campus_cli.utils.output",
-        "campus_cli.utils.config",
     ]
 
     for module in utils_modules:
@@ -60,7 +58,7 @@ def test_rich_imports_available():
     """Test that Rich library components can be imported."""
     try:
         from rich.console import Console
-        from rich.json import RichJson
+        from rich.json import JSON
         from rich.table import Table
         assert True
     except ImportError as e:

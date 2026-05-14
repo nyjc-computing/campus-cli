@@ -34,8 +34,8 @@ exclude = [
 ]
 
 [tool.ruff]
-select = ['E', 'W', 'F', 'I', 'B', 'C4', 'ARG', 'SIM']
-ignore = ['W291', 'W292', 'W293']
+lint.select = ['E', 'W', 'F', 'I', 'B', 'C4', 'ARG', 'SIM']
+lint.ignore = ['W291', 'W292', 'W293']
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
