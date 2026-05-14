@@ -24,7 +24,14 @@ include = "campus_cli"
 
 [tool.pyright]
 useLibraryCodeForTypes = true
-exclude = [".cache"]
+exclude = [
+    ".cache",
+    "**/.*",
+    "**/__pycache__",
+    "**/node_modules",
+    "**/.venv",
+    "**/venv",
+]
 
 [tool.ruff]
 select = ['E', 'W', 'F', 'I', 'B', 'C4', 'ARG', 'SIM']
