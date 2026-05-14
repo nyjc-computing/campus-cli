@@ -113,7 +113,7 @@ def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> d
                     error_message = ""
 
                 if oauth_error == "authorization_pending":
-                    console.print(".", end="", flush=True)
+                    console.print(".", end="")
                     time.sleep(interval)
                     continue
                 elif oauth_error == "slow_down":
