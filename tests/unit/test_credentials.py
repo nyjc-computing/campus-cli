@@ -4,6 +4,8 @@ These tests test individual methods of CredentialStorage in isolation
 without testing interactions between multiple methods.
 """
 
+import contextlib
+
 import pytest
 
 from campus_cli.credentials import CredentialError, CredentialStorage
@@ -22,10 +24,8 @@ def credential_storage(tmp_path):
 def test_get_token_returns_none_when_not_set(credential_storage):
     """Test that get_token returns None when no token is stored."""
     # Ensure clean state first
-    try:
+    with contextlib.suppress(CredentialError):
         credential_storage.delete_token()
-    except CredentialError:
-        pass
     assert credential_storage.get_token() is None
 
 
@@ -45,10 +45,8 @@ def test_delete_token(credential_storage):
 def test_delete_nonexistent_token_raises(credential_storage):
     """Test that deleting a nonexistent token raises an error."""
     # Ensure token doesn't exist
-    try:
+    with contextlib.suppress(CredentialError):
         credential_storage.delete_token()
-    except CredentialError:
-        pass
 
     with pytest.raises(CredentialError):
         credential_storage.delete_token()

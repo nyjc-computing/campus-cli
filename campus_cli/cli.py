@@ -45,7 +45,8 @@ def version() -> None:
 
 
 # Import auth commands
-from campus_cli.auth import (
+# noqa: E402 - Imported here to avoid circular dependencies
+from campus_cli.auth import (  # noqa: E402
     client_app,
     login_app,
     vault_app,

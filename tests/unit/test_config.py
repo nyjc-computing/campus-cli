@@ -32,20 +32,22 @@ def test_get_config_path(temp_config):
     assert config_path == temp_config
 
 
-def test_set_and_get_config_value(temp_config):
+def test_set_and_get_config_value(_temp_config):
     """Test setting and getting config values."""
     set_config_value("test_section", "test_key", "test_value")
     result = get_config_value("test_section", "test_key")
     assert result == "test_value"
 
 
-def test_get_config_value_returns_default_when_missing(temp_config):
+def test_get_config_value_returns_default_when_missing(_temp_config):
     """Test that get_config_value returns default value when key doesn't exist."""
-    result = get_config_value("nonexistent_section", "nonexistent_key", default="default_value")
+    result = get_config_value(
+        "nonexistent_section", "nonexistent_key", default="default_value"
+    )
     assert result == "default_value"
 
 
-def test_get_config_value_returns_none_when_missing_no_default(temp_config):
+def test_get_config_value_returns_none_when_missing_no_default(_temp_config):
     """Test that get_config_value returns None when key doesn't exist and no default."""
     result = get_config_value("nonexistent_section", "nonexistent_key")
     assert result is None

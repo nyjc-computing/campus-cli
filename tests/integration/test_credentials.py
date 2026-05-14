@@ -3,6 +3,8 @@
 These tests test interactions between multiple methods and more complex scenarios.
 """
 
+import contextlib
+
 import pytest
 
 from campus_cli.credentials import CredentialError, CredentialStorage
@@ -95,15 +97,15 @@ def test_password_operations_persistence(credential_storage):
     credential_storage.set_password("key3", "value3")
 
     # Verify all can be retrieved
-    assert credential_storage.get_password("key1") in ("value1", None)  # None if using keyring
+    assert credential_storage.get_password("key1") in (
+        "value1", None
+    )  # None if using keyring
     assert credential_storage.get_password("key2") in ("value2", None)
     assert credential_storage.get_password("key3") in ("value3", None)
 
     # Delete one
-    try:
-        credential_storage.delete_password("key2")
-    except CredentialError:
-        pass  # May fail if using keyring
+    with contextlib.suppress(CredentialError):
+        credential_storage.delete_password("key2")  # May fail if using keyring
 
     # Verify deleted key is gone
     assert credential_storage.get_password("key2") is None

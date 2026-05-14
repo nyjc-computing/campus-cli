@@ -86,9 +86,15 @@ def client_list(
 
 @client_app.command("new")
 def client_new(
-    name: str = typer.Option(..., "--name", "-n", help="Client name"),
-    description: str = typer.Option(..., "--description", "-d", help="Client description"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    name: str = typer.Option(
+        ..., "--name", "-n", help="Client name"
+    ),
+    description: str = typer.Option(
+        ..., "--description", "-d", help="Client description"
+    ),
+    output_json: bool = typer.Option(
+        False, "--json", help="Output as JSON"
+    ),
 ) -> None:
     """
     Create a new OAuth client.
@@ -108,7 +114,10 @@ def client_new(
         else:
             print_success(f"Client '{name}' created successfully!")
             _print_client_details(result)
-            console.print("\n[yellow]Note: Use 'campus client revoke' to generate the client secret.[/yellow]")
+            console.print(
+                "\n[yellow]Note: Use 'campus client revoke' to "
+                "generate the client secret.[/yellow]"
+            )
 
     except typer.Exit:
         raise
@@ -185,8 +194,12 @@ def client_update(
 
 @client_app.command("delete")
 def client_delete(
-    client_id: str = typer.Option(..., "--client-id", "-i", help="Client ID"),
-    confirm: bool = typer.Option(True, "--confirm", "-y", help="Skip confirmation"),
+    client_id: str = typer.Option(
+        ..., "--client-id", "-i", help="Client ID"
+    ),
+    confirm: bool = typer.Option(
+        True, "--confirm", "-y", help="Skip confirmation"
+    ),
 ) -> None:
     """
     Delete an OAuth client.
@@ -194,7 +207,10 @@ def client_delete(
     Permanently deletes the specified OAuth client.
     """
     if not confirm:
-        typer.confirm(f"Are you sure you want to delete client '{client_id}'?", abort=True)
+        typer.confirm(
+            f"Are you sure you want to delete client '{client_id}'?",
+            abort=True
+        )
 
     try:
         api = get_api_client()
@@ -223,7 +239,9 @@ def client_revoke(
     """
     if not confirm:
         typer.confirm(
-            f"Are you sure you want to generate a new secret for client '{client_id}'?", abort=True
+            f"Are you sure you want to generate a new secret for "
+            f"client '{client_id}'?",
+            abort=True
         )
 
     try:
@@ -234,8 +252,14 @@ def client_revoke(
             print_json({"client_id": client_id, "secret": new_secret})
         else:
             print_success(f"New secret generated for client '{client_id}'.")
-            console.print(f"[bold]Client Secret:[/bold] [bold yellow]{new_secret}[/bold yellow]")
-            console.print("\n[yellow]Note: Store this secret securely. It won't be shown again.[/yellow]")
+            console.print(
+                f"[bold]Client Secret:[/bold] "
+                f"[bold yellow]{new_secret}[/bold yellow]"
+            )
+            console.print(
+                "\n[yellow]Note: Store this secret securely. "
+                "It won't be shown again.[/yellow]"
+            )
 
     except typer.Exit:
         raise
@@ -251,9 +275,16 @@ client_app.add_typer(access_app, name="access")
 
 @access_app.command("get")
 def client_access_get(
-    client_id: str = typer.Option(..., "--client-id", "-i", help="Client ID"),
-    vault: str | None = typer.Option(None, "--vault", "-v", help="Vault label (if not specified, shows all)"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    client_id: str = typer.Option(
+        ..., "--client-id", "-i", help="Client ID"
+    ),
+    vault: str | None = typer.Option(
+        None, "--vault", "-v",
+        help="Vault label (if not specified, shows all)"
+    ),
+    output_json: bool = typer.Option(
+        False, "--json", help="Output as JSON"
+    ),
 ) -> None:
     """
     Get client vault access permissions.
@@ -291,10 +322,19 @@ def client_access_get(
 
 @access_app.command("grant")
 def client_access_grant(
-    client_id: str = typer.Option(..., "--client-id", "-i", help="Client ID"),
-    vault: str = typer.Option(..., "--vault", "-v", help="Vault label"),
-    permission: int = typer.Option(..., "--permission", "-p", help="Permission bitflag (1=READ, 2=CREATE, 4=UPDATE, 8=DELETE)"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    client_id: str = typer.Option(
+        ..., "--client-id", "-i", help="Client ID"
+    ),
+    vault: str = typer.Option(
+        ..., "--vault", "-v", help="Vault label"
+    ),
+    permission: int = typer.Option(
+        ..., "--permission", "-p",
+        help="Permission bitflag (1=READ, 2=CREATE, 4=UPDATE, 8=DELETE)"
+    ),
+    output_json: bool = typer.Option(
+        False, "--json", help="Output as JSON"
+    ),
 ) -> None:
     """
     Grant vault access to a client.
@@ -305,12 +345,16 @@ def client_access_grant(
     """
     try:
         api = get_api_client()
-        result = api.auth_clients[client_id].access.grant(vault=vault, permission=permission)
+        result = api.auth_clients[client_id].access.grant(
+            vault=vault, permission=permission
+        )
 
         if output_json:
             print_json(result)
         else:
-            print_success(f"Granted access to vault '{vault}' for client '{client_id}'.")
+            print_success(
+                f"Granted access to vault '{vault}' for client '{client_id}'."
+            )
 
     except typer.Exit:
         raise
@@ -321,10 +365,18 @@ def client_access_grant(
 
 @access_app.command("revoke")
 def client_access_revoke(
-    client_id: str = typer.Option(..., "--client-id", "-i", help="Client ID"),
-    vault: str = typer.Option(..., "--vault", "-v", help="Vault label"),
-    permission: int = typer.Option(..., "--permission", "-p", help="Permission bitflag to revoke"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    client_id: str = typer.Option(
+        ..., "--client-id", "-i", help="Client ID"
+    ),
+    vault: str = typer.Option(
+        ..., "--vault", "-v", help="Vault label"
+    ),
+    permission: int = typer.Option(
+        ..., "--permission", "-p", help="Permission bitflag to revoke"
+    ),
+    output_json: bool = typer.Option(
+        False, "--json", help="Output as JSON"
+    ),
 ) -> None:
     """
     Revoke vault access from a client.
@@ -334,12 +386,16 @@ def client_access_revoke(
     """
     try:
         api = get_api_client()
-        result = api.auth_clients[client_id].access.revoke(vault=vault, permission=permission)
+        result = api.auth_clients[client_id].access.revoke(
+            vault=vault, permission=permission
+        )
 
         if output_json:
             print_json(result)
         else:
-            print_success(f"Revoked access to vault '{vault}' for client '{client_id}'.")
+            print_success(
+                f"Revoked access to vault '{vault}' for client '{client_id}'."
+            )
 
     except typer.Exit:
         raise
@@ -350,10 +406,18 @@ def client_access_revoke(
 
 @access_app.command("update")
 def client_access_update(
-    client_id: str = typer.Option(..., "--client-id", "-i", help="Client ID"),
-    vault: str = typer.Option(..., "--vault", "-v", help="Vault label"),
-    permission: int = typer.Option(..., "--permission", "-p", help="Permission bitflag to set"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    client_id: str = typer.Option(
+        ..., "--client-id", "-i", help="Client ID"
+    ),
+    vault: str = typer.Option(
+        ..., "--vault", "-v", help="Vault label"
+    ),
+    permission: int = typer.Option(
+        ..., "--permission", "-p", help="Permission bitflag to set"
+    ),
+    output_json: bool = typer.Option(
+        False, "--json", help="Output as JSON"
+    ),
 ) -> None:
     """
     Update (replace) vault access for a client.
@@ -364,15 +428,22 @@ def client_access_update(
     """
     try:
         api = get_api_client()
-        result = api.auth_clients[client_id].access.update(vault=vault, permission=permission)
+        result = api.auth_clients[client_id].access.update(
+            vault=vault, permission=permission
+        )
 
         if output_json:
             print_json(result)
         else:
             if permission == 0:
-                print_success(f"Removed all access to vault '{vault}' for client '{client_id}'.")
+                print_success(
+                    f"Removed all access to vault '{vault}' "
+                    f"for client '{client_id}'."
+                )
             else:
-                print_success(f"Updated access to vault '{vault}' for client '{client_id}'.")
+                print_success(
+                    f"Updated access to vault '{vault}' for client '{client_id}'."
+                )
 
     except typer.Exit:
         raise
