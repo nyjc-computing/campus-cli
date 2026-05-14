@@ -2,7 +2,7 @@
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import keyring
@@ -154,7 +154,7 @@ class CredentialStorage:
         self.set_password("access_token", token)
         if expires_in is not None:
             # Calculate expiry timestamp
-            expires_at = datetime.now(timezone.utc) + datetime.timedelta(seconds=expires_in)
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
             self.set_token_expires_at(expires_at.isoformat())
 
     def delete_token(self) -> None:
@@ -229,7 +229,7 @@ class CredentialStorage:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
 
             now = datetime.now(timezone.utc)
-            return now >= (expires_at - datetime.timedelta(seconds=threshold_seconds))
+            return now >= (expires_at - timedelta(seconds=threshold_seconds))
         except (ValueError, TypeError):
             # Invalid expiry data - assume expired to be safe
             return True
