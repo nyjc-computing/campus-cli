@@ -42,7 +42,7 @@ def _print_client_details(client_data: dict) -> None:
         console.print(f"[bold]Created:[/bold] {client_data['created_at']}")
 
     if client_data.get("permissions"):
-        console.print(f"[bold]Permissions:[/bold]")
+        console.print("[bold]Permissions:[/bold]")
         for vault, access in client_data["permissions"].items():
             console.print(f"  - {vault}: {access}")
 
@@ -275,7 +275,7 @@ def client_access_get(
                 console.print(f"[bold]Access:[/bold] {access.get('access', 'N/A')}")
             else:
                 console.print(f"[bold]Client:[/bold] {client_id}")
-                console.print(f"[bold]Vault Access:[/bold]")
+                console.print("[bold]Vault Access:[/bold]")
                 if not access.get("access"):
                     console.print("[dim]No vault access configured.[/dim]")
                 else:

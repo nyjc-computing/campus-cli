@@ -12,7 +12,6 @@ from campus_cli.credentials import CredentialError, CredentialStorage
 @pytest.fixture
 def credential_storage(tmp_path):
     """Create a CredentialStorage with isolated temporary storage."""
-    from campus_cli.credentials import CredentialStorage
 
     # Create storage with temp path
     storage = CredentialStorage()

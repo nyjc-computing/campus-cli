@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 
 from campus_cli.auth.common import RefreshError, get_token_status, refresh_access_token
-from campus_cli.config import config, PUBLIC_OAUTH_CLIENT_ID
+from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
 from campus_cli.credentials import CredentialError, credentials
 from campus_cli.utils.output import print_error, print_success
 

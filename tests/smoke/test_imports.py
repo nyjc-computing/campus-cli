@@ -90,4 +90,4 @@ def test_cli_app_exists():
     from campus_cli.cli import app
 
     assert app is not None
-    assert hasattr(app, "__call__") or hasattr(app, "register")
+    assert callable(app) or hasattr(app, "register")

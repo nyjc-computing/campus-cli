@@ -4,7 +4,7 @@ import requests
 import typer
 
 from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
-from campus_cli.credentials import CredentialError, credentials
+from campus_cli.credentials import credentials
 from campus_cli.utils.output import print_error
 
 
