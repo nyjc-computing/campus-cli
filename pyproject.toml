@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
-typer = {extras = ["all"], version = "^0.15.0"}
+typer = "^0.25.1"
 rich = "^13.9.0"
 keyring = "^25.6.0"
 campus-api-python = {git = "https://github.com/nyjc-computing/campus-api-python.git", branch = "main"}
