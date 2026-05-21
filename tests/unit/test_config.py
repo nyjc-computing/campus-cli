@@ -4,11 +4,10 @@ These tests test individual functions and classes in the config module.
 """
 
 import os
-from pathlib import Path
 
 import pytest
 
-from campus_cli.config import Config, ConfigError
+from campus_cli.config import Config
 
 
 @pytest.fixture
