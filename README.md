@@ -57,4 +57,6 @@ pip install poetry
 
 ## Documentation
 
-See [docs/PRD.md](docs/PRD.md) for product requirements and [docs/plan.md](docs/plan.md) for implementation details.
+- [Development Guide](docs/development.md) - Testing, hooks, and development workflow
+- [Product Requirements](docs/PRD.md) - Product requirements document
+- [Implementation Plan](docs/plan.md) - Implementation details
