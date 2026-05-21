@@ -45,7 +45,7 @@ def test_auth_help():
 def test_auth_status_not_authenticated():
     """Test auth status when not logged in."""
     # Mock credentials to ensure no token is stored (isolated test)
-    with patch("campus_cli.auth.status.credentials") as mock_creds:
+    with patch("campus_cli.auth.common.credentials") as mock_creds:
         mock_creds.get_token.return_value = None
         mock_creds.get_refresh_token.return_value = None
         mock_creds.get_token_expires_at.return_value = None
@@ -59,7 +59,7 @@ def test_auth_status_not_authenticated():
 def test_auth_status_json_format():
     """Test auth status outputs valid JSON when requested."""
     # Mock credentials to ensure no token is stored (isolated test)
-    with patch("campus_cli.auth.status.credentials") as mock_creds:
+    with patch("campus_cli.auth.common.credentials") as mock_creds:
         mock_creds.get_token.return_value = None
         mock_creds.get_refresh_token.return_value = None
         mock_creds.get_token_expires_at.return_value = None
@@ -96,7 +96,7 @@ def test_vault_help():
 def test_auth_status_authenticated():
     """Test auth status when authenticated."""
     # Mock credentials to simulate authenticated state
-    with patch("campus_cli.auth.status.credentials") as mock_creds:
+    with patch("campus_cli.auth.common.credentials") as mock_creds:
         mock_creds.get_token.return_value = "test_access_token"
         mock_creds.get_refresh_token.return_value = "test_refresh_token"
         mock_creds.get_token_expires_at.return_value = "2024-12-31T23:59:59+00:00"
