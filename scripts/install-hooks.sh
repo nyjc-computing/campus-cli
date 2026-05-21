@@ -19,7 +19,7 @@ FILE="$1"
 # Only process Python files
 if [[ "$FILE" == *.py ]]; then
     # Run ruff format on the file
-    poetry run ruff format "$FILE"
+    ".\.venv\Scripts\poetry.exe" run ruff format "$FILE"
 fi
 EOF
 chmod +x "$HOOKS_DIR/post-edit"
@@ -32,7 +32,7 @@ cat > "$HOOKS_DIR/pre-commit" <<'EOF'
 set -e
 
 echo "Running smoke tests..."
-poetry run pytest tests/smoke/ -v --tb=short
+".\.venv\Scripts\poetry.exe" run pytest tests/smoke/ -v --tb=short
 
 echo "Smoke tests passed!"
 EOF
@@ -46,7 +46,7 @@ cat > "$HOOKS_DIR/pre-push" <<'EOF'
 set -e
 
 echo "Running ruff check..."
-poetry run ruff check .
+".\.venv\Scripts\poetry.exe" run ruff check .
 
 echo "Ruff check passed!"
 EOF
