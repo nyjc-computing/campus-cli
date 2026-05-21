@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
-typer = {extras = ["all"], version = "^0.15.0"}
+typer = "^0.25.1"
 rich = "^13.9.0"
 keyring = "^25.6.0"
 campus-api-python = {git = "https://github.com/nyjc-computing/campus-api-python.git", branch = "main"}
@@ -24,11 +24,18 @@ include = "campus_cli"
 
 [tool.pyright]
 useLibraryCodeForTypes = true
-exclude = [".cache"]
+exclude = [
+    ".cache",
+    "**/.*",
+    "**/__pycache__",
+    "**/node_modules",
+    "**/.venv",
+    "**/venv",
+]
 
 [tool.ruff]
-select = ['E', 'W', 'F', 'I', 'B', 'C4', 'ARG', 'SIM']
-ignore = ['W291', 'W292', 'W293']
+lint.select = ['E', 'W', 'F', 'I', 'B', 'C4', 'ARG', 'SIM']
+lint.ignore = ['W291', 'W292', 'W293']
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

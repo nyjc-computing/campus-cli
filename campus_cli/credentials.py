@@ -1,5 +1,6 @@
 """Credential storage abstraction using keyring with fallback to file."""
 
+import contextlib
 import json
 import os
 from datetime import datetime, timedelta, timezone
@@ -58,7 +59,11 @@ class CredentialStorage:
         """Write credentials to fallback file."""
         try:
             # Set restrictive permissions on the file
-            fd = os.open(self._fallback_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            fd = os.open(
+                self._fallback_path,
+                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                0o600
+            )
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(data, f)
         except (IOError, OSError) as e:
@@ -149,7 +154,8 @@ class CredentialStorage:
 
         Args:
             token: The access token to store.
-            expires_in: Optional seconds until expiry. If provided, calculates expiry timestamp.
+            expires_in: Optional seconds until expiry. If provided,
+                       calculates expiry timestamp.
         """
         self.set_password("access_token", token)
         if expires_in is not None:
@@ -160,10 +166,9 @@ class CredentialStorage:
     def delete_token(self) -> None:
         """Delete the stored OAuth access token."""
         self.delete_password("access_token")
-        try:
+        with contextlib.suppress(CredentialError):
+            # May not exist
             self.delete_password("token_expires_at")
-        except CredentialError:
-            pass  # May not exist
 
     def get_refresh_token(self) -> str | None:
         """

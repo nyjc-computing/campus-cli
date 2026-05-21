@@ -1,5 +1,6 @@
 """Authentication commands - login and logout using Device Authorization Flow."""
 
+import contextlib
 import time
 import webbrowser
 
@@ -8,7 +9,7 @@ import typer
 from rich.console import Console
 
 from campus_cli.auth.common import RefreshError, get_token_status, refresh_access_token
-from campus_cli.config import config, PUBLIC_OAUTH_CLIENT_ID
+from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
 from campus_cli.credentials import CredentialError, credentials
 from campus_cli.utils.output import print_error, print_success
 
@@ -102,13 +103,15 @@ def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> d
             elif response.status_code == 400:
                 error_data = response.json()
                 # Campus returns structured errors with oauth_error in details
-                # {"error": {"code": "AUTH_...", "details": {"oauth_error": "authorization_pending"}}}
+                # {"error": {"code": "AUTH_...",
+                #   "details": {"oauth_error": "authorization_pending"}}}
                 error_obj = error_data.get("error", {})
                 if isinstance(error_obj, dict):
                     error_message = error_obj.get("message", "")
                     oauth_error = error_obj.get("details", {}).get("oauth_error", "")
                 else:
-                    # Fallback for simple OAuth 2.0 format: {"error": "authorization_pending"}
+                    # Fallback for simple OAuth 2.0 format:
+                    # {"error": "authorization_pending"}
                     oauth_error = error_obj
                     error_message = ""
 
@@ -120,11 +123,15 @@ def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> d
                     time.sleep(interval + 5)
                     continue
                 elif oauth_error == "expired_token":
-                    raise DeviceAuthError("Device code has expired. Please try logging in again.")
+                    raise DeviceAuthError(
+                        "Device code has expired. Please try logging in again."
+                    )
                 elif oauth_error == "access_denied":
                     raise DeviceAuthError("Access was denied by the user.")
                 else:
-                    msg = error_message or error_data.get("error_description", oauth_error)
+                    msg = error_message or error_data.get(
+                        "error_description", oauth_error
+                    )
                     raise DeviceAuthError(f"Token error: {msg}")
             else:
                 response.raise_for_status()
@@ -178,9 +185,14 @@ def login_cmd(
         expires_in = device_auth_data.get("expires_in", 300)
 
         # Step 2: Display instructions to user
-        console.print("\n[bold cyan]To authenticate, use a web browser to open:[/bold cyan]")
+        console.print(
+            "\n[bold cyan]To authenticate, use a web browser to open:[/bold cyan]"
+        )
         console.print(f"[link={verification_uri}]{verification_uri}[/link]\n")
-        console.print(f"[bold]Enter the following code:[/bold] [bold yellow]{user_code}[/bold yellow]\n")
+        console.print(
+            f"[bold]Enter the following code:[/bold] "
+            f"[bold yellow]{user_code}[/bold yellow]\n"
+        )
 
         # Open browser automatically
         console.print("Opening browser to verification page...")
@@ -244,10 +256,9 @@ def logout_cmd(
 
     try:
         credentials.delete_token()
-        try:
+        with contextlib.suppress(CredentialError):
+            # Refresh token may not exist
             credentials.delete_refresh_token()
-        except CredentialError:
-            pass  # Refresh token may not exist
         print_success("Logged out successfully.")
     except CredentialError as e:
         print_error(f"Failed to log out: {e}")
@@ -303,7 +314,9 @@ def refresh_cmd(
                     expiry_dt = datetime.fromisoformat(expires_at)
                     if expiry_dt.tzinfo is None:
                         expiry_dt = expiry_dt.replace(tzinfo=timezone.utc)
-                    console.print(f"Expires at: {expiry_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+                    console.print(
+                        f"Expires at: {expiry_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                    )
                 except ValueError:
                     console.print(f"Expires at: {expires_at}")
 
@@ -351,16 +364,24 @@ def status_cmd(
                         remaining = expiry_dt - now
                         minutes = int(remaining.total_seconds() // 60)
                         seconds = int(remaining.total_seconds() % 60)
-                        console.print(f"Token expires in: [cyan]{minutes}m {seconds}s[/cyan]")
+                        console.print(
+                            f"Token expires in: [cyan]{minutes}m {seconds}s[/cyan]"
+                        )
 
-                    console.print(f"Expires at: {expiry_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+                    console.print(
+                        f"Expires at: {expiry_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                    )
                 except ValueError:
                     console.print(f"Expires at: {status['expires_at']}")
             else:
                 console.print("[dim](No expiry information available)[/dim]")
 
             if status["can_refresh"]:
-                console.print("Auto-refresh: [green]enabled[/green]" if config.auto_refresh else "Auto-refresh: [yellow]disabled[/yellow]")
+                refresh_status = (
+                    "[green]enabled[/green]" if config.auto_refresh
+                    else "[yellow]disabled[/yellow]"
+                )
+                console.print(f"Auto-refresh: {refresh_status}")
         else:
             console.print("[yellow]Not authenticated[/yellow]")
             console.print("Run [bold]campus auth login[/bold] to authenticate.")

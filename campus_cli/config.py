@@ -12,7 +12,8 @@ class ConfigError(Exception):
     pass
 
 
-# OAuth client ID for public CLI/device apps (matches campus.config.PUBLIC_OAUTH_CLIENT_ID)
+# OAuth client ID for public CLI/device apps
+# (matches campus.config.PUBLIC_OAUTH_CLIENT_ID)
 # This is a special public client type that doesn't require database entry
 PUBLIC_OAUTH_CLIENT_ID = "guest"
 
@@ -30,7 +31,8 @@ class Config:
         Initialize configuration.
 
         Args:
-            config_path: Optional path to config file. If not provided, uses default location.
+            config_path: Optional path to config file. If not provided,
+                        uses default location.
         """
         self._config_path = config_path or self._get_default_config_path()
         self._config: dict[str, Any] = {}
@@ -70,7 +72,11 @@ class Config:
         """Save configuration to file."""
         try:
             # Set restrictive permissions on the file
-            fd = os.open(self._config_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            fd = os.open(
+                self._config_path,
+                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                0o600
+            )
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, indent=2)
         except (IOError, OSError) as e:

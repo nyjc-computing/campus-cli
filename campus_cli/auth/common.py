@@ -4,7 +4,7 @@ import requests
 import typer
 
 from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
-from campus_cli.credentials import CredentialError, credentials
+from campus_cli.credentials import credentials
 from campus_cli.utils.output import print_error
 
 
@@ -59,8 +59,14 @@ def refresh_access_token() -> str:
         )
 
         if response.status_code != 200:
-            error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
-            error_msg = error_data.get("error_description", error_data.get("error", "Refresh failed"))
+            is_json = response.headers.get("content-type", "").startswith(
+                "application/json"
+            )
+            error_data = response.json() if is_json else {}
+            error_msg = error_data.get(
+                "error_description",
+                error_data.get("error", "Refresh failed")
+            )
             raise RefreshError(f"Token refresh failed: {error_msg}")
 
         token_data = response.json()
@@ -120,14 +126,19 @@ def get_api_client(auto_refresh: bool | None = None):
                 except RefreshError as e:
                     print_error(f"Failed to refresh token: {e}")
                     print_error("Please run 'campus auth login' to authenticate again.")
-                    raise typer.Exit(1)
+                    raise typer.Exit(1) from None
             else:
                 print_error("Access token expired and no refresh token available.")
-                print_error("Please run 'campus auth login' to authenticate again.")
+                print_error(
+                    "Please run 'campus auth login' to authenticate again."
+                )
                 raise typer.Exit(1)
         else:
             print_error("Access token expired.")
-            print_error("Run 'campus auth refresh' to refresh, or 'campus auth login' to authenticate again.")
+            print_error(
+                "Run 'campus auth refresh' to refresh, or "
+                "'campus auth login' to authenticate again."
+            )
             raise typer.Exit(1)
 
     try:

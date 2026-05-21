@@ -1,5 +1,7 @@
 """Vault management commands."""
 
+import contextlib
+
 import typer
 from rich.console import Console
 
@@ -46,9 +48,15 @@ def vault_list(
 
 @vault_app.command("get")
 def vault_get(
-    vault: str = typer.Option(..., "--vault", "-v", help="Vault label"),
-    key: str | None = typer.Option(None, "--key", "-k", help="Specific key to retrieve"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    vault: str = typer.Option(
+        ..., "--vault", "-v", help="Vault label"
+    ),
+    key: str | None = typer.Option(
+        None, "--key", "-k", help="Specific key to retrieve"
+    ),
+    output_json: bool = typer.Option(
+        False, "--json", help="Output as JSON"
+    ),
 ) -> None:
     """
     Get vault contents.
@@ -75,10 +83,8 @@ def vault_get(
             keys = api.auth_vaults[vault].keys()
             entries = {}
             for k in keys:
-                try:
+                with contextlib.suppress(KeyError):
                     entries[k] = api.auth_vaults[vault][k]
-                except KeyError:
-                    pass
 
             if output_json:
                 print_json({"vault": vault, "entries": entries, "count": len(entries)})
@@ -144,7 +150,11 @@ def vault_delete(
     Removes the specified key from the vault.
     """
     if not confirm:
-        typer.confirm(f"Are you sure you want to delete key '{key}' from vault '{vault}'?", abort=True)
+        typer.confirm(
+            f"Are you sure you want to delete key '{key}' "
+            f"from vault '{vault}'?",
+            abort=True
+        )
 
     try:
         api = get_api_client()

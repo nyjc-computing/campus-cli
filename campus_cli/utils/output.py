@@ -7,7 +7,6 @@ from rich.console import Console
 from rich.json import JSON
 from rich.table import Table
 
-
 console = Console()
 stderr_console = Console(stderr=True)
 
