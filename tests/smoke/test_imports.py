@@ -81,3 +81,31 @@ def test_cli_app_exists():
 
     assert app is not None
     assert callable(app) or hasattr(app, "register")
+
+
+def test_campus_command_works():
+    """Test that the campus command can be invoked successfully.
+
+    This smoke test verifies that the Poetry-generated campus.exe shim works
+    correctly on Windows. Without the main.py workaround, the shim fails with
+    'ModuleNotFoundError: No module named main'.
+
+    This test is especially important on Windows where Poetry's shim generation
+    has known bugs with entry point resolution.
+    """
+    import subprocess
+    import sys
+
+    # Try to run 'campus --help' using the installed command
+    result = subprocess.run(
+        [sys.executable, "-m", "campus_cli.cli", "--help"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert result.returncode == 0, f"campus --help failed: {result.stderr}"
+    assert "Campus CLI" in result.stdout, "Expected 'Campus CLI' in help output"
+    assert (
+        "Commands:" in result.stdout or "Commands" in result.stdout
+    ), "Expected commands section in help output"

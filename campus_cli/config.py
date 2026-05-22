@@ -14,7 +14,8 @@ class ConfigError(Exception):
 
 # OAuth client ID for public CLI/device apps
 # (matches campus.config.PUBLIC_OAUTH_CLIENT_ID)
-# This is a special public client type that doesn't require database entry
+# This is a public client (is_public=True) that exists in the database
+# Public clients don't have a client_secret per RFC 6749 Section 2.1
 PUBLIC_OAUTH_CLIENT_ID = "guest"
 
 
