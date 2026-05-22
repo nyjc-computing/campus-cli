@@ -106,4 +106,6 @@ def test_campus_command_works():
 
     assert result.returncode == 0, f"campus --help failed: {result.stderr}"
     assert "Campus CLI" in result.stdout, "Expected 'Campus CLI' in help output"
-    assert "Commands:" in result.stdout or "Commands" in result.stdout, "Expected commands section in help output"
+    assert (
+        "Commands:" in result.stdout or "Commands" in result.stdout
+    ), "Expected commands section in help output"
