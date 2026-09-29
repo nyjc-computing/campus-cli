@@ -19,7 +19,6 @@ def temp_config(tmp_path):
 
 def test_config_initialization(temp_config):
     """Test that config initializes with default values."""
-    assert temp_config.get("api_endpoint") == Config.DEFAULT_API_ENDPOINT
     assert temp_config.get("auto_refresh") == Config.DEFAULT_AUTO_REFRESH
     assert temp_config.get("refresh_threshold") == Config.DEFAULT_REFRESH_THRESHOLD
 
@@ -41,13 +40,6 @@ def test_config_get_returns_none_when_missing_no_default(temp_config):
     """Test that get returns None when key doesn't exist and no default."""
     result = temp_config.get("nonexistent_key")
     assert result is None
-
-
-def test_config_api_endpoint_property(temp_config):
-    """Test the api_endpoint property."""
-    assert temp_config.api_endpoint == Config.DEFAULT_API_ENDPOINT
-    temp_config.api_endpoint = "https://test.example.com"
-    assert temp_config.api_endpoint == "https://test.example.com"
 
 
 def test_config_auto_refresh_property(temp_config):

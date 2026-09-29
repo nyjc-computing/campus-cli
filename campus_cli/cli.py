@@ -15,12 +15,6 @@ console = Console()
 @app.callback()
 def callback(
     ctx: typer.Context,
-    api_endpoint: str | None = typer.Option(
-        None,
-        "--api-endpoint",
-        "-e",
-        help="Override the default API endpoint",
-    ),
     verbose: bool = typer.Option(
         False,
         "--verbose",
@@ -31,9 +25,6 @@ def callback(
     """Campus CLI - Command-line interface for Campus API."""
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
-
-    if api_endpoint:
-        ctx.obj["api_endpoint"] = api_endpoint
 
 
 @app.command()

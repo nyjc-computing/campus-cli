@@ -45,6 +45,25 @@ def get_auth_urls() -> dict:
     }
 
 
+def _response_error_detail(e: requests.RequestException) -> str:
+    """Extract a human-readable message from a failed HTTP response.
+
+    The auth server returns structured errors as
+    {"error": {"code": ..., "message": ..., "details": ...}}; fall back to
+    the exception text when there is no JSON body.
+    """
+    response = getattr(e, "response", None)
+    if response is None:
+        return str(e)
+    try:
+        error_obj = response.json().get("error", "")
+    except ValueError:
+        return str(e)
+    if isinstance(error_obj, dict):
+        return error_obj.get("message") or error_obj.get("code") or str(e)
+    return error_obj or str(e)
+
+
 def request_device_code() -> dict:
     """
     Request a device code from the authorization server.
@@ -66,7 +85,9 @@ def request_device_code() -> dict:
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
-        raise DeviceAuthError(f"Failed to request device code: {e}") from e
+        raise DeviceAuthError(
+            f"Failed to request device code: {_response_error_detail(e)}"
+        ) from e
 
 
 def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> dict:
