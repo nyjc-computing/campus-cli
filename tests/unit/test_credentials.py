@@ -8,17 +8,7 @@ import contextlib
 
 import pytest
 
-from campus_cli.credentials import CredentialError, CredentialStorage
-
-
-@pytest.fixture
-def credential_storage(tmp_path):
-    """Create a CredentialStorage with isolated temporary storage."""
-
-    # Create storage with temp path
-    storage = CredentialStorage()
-    storage._fallback_path = tmp_path / "credentials.json"
-    return storage
+from campus_cli.credentials import CredentialError
 
 
 def test_get_token_returns_none_when_not_set(credential_storage):
@@ -79,9 +69,7 @@ def test_get_password_returns_none_for_nonexistent_key(credential_storage):
 def test_set_and_get_password(credential_storage):
     """Test generic password set and get operations."""
     credential_storage.set_password("test_key", "test_value")
-    result = credential_storage.get_password("test_key")
-    # Result could be the value or None (if using keyring backend)
-    assert result in ("test_value", None)
+    assert credential_storage.get_password("test_key") == "test_value"
 
 
 def test_get_token_expires_at_returns_none_when_not_set(credential_storage):
