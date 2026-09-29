@@ -3,22 +3,6 @@
 These tests test interactions between multiple methods and more complex scenarios.
 """
 
-import contextlib
-
-import pytest
-
-from campus_cli.credentials import CredentialError, CredentialStorage
-
-
-@pytest.fixture
-def credential_storage(tmp_path):
-    """Create a CredentialStorage with isolated temporary storage."""
-
-    # Create storage with temp path
-    storage = CredentialStorage()
-    storage._fallback_path = tmp_path / "credentials.json"
-    return storage
-
 
 def test_set_token_with_expiry(credential_storage):
     """Test setting token with expiry calculation (integration test)."""
@@ -97,15 +81,12 @@ def test_password_operations_persistence(credential_storage):
     credential_storage.set_password("key3", "value3")
 
     # Verify all can be retrieved
-    assert credential_storage.get_password("key1") in (
-        "value1", None
-    )  # None if using keyring
-    assert credential_storage.get_password("key2") in ("value2", None)
-    assert credential_storage.get_password("key3") in ("value3", None)
+    assert credential_storage.get_password("key1") == "value1"
+    assert credential_storage.get_password("key2") == "value2"
+    assert credential_storage.get_password("key3") == "value3"
 
     # Delete one
-    with contextlib.suppress(CredentialError):
-        credential_storage.delete_password("key2")  # May fail if using keyring
+    credential_storage.delete_password("key2")
 
     # Verify deleted key is gone
     assert credential_storage.get_password("key2") is None
