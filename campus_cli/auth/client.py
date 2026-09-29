@@ -19,11 +19,18 @@ def _format_client(client) -> dict:
     Returns:
         Dict representation of the client
     """
+    # created_at arrives as a datetime when constructed locally but as an
+    # ISO string via Client.from_resource (the API layer does not coerce).
+    created_at = client.created_at
     return {
         "id": client.id,
         "name": client.name,
         "description": client.description,
-        "created_at": client.created_at.isoformat() if client.created_at else None,
+        "created_at": (
+            created_at.isoformat()
+            if hasattr(created_at, "isoformat")
+            else created_at
+        ),
         "permissions": client.permissions,
     }
 
@@ -92,6 +99,17 @@ def client_new(
     description: str = typer.Option(
         ..., "--description", "-d", help="Client description"
     ),
+    is_public: bool = typer.Option(
+        False,
+        "--public",
+        help="Create a public client (no client secret, per RFC 6749 §2.1)",
+    ),
+    redirect_uri: list[str] = typer.Option(  # noqa: B008
+        [],
+        "--redirect-uri",
+        help="OAuth redirect URI for the client (repeat for multiple;"
+        " typically used with --public)",
+    ),
     output_json: bool = typer.Option(
         False, "--json", help="Output as JSON"
     ),
@@ -100,12 +118,18 @@ def client_new(
     Create a new OAuth client.
 
     Creates a new OAuth client with the specified name and description.
-    Note: The client secret is NOT returned. Use 'campus client revoke' to
-    generate and retrieve the secret.
+    By default the client is confidential: the client secret is NOT
+    returned; use 'campus client revoke' to generate and retrieve it.
+    Public clients (--public) have no client secret at all.
     """
     try:
         api = get_api_client()
-        client = api.auth_clients.new(name=name, description=description)
+        client = api.auth_clients.new(
+            name=name,
+            description=description,
+            is_public=is_public,
+            redirect_uris=list(redirect_uri) or None,
+        )
 
         result = _format_client(client)
 
@@ -114,10 +138,16 @@ def client_new(
         else:
             print_success(f"Client '{name}' created successfully!")
             _print_client_details(result)
-            console.print(
-                "\n[yellow]Note: Use 'campus client revoke' to "
-                "generate the client secret.[/yellow]"
-            )
+            if client.is_public:
+                console.print(
+                    "\n[dim]Public client: no client secret"
+                    " (RFC 6749 §2.1).[/dim]"
+                )
+            else:
+                console.print(
+                    "\n[yellow]Note: Use 'campus client revoke' to "
+                    "generate the client secret.[/yellow]"
+                )
 
     except typer.Exit:
         raise
