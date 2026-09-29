@@ -250,19 +250,26 @@ def logout_cmd(
     Log out and clear stored credentials.
 
     Removes the stored access and refresh tokens from the credential store.
+    Logging out while not authenticated is a no-op reported as success.
     """
     if not confirm:
         typer.confirm("Are you sure you want to log out?", abort=True)
 
     try:
-        credentials.delete_token()
+        had_token = credentials.get_token() is not None
+        if had_token:
+            credentials.delete_token()
         with contextlib.suppress(CredentialError):
             # Refresh token may not exist
             credentials.delete_refresh_token()
-        print_success("Logged out successfully.")
     except CredentialError as e:
         print_error(f"Failed to log out: {e}")
         raise typer.Exit(1) from e
+
+    if had_token:
+        print_success("Logged out successfully.")
+    else:
+        print_success("Not logged in.")
 
 
 @login_app.command("refresh")
