@@ -56,6 +56,33 @@ def test_auth_status_not_authenticated():
         assert "Not authenticated" in result.stdout
 
 
+def test_auth_logout_with_token():
+    """Test logout clears stored credentials and reports success."""
+    with patch("campus_cli.auth.login.credentials") as mock_creds:
+        mock_creds.get_token.return_value = "test_access_token"
+
+        result = runner.invoke(app, ["auth", "logout"])
+
+        assert result.exit_code == 0
+        assert "Logged out successfully" in result.stdout
+        mock_creds.delete_token.assert_called_once()
+        mock_creds.delete_refresh_token.assert_called_once()
+
+
+def test_auth_logout_not_authenticated():
+    """Test logout is a friendly no-op when no token is stored."""
+    with patch("campus_cli.auth.login.credentials") as mock_creds:
+        mock_creds.get_token.return_value = None
+
+        result = runner.invoke(app, ["auth", "logout"])
+
+        assert result.exit_code == 0
+        assert "Not logged in" in result.stdout
+        mock_creds.delete_token.assert_not_called()
+        # A stray refresh token without an access token is still cleared
+        mock_creds.delete_refresh_token.assert_called_once()
+
+
 def test_auth_status_json_format():
     """Test auth status outputs valid JSON when requested."""
     # Mock credentials to ensure no token is stored (isolated test)
