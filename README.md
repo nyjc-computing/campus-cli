@@ -19,10 +19,13 @@ This installs the `campus` command system-wide.
 campus auth login
 
 # Create an OAuth client
-campus auth client new --name "My App" --description "My application"
+campus client new --name "My App" --description "My application"
+
+# Generate the client's secret (only time it is shown)
+campus client revoke --client-id <id>
 
 # List vault entries
-campus auth vault list --vault myvault
+campus vault list --vault myvault
 ```
 
 ## Development

@@ -2,19 +2,24 @@
 
 ## Project Status
 
-**Last Updated:** 2025-03-11
+**Last Updated:** 2026-09-29
 
 ### Completed
 - ✅ Phase 1: Core Infrastructure (CLI entry point, credentials, config, output formatting)
-- ✅ Phase 2: Authentication (OAuth device flow, logout, token storage, auto-refresh)
+- ✅ Phase 2: Authentication (OAuth device flow via public `guest` client, logout, token storage, auto-refresh)
 - ✅ Phase 3: OAuth Client Commands (list, new, get, update, delete, revoke)
 - ✅ Phase 4: Client Access Commands (get, grant, revoke, update)
 - ✅ Phase 5: Vault Commands (list, get, set, delete)
+- ✅ Phase 6: Polish & Packaging
+  - ✅ Error handling (per-command try/except with Rich-formatted errors)
+  - ✅ Help text (Typer docstrings on all commands)
+  - ✅ Packaging as installable CLI tool via Poetry scripts
+  - ✅ Testing: 46 tests across `tests/unit`, `tests/integration`, and `tests/smoke`, all passing; CI via `.github/workflows/test.yml`
 
 ### In Progress / Pending
-- ⏳ Phase 6: Polish & Packaging
-- ⏳ API Resource Commands (timetable, assignments, circles, users)
-- ⏳ Testing
+- ⏳ API Resource Commands (timetable, assignments, circles, users) — tracked in #4
+- ⏳ `--dry-run` flag showing Python API access — tracked in #5
+- ⏳ `client new` options for public clients (`is_public`, `redirect_uris`) — tracked in #8
 
 ---
 
@@ -44,11 +49,11 @@ campus-cli/
 ```
 
 ## Technology Stack
-- **Language**: Python 3.11+
+- **Language**: Python 3.11 (pinned `>=3.11,<3.12`)
 - **CLI Framework**: Typer (modern, type-annotated CLI built on Click)
 - **Output Formatting**: Rich for beautiful terminal output
 - **Credential Storage**: keyring library with platform backends
-- **API Client**: campus-api-python
+- **API Client**: campus-api-python (git dependency, `main` branch)
 
 ## Implementation Phases
 
@@ -87,13 +92,18 @@ campus-cli/
 3. ✅ `campus vault set --vault <label> --key <key> --value <value>` - Set key-value
 4. ✅ `campus vault delete --vault <label> --key <key>` - Delete key
 
-### Phase 6: Polish & Packaging ⏳
-1. ⏳ Error handling and user-friendly messages
-2. ⏳ Help text and documentation
+### Phase 6: Polish & Packaging ✅
+1. ✅ Error handling and user-friendly messages
+2. ✅ Help text and documentation
 3. ✅ Package as installable CLI tool via Poetry scripts
-4. ⏳ Testing
+4. ✅ Testing (unit/integration/smoke suite, CI on GitHub Actions)
 
 ## Pending Features (Not Yet Implemented)
+
+### `client new` Public Client Options (#8)
+`campus-api-python`'s `Clients.new()` accepts `is_public` and `redirect_uris`,
+but the CLI only exposes `--name` and `--description`, so all CLI-created
+clients are confidential. Expose `--public` and `--redirect-uri` options.
 
 ### API Resource Commands
 The following resources are available in `campus-api-python` but not yet exposed in the CLI:
@@ -149,7 +159,7 @@ The CLI uses the `campus_python` package (from campus-api-python) which provides
 
 ### Authentication Pattern
 ```python
-from campus_cli.api import CampusClient
+from campus_cli.auth.common import get_api_client
 
 # Get authenticated client (with auto-refresh)
 api = get_api_client()
