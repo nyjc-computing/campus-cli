@@ -14,18 +14,19 @@
   - ✅ Error handling (per-command try/except with Rich-formatted errors)
   - ✅ Help text (Typer docstrings on all commands)
   - ✅ Packaging as installable CLI tool via Poetry scripts
-  - ✅ Testing: 46 tests across `tests/unit`, `tests/integration`, and `tests/smoke`, all passing; CI via `.github/workflows/test.yml`
-- ✅ `client new` options for public clients (`is_public`, `redirect_uris`) — tracked in #8
-- ✅ `--dry-run` flag on all client and vault commands, showing the equivalent `campus_python` code — tracked in #5
+  - ✅ Testing: unit, integration, and smoke suites, all passing; CI via `.github/workflows/test.yml`
+- ✅ `client new` options for public clients (`is_public`, `redirect_uris`) — #8, PR #12
+- ✅ `--dry-run` flag on all client and vault commands, showing the equivalent `campus_python` code — #5, PR #13
 
 ### In Progress / Pending
-- ⏳ API Resource Commands (timetable, assignments, circles, users) — tracked in #4
+- ⏳ API Resource Commands (timetable, assignments, circles, users) — tracked in #4 (scope below)
 
 ---
 
 ## Project Structure
 ```
 campus-cli/
+├── main.py                 # Windows shim workaround for Poetry entry point (do not remove)
 ├── campus_cli/
 │   ├── __init__.py
 │   ├── api.py              # Campus API client wrapper
@@ -34,16 +35,17 @@ campus-cli/
 │   ├── credentials.py      # Credential storage abstraction
 │   ├── auth/
 │   │   ├── __init__.py
-│   │   ├── common.py       # Shared utilities (token refresh, API client)
+│   │   ├── common.py       # Shared utilities (token refresh, API client, --dry-run option)
 │   │   ├── login.py        # OAuth login flow (login, logout, refresh, status)
 │   │   ├── client.py       # Client management commands
 │   │   └── vault.py        # Vault commands
 │   └── utils/
 │       ├── __init__.py
-│       └── output.py       # Formatted output (table/json)
+│       └── output.py       # Formatted output (table/json, dry-run Python snippets)
 ├── tests/
 ├── docs/
 ├── .devcontainer/
+├── scripts/                # Git hook installers (install-hooks.sh/.ps1)
 ├── pyproject.toml
 └── README.md
 ```
@@ -55,58 +57,14 @@ campus-cli/
 - **Credential Storage**: keyring library with platform backends
 - **API Client**: campus-api-python (git dependency, `main` branch)
 
-## Implementation Phases
-
-### Phase 1: Core Infrastructure ✅
-1. ✅ Create main CLI entry point with Typer
-2. ✅ Set up credential storage abstraction using keyring
-3. ✅ Create configuration management (auth_url, auto_refresh, refresh_threshold)
-4. ✅ Set up output formatting utilities (Rich)
-
-### Phase 2: Authentication ✅
-1. ✅ Implement OAuth device authorization flow
-   - Request device code
-   - Display user code and verification URL
-   - Poll for token completion
-   - Handle token refresh with auto-refresh
-2. ✅ Implement logout functionality
-3. ✅ Store/retrieve tokens from credential store with expiry tracking
-
-### Phase 3: OAuth Client Commands ✅
-1. ✅ `campus client list` - List all clients
-2. ✅ `campus client new` - Create client
-3. ✅ `campus client get` - Get client details
-4. ✅ `campus client update` - Update client metadata
-5. ✅ `campus client delete` - Delete client
-6. ✅ `campus client revoke` - Revoke client secret
-
-### Phase 4: Client Access Commands ✅
-1. ✅ `campus client access get` - Get client vault permissions
-2. ✅ `campus client access grant` - Grant vault access
-3. ✅ `campus client access revoke` - Revoke vault access
-4. ✅ `campus client access update` - Update vault access
-
-### Phase 5: Vault Commands ✅
-1. ✅ `campus vault list --vault <label>` - List vault keys
-2. ✅ `campus vault get --vault <label> [--key <key>]` - Get vault/entry
-3. ✅ `campus vault set --vault <label> --key <key> --value <value>` - Set key-value
-4. ✅ `campus vault delete --vault <label> --key <key>` - Delete key
-
-### Phase 6: Polish & Packaging ✅
-1. ✅ Error handling and user-friendly messages
-2. ✅ Help text and documentation
-3. ✅ Package as installable CLI tool via Poetry scripts
-4. ✅ Testing (unit/integration/smoke suite, CI on GitHub Actions)
-
 ## Pending Features (Not Yet Implemented)
 
-### `client new` Public Client Options (#8)
-`campus-api-python`'s `Clients.new()` accepts `is_public` and `redirect_uris`,
-but the CLI only exposes `--name` and `--description`, so all CLI-created
-clients are confidential. Expose `--public` and `--redirect-uri` options.
-
-### API Resource Commands
-The following resources are available in `campus-api-python` but not yet exposed in the CLI:
+### API Resource Commands (#4)
+The following resources are available in `campus-api-python` but not yet exposed in the CLI.
+New commands should follow the existing conventions and ship with `--dry-run`
+parity (shared `dry_run_option()` in `auth/common.py`, `print_python_api()` in
+`utils/output.py`; API-resource snippets will need the `campus.api` bearer line
+in the preamble).
 
 #### Timetable Commands
 - `campus timetable list` - List all timetables
