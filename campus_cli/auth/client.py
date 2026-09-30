@@ -3,8 +3,13 @@
 import typer
 from rich.console import Console
 
-from campus_cli.auth.common import get_api_client
-from campus_cli.utils.output import print_error, print_json, print_success
+from campus_cli.auth.common import dry_run_option, get_api_client
+from campus_cli.utils.output import (
+    print_error,
+    print_json,
+    print_python_api,
+    print_success,
+)
 
 client_app = typer.Typer(help="OAuth client management commands")
 console = Console()
@@ -57,12 +62,24 @@ def _print_client_details(client_data: dict) -> None:
 @client_app.command("list")
 def client_list(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     List all OAuth clients.
 
     Displays all OAuth clients with their IDs, names, and descriptions.
     """
+    if dry_run:
+        print_python_api(
+            "campus client list",
+            [
+                "clients = campus.auth.clients.list()",
+                "for client in clients:",
+                "    print(client.id, client.name)",
+            ],
+        )
+        return
+
     try:
         api = get_api_client()
         clients = api.auth_clients.list()
@@ -113,6 +130,7 @@ def client_new(
     output_json: bool = typer.Option(
         False, "--json", help="Output as JSON"
     ),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Create a new OAuth client.
@@ -122,6 +140,26 @@ def client_new(
     returned; use 'campus client revoke' to generate and retrieve it.
     Public clients (--public) have no client secret at all.
     """
+    if dry_run:
+        new_kwargs = [
+            f"name={name!r}",
+            f"description={description!r}",
+        ]
+        if is_public:
+            new_kwargs.append("is_public=True")
+        if redirect_uri:
+            new_kwargs.append(f"redirect_uris={list(redirect_uri)!r}")
+        print_python_api(
+            "campus client new",
+            [
+                "client = campus.auth.clients.new(",
+                *(f"    {kwarg}," for kwarg in new_kwargs),
+                ")",
+                "print(client.id)",
+            ],
+        )
+        return
+
     try:
         api = get_api_client()
         client = api.auth_clients.new(
@@ -160,6 +198,7 @@ def client_new(
 def client_get(
     client_id: str = typer.Option(..., "--client-id", "-i", help="Client ID"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Get details of an OAuth client.
@@ -167,6 +206,16 @@ def client_get(
     Retrieves and displays information about the specified client.
     Note: The client secret is NOT displayed.
     """
+    if dry_run:
+        print_python_api(
+            "campus client get",
+            [
+                f"client = campus.auth.clients[{client_id!r}].get()",
+                "print(client.name, client.description)",
+            ],
+        )
+        return
+
     try:
         api = get_api_client()
         client = api.auth_clients[client_id].get()
@@ -193,6 +242,7 @@ def client_update(
         None, "--description", "-d", help="New client description"
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Update an OAuth client.
@@ -202,6 +252,23 @@ def client_update(
     if not name and not description:
         print_error("At least one of --name or --description must be provided.")
         raise typer.Exit(1)
+
+    if dry_run:
+        update_kwargs = []
+        if name:
+            update_kwargs.append(f"name={name!r}")
+        if description:
+            update_kwargs.append(f"description={description!r}")
+        print_python_api(
+            "campus client update",
+            [
+                f"client = campus.auth.clients[{client_id!r}].update(",
+                *(f"    {kwarg}," for kwarg in update_kwargs),
+                ")",
+                "print(client.name, client.description)",
+            ],
+        )
+        return
 
     try:
         api = get_api_client()
@@ -230,12 +297,20 @@ def client_delete(
     confirm: bool = typer.Option(
         True, "--confirm", "-y", help="Skip confirmation"
     ),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Delete an OAuth client.
 
     Permanently deletes the specified OAuth client.
     """
+    if dry_run:
+        print_python_api(
+            "campus client delete",
+            [f"campus.auth.clients[{client_id!r}].delete()"],
+        )
+        return
+
     if not confirm:
         typer.confirm(
             f"Are you sure you want to delete client '{client_id}'?",
@@ -259,6 +334,7 @@ def client_revoke(
     client_id: str = typer.Option(..., "--client-id", "-i", help="Client ID"),
     confirm: bool = typer.Option(True, "--confirm", "-y", help="Skip confirmation"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Generate a new client secret.
@@ -267,6 +343,16 @@ def client_revoke(
     The new secret will be displayed (this is the only way to retrieve it).
     Use this when first creating a client or when you need to rotate the secret.
     """
+    if dry_run:
+        print_python_api(
+            "campus client revoke",
+            [
+                f"secret = campus.auth.clients[{client_id!r}].revoke()",
+                "print(secret)",
+            ],
+        )
+        return
+
     if not confirm:
         typer.confirm(
             f"Are you sure you want to generate a new secret for "
@@ -315,6 +401,7 @@ def client_access_get(
     output_json: bool = typer.Option(
         False, "--json", help="Output as JSON"
     ),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Get client vault access permissions.
@@ -323,6 +410,18 @@ def client_access_get(
     If --vault is specified, shows only that vault's permissions.
     Otherwise, shows all vault permissions.
     """
+    if dry_run:
+        vault_arg = f"vault={vault!r}" if vault else ""
+        print_python_api(
+            "campus client access get",
+            [
+                f"access = campus.auth.clients[{client_id!r}]"
+                f".access.get({vault_arg})",
+                "print(access)",
+            ],
+        )
+        return
+
     try:
         api = get_api_client()
         access = api.auth_clients[client_id].access.get(vault=vault)
@@ -365,6 +464,7 @@ def client_access_grant(
     output_json: bool = typer.Option(
         False, "--json", help="Output as JSON"
     ),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Grant vault access to a client.
@@ -373,6 +473,17 @@ def client_access_grant(
     Permissions are bitflags: 1=READ, 2=CREATE, 4=UPDATE, 8=DELETE.
     Combine with bitwise OR: e.g., 3 for READ+CREATE.
     """
+    if dry_run:
+        print_python_api(
+            "campus client access grant",
+            [
+                f"campus.auth.clients[{client_id!r}].access.grant(",
+                f"    vault={vault!r}, permission={permission},",
+                ")",
+            ],
+        )
+        return
+
     try:
         api = get_api_client()
         result = api.auth_clients[client_id].access.grant(
@@ -407,6 +518,7 @@ def client_access_revoke(
     output_json: bool = typer.Option(
         False, "--json", help="Output as JSON"
     ),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Revoke vault access from a client.
@@ -414,6 +526,17 @@ def client_access_revoke(
     Revokes the specified permission level for a vault from the client.
     Permissions are bitflags: 1=READ, 2=CREATE, 4=UPDATE, 8=DELETE.
     """
+    if dry_run:
+        print_python_api(
+            "campus client access revoke",
+            [
+                f"campus.auth.clients[{client_id!r}].access.revoke(",
+                f"    vault={vault!r}, permission={permission},",
+                ")",
+            ],
+        )
+        return
+
     try:
         api = get_api_client()
         result = api.auth_clients[client_id].access.revoke(
@@ -448,6 +571,7 @@ def client_access_update(
     output_json: bool = typer.Option(
         False, "--json", help="Output as JSON"
     ),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Update (replace) vault access for a client.
@@ -456,6 +580,17 @@ def client_access_update(
     Use 0 to remove all access to the vault.
     Permissions are bitflags: 1=READ, 2=CREATE, 4=UPDATE, 8=DELETE.
     """
+    if dry_run:
+        print_python_api(
+            "campus client access update",
+            [
+                f"campus.auth.clients[{client_id!r}].access.update(",
+                f"    vault={vault!r}, permission={permission},",
+                ")",
+            ],
+        )
+        return
+
     try:
         api = get_api_client()
         result = api.auth_clients[client_id].access.update(

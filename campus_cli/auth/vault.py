@@ -5,8 +5,14 @@ import contextlib
 import typer
 from rich.console import Console
 
-from campus_cli.auth.common import get_api_client
-from campus_cli.utils.output import print_error, print_json, print_success, print_table
+from campus_cli.auth.common import dry_run_option, get_api_client
+from campus_cli.utils.output import (
+    print_error,
+    print_json,
+    print_python_api,
+    print_success,
+    print_table,
+)
 
 vault_app = typer.Typer(help="Vault management commands")
 console = Console()
@@ -16,12 +22,23 @@ console = Console()
 def vault_list(
     vault: str = typer.Option(..., "--vault", "-v", help="Vault label"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     List all entries in a vault.
 
     Displays all keys stored in the specified vault.
     """
+    if dry_run:
+        print_python_api(
+            "campus vault list",
+            [
+                f"keys = campus.auth.vaults[{vault!r}].keys()",
+                "print(keys)",
+            ],
+        )
+        return
+
     try:
         api = get_api_client()
         keys = api.auth_vaults[vault].keys()
@@ -57,6 +74,7 @@ def vault_get(
     output_json: bool = typer.Option(
         False, "--json", help="Output as JSON"
     ),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Get vault contents.
@@ -64,6 +82,20 @@ def vault_get(
     Retrieves the entire vault or a specific key-value pair.
     If --key is not specified, returns all entries in the vault.
     """
+    if dry_run:
+        if key:
+            get_lines = [
+                f"value = campus.auth.vaults[{vault!r}][{key!r}]",
+                "print(value)",
+            ]
+        else:
+            get_lines = [
+                f"for key in campus.auth.vaults[{vault!r}].keys():",
+                f"    print(key, campus.auth.vaults[{vault!r}][key])",
+            ]
+        print_python_api("campus vault get", get_lines)
+        return
+
     try:
         api = get_api_client()
 
@@ -113,12 +145,20 @@ def vault_set(
     key: str = typer.Option(..., "--key", "-k", help="Key to set"),
     value: str = typer.Option(..., "--value", help="Value to set"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Set a key-value pair in a vault.
 
     Stores or updates the specified key with the given value in the vault.
     """
+    if dry_run:
+        print_python_api(
+            "campus vault set",
+            [f"campus.auth.vaults[{vault!r}][{key!r}] = {value!r}"],
+        )
+        return
+
     try:
         api = get_api_client()
         api.auth_vaults[vault][key] = value
@@ -143,12 +183,20 @@ def vault_delete(
     vault: str = typer.Option(..., "--vault", "-v", help="Vault label"),
     key: str = typer.Option(..., "--key", "-k", help="Key to delete"),
     confirm: bool = typer.Option(True, "--confirm", "-y", help="Skip confirmation"),
+    dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Delete a key from a vault.
 
     Removes the specified key from the vault.
     """
+    if dry_run:
+        print_python_api(
+            "campus vault delete",
+            [f"del campus.auth.vaults[{vault!r}][{key!r}]"],
+        )
+        return
+
     if not confirm:
         typer.confirm(
             f"Are you sure you want to delete key '{key}' "
