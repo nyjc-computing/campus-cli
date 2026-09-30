@@ -14,6 +14,15 @@ class RefreshError(Exception):
     pass
 
 
+def dry_run_option():
+    """Build the shared --dry-run option for API-backed commands."""
+    return typer.Option(
+        False,
+        "--dry-run",
+        help="Show the equivalent Python API code without calling the API",
+    )
+
+
 def get_auth_urls() -> dict:
     """
     Get OAuth endpoint URLs.

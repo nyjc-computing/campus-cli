@@ -26,6 +26,30 @@ campus client revoke --client-id <id>
 
 # List vault entries
 campus vault list --vault myvault
+
+# Preview any command as equivalent Python code (no API call made)
+campus client new --name "My App" --description "My application" --dry-run
+```
+
+### Dry-run mode
+
+All `client` and `vault` commands accept `--dry-run`. Instead of
+authenticating and calling the API, the command prints the equivalent
+Python snippet using the
+[campus-api-python](https://pypi.org/project/campus-api-python/)
+library — useful for learning how to call the Campus API from Python:
+
+```python
+from campus_python import Campus
+
+campus = Campus(timeout=30, mode="device")
+campus.auth.client.set_bearer_authorization("<access_token>")
+
+client = campus.auth.clients.new(
+    name='My App',
+    description='My application',
+)
+print(client.id)
 ```
 
 ## Development

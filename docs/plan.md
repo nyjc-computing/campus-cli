@@ -2,7 +2,7 @@
 
 ## Project Status
 
-**Last Updated:** 2026-09-29
+**Last Updated:** 2026-09-30
 
 ### Completed
 - ✅ Phase 1: Core Infrastructure (CLI entry point, credentials, config, output formatting)
@@ -15,11 +15,11 @@
   - ✅ Help text (Typer docstrings on all commands)
   - ✅ Packaging as installable CLI tool via Poetry scripts
   - ✅ Testing: 46 tests across `tests/unit`, `tests/integration`, and `tests/smoke`, all passing; CI via `.github/workflows/test.yml`
+- ✅ `client new` options for public clients (`is_public`, `redirect_uris`) — tracked in #8
+- ✅ `--dry-run` flag on all client and vault commands, showing the equivalent `campus_python` code — tracked in #5
 
 ### In Progress / Pending
 - ⏳ API Resource Commands (timetable, assignments, circles, users) — tracked in #4
-- ⏳ `--dry-run` flag showing Python API access — tracked in #5
-- ⏳ `client new` options for public clients (`is_public`, `redirect_uris`) — tracked in #8
 
 ---
 
