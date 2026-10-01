@@ -220,7 +220,8 @@ class CredentialStorage:
 
         Returns:
             True if token is expired or will expire within threshold, False otherwise.
-            Also returns True if no expiry info is stored (conservative approach).
+            With no stored expiry, an existing token is assumed valid; the API
+            server remains the authority and will reject it if it has expired.
         """
         expires_at_str = self.get_token_expires_at()
         if not expires_at_str:

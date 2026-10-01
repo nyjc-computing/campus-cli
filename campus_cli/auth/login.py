@@ -17,8 +17,9 @@ login_app = typer.Typer(help="Authentication commands")
 console = Console()
 
 # OAuth client ID for CLI (public client, no secret required)
-# Uses PUBLIC_OAUTH_CLIENT_ID which is a special client type that
-# doesn't require database entry - all access comes from user credentials
+# PUBLIC_OAUTH_CLIENT_ID is a public client (is_public=True) that is seeded
+# in the auth server database. Public clients have no client_secret
+# (RFC 6749 §2.1); access is granted via the user's device-flow credentials.
 CLI_CLIENT_ID = PUBLIC_OAUTH_CLIENT_ID
 
 
