@@ -37,6 +37,10 @@ def _format_client(client) -> dict:
             else created_at
         ),
         "permissions": client.permissions,
+        # /authorize will exact-match redirect_uri (RFC 6749 §3.1.2.2),
+        # so admins need to see which clients have none registered.
+        "redirect_uris": client.redirect_uris or [],
+        "is_public": client.is_public,
     }
 
 
@@ -57,6 +61,23 @@ def _print_client_details(client_data: dict) -> None:
         console.print("[bold]Permissions:[/bold]")
         for vault, access in client_data["permissions"].items():
             console.print(f"  - {vault}: {access}")
+
+    _print_client_redirect_uris(client_data)
+
+
+def _print_client_redirect_uris(client_data: dict, indent: str = "") -> None:
+    """Print redirect URIs one per line, plus the public-client flag."""
+    uris = client_data.get("redirect_uris") or []
+    console.print(f"{indent}[bold]Redirect URIs:[/bold]")
+    if uris:
+        for uri in uris:
+            console.print(f"{indent}  - {uri}")
+    else:
+        console.print(f"{indent}  (none)")
+    console.print(
+        f"{indent}[bold]Public client:[/bold] "
+        f"{'yes' if client_data.get('is_public') else 'no'}"
+    )
 
 
 @client_app.command("list")
@@ -96,6 +117,7 @@ def client_list(
                 console.print(f"[cyan]{client.id}[/cyan]")
                 console.print(f"  Name: {client.name}")
                 console.print(f"  Description: {client.description}")
+                _print_client_redirect_uris(_format_client(client), indent="  ")
                 if client.permissions:
                     vaults = ", ".join(client.permissions.keys())
                     console.print(f"  Vaults: {vaults}")
