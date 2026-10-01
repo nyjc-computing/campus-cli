@@ -8,7 +8,12 @@ import requests
 import typer
 from rich.console import Console
 
-from campus_cli.auth.common import RefreshError, get_token_status, refresh_access_token
+from campus_cli.auth.common import (
+    RefreshError,
+    get_token_status,
+    refresh_access_token,
+    revoke_token,
+)
 from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
 from campus_cli.credentials import CredentialError, credentials
 from campus_cli.utils.output import print_error, print_success
@@ -185,7 +190,8 @@ def login_cmd(
     3. Poll for the token while you complete authentication in a browser
     4. Store the received token in your credential manager
 
-    The auth endpoint is determined by the CAMPUS_ENV environment variable.
+    The auth endpoint is resolved from the CAMPUS_AUTH_URL environment
+    variable, the config file, or the built-in default (see campus_cli.config).
     """
     # Check if already logged in
     existing_token = credentials.get_token()
@@ -271,18 +277,33 @@ def logout_cmd(
     """
     Log out and clear stored credentials.
 
-    Removes the stored access and refresh tokens from the credential store.
-    Logging out while not authenticated is a no-op reported as success.
+    Removes the stored access and refresh tokens from the credential store,
+    after attempting server-side revocation (RFC 7009). Revocation is
+    best-effort: logout still succeeds when the server is unreachable or
+    deployed without a revocation endpoint. Logging out while not
+    authenticated is a no-op reported as success.
     """
     if not confirm:
         typer.confirm("Are you sure you want to log out?", abort=True)
 
     try:
-        had_token = credentials.get_token() is not None
+        access_token = credentials.get_token()
+        had_token = access_token is not None
         if had_token:
+            revoked = True
+            refresh_token = credentials.get_refresh_token()
+            if refresh_token:
+                revoked = revoke_token(refresh_token, "refresh_token") and revoked
+            revoked = revoke_token(access_token, "access_token") and revoked
+            if not revoked:
+                console.print(
+                    "[dim]Note: server-side token revocation was unavailable;"
+                    " local credentials were cleared.[/dim]"
+                )
             credentials.delete_token()
+        # A stray refresh token without an access token is still cleared
+        # locally (no revocation attempt on the logged-out path).
         with contextlib.suppress(CredentialError):
-            # Refresh token may not exist
             credentials.delete_refresh_token()
     except CredentialError as e:
         print_error(f"Failed to log out: {e}")
