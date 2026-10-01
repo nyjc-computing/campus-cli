@@ -3,10 +3,12 @@
 These tests test CLI commands with mocked dependencies for isolation.
 """
 
+from json import loads as json_loads
 from unittest.mock import Mock, patch
 
 from typer.testing import CliRunner
 
+from campus_cli.auth.login import DeviceAuthError
 from campus_cli.cli import app
 
 runner = CliRunner()
@@ -65,6 +67,7 @@ def test_auth_status_not_authenticated():
         mock_creds.get_token.return_value = None
         mock_creds.get_refresh_token.return_value = None
         mock_creds.get_token_expires_at.return_value = None
+        mock_creds.get_token_auth_url.return_value = None
 
         result = runner.invoke(app, ["auth", "status"])
 
@@ -143,6 +146,7 @@ def test_auth_status_json_format():
         mock_creds.get_token.return_value = None
         mock_creds.get_refresh_token.return_value = None
         mock_creds.get_token_expires_at.return_value = None
+        mock_creds.get_token_auth_url.return_value = None
 
         result = runner.invoke(app, ["auth", "status", "--json"])
 
@@ -246,8 +250,175 @@ def test_auth_status_authenticated():
         mock_creds.get_refresh_token.return_value = "test_refresh_token"
         mock_creds.get_token_expires_at.return_value = "2024-12-31T23:59:59+00:00"
         mock_creds.is_token_expired.return_value = False
+        mock_creds.get_token_auth_url.return_value = None
 
         result = runner.invoke(app, ["auth", "status"])
 
         assert result.exit_code == 0
         assert "Authenticated" in result.stdout
+        assert "Auth endpoint" in result.stdout
+
+
+def _bound_mocks(stored_auth_url, target_auth_url):
+    """Build credential/config mocks sharing one endpoint binding state.
+
+    login_cmd reads login's globals while endpoint_mismatch() reads
+    common's; both names must point at the same mocks for the two
+    modules to agree on the targeted endpoint.
+    """
+    creds = Mock()
+    creds.get_token.return_value = "test_access_token"
+    creds.is_token_expired.return_value = False
+    creds.get_token_auth_url.return_value = stored_auth_url
+    target_config = Mock(auth_url=target_auth_url)
+    patches = [
+        patch("campus_cli.auth.login.credentials", creds),
+        patch("campus_cli.auth.common.credentials", creds),
+        patch("campus_cli.auth.login.config", target_config),
+        patch("campus_cli.auth.common.config", target_config),
+    ]
+    return creds, patches
+
+
+def test_auth_login_mismatch_bypasses_already_authenticated():
+    """An endpoint mismatch re-authenticates instead of no-op short-circuit."""
+    creds, patches = _bound_mocks(
+        stored_auth_url="https://auth-old.example.com/auth/v1",
+        target_auth_url="https://auth-target.example.com/auth/v1",
+    )
+
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patch(
+            "campus_cli.auth.login.request_device_code",
+            side_effect=DeviceAuthError("stop here"),
+        ),
+    ):
+        result = runner.invoke(app, ["auth", "login"])
+
+    assert result.exit_code == 1
+    assert "Already authenticated" not in result.stdout
+    assert "Re-authenticating" in result.stdout
+    assert "https://auth-old.example.com/auth/v1" in result.stdout
+    assert "Requesting device code" in result.stdout
+
+
+def test_auth_login_already_authenticated_matching_endpoint():
+    """Matching binding keeps the already-authenticated short-circuit."""
+    creds, patches = _bound_mocks(
+        stored_auth_url="https://auth-target.example.com/auth/v1",
+        target_auth_url="https://auth-target.example.com/auth/v1",
+    )
+
+    with patches[0], patches[1], patches[2], patches[3]:
+        result = runner.invoke(app, ["auth", "login"])
+
+    assert result.exit_code == 0
+    assert "Already authenticated" in result.stdout
+    assert "Authenticated against" in result.stdout
+
+
+def test_auth_login_binds_tokens_to_target_auth_url():
+    """A successful login stamps the issuing endpoint onto the credentials."""
+    target = "https://auth-target.example.com/auth/v1"
+    creds, patches = _bound_mocks(stored_auth_url=None, target_auth_url=target)
+    creds.get_token.return_value = None
+
+    device_data = {
+        "user_code": "ABC-123",
+        "verification_uri": "https://verify.example.com",
+        "device_code": "device_code",
+        "interval": 5,
+        "expires_in": 300,
+    }
+    token_data = {
+        "access_token": "new_access_token",
+        "refresh_token": "new_refresh_token",
+        "expires_in": 3600,
+    }
+
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patch(
+            "campus_cli.auth.login.request_device_code",
+            return_value=device_data,
+        ),
+        patch(
+            "campus_cli.auth.login.poll_for_token",
+            return_value=token_data,
+        ),
+        patch("campus_cli.auth.login.webbrowser"),
+    ):
+        result = runner.invoke(app, ["auth", "login"])
+
+    assert result.exit_code == 0
+    assert "Authentication successful" in result.stdout
+    assert target in result.stdout
+    creds.set_token_auth_url.assert_called_once_with(target)
+
+
+def test_auth_refresh_endpoint_mismatch_fails_fast():
+    """refresh refuses to send a foreign refresh token to this endpoint."""
+    _, patches = _bound_mocks(
+        stored_auth_url="https://auth-old.example.com/auth/v1",
+        target_auth_url="https://auth-target.example.com/auth/v1",
+    )
+
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patch("campus_cli.auth.login.refresh_access_token") as mock_refresh,
+    ):
+        result = runner.invoke(app, ["auth", "refresh"])
+
+    assert result.exit_code == 1
+    mock_refresh.assert_not_called()
+    assert "issued by" in result.output
+
+
+def test_auth_status_shows_endpoint_mismatch():
+    """A stored token from a different endpoint is flagged in status."""
+    with patch("campus_cli.auth.common.credentials") as mock_creds:
+        mock_creds.get_token.return_value = "test_access_token"
+        mock_creds.get_refresh_token.return_value = None
+        mock_creds.get_token_expires_at.return_value = None
+        mock_creds.is_token_expired.return_value = False
+        mock_creds.get_token_auth_url.return_value = (
+            "https://auth-other.example.com/auth/v1"
+        )
+
+        result = runner.invoke(app, ["auth", "status"])
+
+        assert result.exit_code == 0
+        assert "Endpoint mismatch" in result.stdout
+        assert "https://auth-other.example.com/auth/v1" in result.stdout
+
+
+def test_auth_status_json_includes_endpoint_binding():
+    """auth status --json exposes both endpoints and the match verdict."""
+    with patch("campus_cli.auth.common.credentials") as mock_creds:
+        mock_creds.get_token.return_value = "test_access_token"
+        mock_creds.get_refresh_token.return_value = None
+        mock_creds.get_token_expires_at.return_value = None
+        mock_creds.is_token_expired.return_value = False
+        mock_creds.get_token_auth_url.return_value = (
+            "https://auth-other.example.com/auth/v1"
+        )
+
+        result = runner.invoke(app, ["auth", "status", "--json"])
+
+        assert result.exit_code == 0
+        status = json_loads(result.stdout)
+        assert status["token_auth_url"] == (
+            "https://auth-other.example.com/auth/v1"
+        )
+        assert status["endpoint_match"] is False
+        assert "auth_url" in status

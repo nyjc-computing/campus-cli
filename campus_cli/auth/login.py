@@ -10,6 +10,8 @@ from rich.console import Console
 
 from campus_cli.auth.common import (
     RefreshError,
+    endpoint_mismatch,
+    ensure_endpoint_match,
     get_token_status,
     refresh_access_token,
     revoke_token,
@@ -193,13 +195,28 @@ def login_cmd(
     The auth endpoint is resolved from the CAMPUS_AUTH_URL environment
     variable, the config file, or the built-in default (see campus_cli.config).
     """
-    # Check if already logged in
+    # The endpoint this invocation targets; tokens minted below are bound to it.
+    auth_url = config.auth_url
+
+    # Check if already logged in. An endpoint mismatch does not
+    # short-circuit: login is the remediation for stale credentials,
+    # so re-authentication proceeds against the current target.
     existing_token = credentials.get_token()
     if existing_token and not credentials.is_token_expired():
-        console.print("[yellow]Already authenticated.[/yellow]")
-        if output_token:
-            console.print(existing_token)
-        return
+        mismatch = endpoint_mismatch()
+        if mismatch is None:
+            console.print("[yellow]Already authenticated.[/yellow]")
+            console.print(f"[dim]Authenticated against: {auth_url}[/dim]")
+            if output_token:
+                console.print(existing_token)
+            return
+        stored, _ = mismatch
+        console.print(
+            f"[yellow]Stored credentials were issued by {stored}, but the "
+            f"CLI is targeting {auth_url}. Re-authenticating.[/yellow]"
+        )
+
+    console.print(f"[dim]Authenticating against: {auth_url}[/dim]")
 
     try:
         # Step 1: Request device code
@@ -247,8 +264,10 @@ def login_cmd(
             credentials.set_token(access_token, expires_in=expires_in)
             if refresh_token:
                 credentials.set_refresh_token(refresh_token)
+            credentials.set_token_auth_url(auth_url)
 
             print_success("Authentication successful!")
+            console.print(f"[dim]Authenticated against: {auth_url}[/dim]")
             if output_token:
                 console.print(access_token)
         else:
@@ -339,6 +358,10 @@ def refresh_cmd(
         print_error("Not authenticated. Run 'campus auth login' first.")
         raise typer.Exit(1)
 
+    # A refresh token sent to the wrong endpoint is rejected opaquely by
+    # the server; surface the credential/endpoint mismatch instead.
+    ensure_endpoint_match()
+
     try:
         new_token = refresh_access_token()
 
@@ -398,6 +421,21 @@ def status_cmd(
         if status["authenticated"]:
             print_success("Authenticated")
             console.print("You are logged in to Campus API.")
+            console.print(f"Auth endpoint: {status['auth_url']}")
+
+            if not status["endpoint_match"]:
+                console.print(
+                    "[red bold]Endpoint mismatch:[/red bold] the stored "
+                    "token was issued by a different auth endpoint. "
+                    "Run [bold]campus auth login[/bold] to re-authenticate."
+                )
+            if status["token_auth_url"]:
+                console.print(f"Token issued by: {status['token_auth_url']}")
+            else:
+                console.print(
+                    "[dim]Token issued by: unknown (stored before endpoint"
+                    " binding; binds at next login or refresh)[/dim]"
+                )
 
             if status["expires_at"]:
                 from datetime import datetime, timezone
@@ -434,4 +472,5 @@ def status_cmd(
                 console.print(f"Auto-refresh: {refresh_status}")
         else:
             console.print("[yellow]Not authenticated[/yellow]")
+            console.print(f"Auth endpoint: {status['auth_url']}")
             console.print("Run [bold]campus auth login[/bold] to authenticate.")
