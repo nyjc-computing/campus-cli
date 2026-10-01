@@ -40,6 +40,49 @@ def get_auth_urls() -> dict:
     }
 
 
+def normalize_auth_url(url: str) -> str:
+    """Normalize an auth URL for comparison (trailing slashes stripped)."""
+    return url.rstrip("/")
+
+
+def endpoint_mismatch() -> tuple[str, str] | None:
+    """
+    Check whether the stored credentials were issued by the targeted endpoint.
+
+    Returns:
+        (stored_auth_url, current_auth_url) on mismatch, None otherwise.
+        Credentials stored before endpoint binding (no stored URL) are
+        treated as matching; they bind at the next login or refresh.
+    """
+    stored = credentials.get_token_auth_url()
+    if not stored:
+        return None
+    current = config.auth_url
+    if normalize_auth_url(stored) != normalize_auth_url(current):
+        return (stored, current)
+    return None
+
+
+def ensure_endpoint_match() -> None:
+    """
+    Fail fast if stored credentials were issued by a different auth endpoint.
+
+    Raises:
+        typer.Exit: If the stored token's issuing endpoint differs from
+                    the endpoint the CLI currently targets.
+    """
+    mismatch = endpoint_mismatch()
+    if mismatch is None:
+        return
+    stored, current = mismatch
+    print_error(
+        f"Stored token was issued by {stored} but the CLI is targeting "
+        f"{current}. Run 'campus auth login' to re-authenticate against "
+        f"{current}."
+    )
+    raise typer.Exit(1)
+
+
 def refresh_access_token() -> str:
     """
     Refresh the access token using the stored refresh token.
@@ -88,10 +131,11 @@ def refresh_access_token() -> str:
         if not access_token:
             raise RefreshError("Refresh response did not contain access token")
 
-        # Store the new tokens
+        # Store the new tokens, bound to the endpoint that minted them
         credentials.set_token(access_token, expires_in=expires_in)
         if new_refresh_token:
             credentials.set_refresh_token(new_refresh_token)
+        credentials.set_token_auth_url(config.auth_url)
 
         return access_token
 
@@ -123,6 +167,11 @@ def get_api_client(auto_refresh: bool | None = None):
     if not token:
         print_error("Not authenticated. Run 'campus auth login' first.")
         raise typer.Exit(1)
+
+    # Fail fast on a credential/endpoint mismatch before any refresh
+    # attempt: a refresh token sent to the wrong endpoint would only
+    # surface as an opaque server-side rejection.
+    ensure_endpoint_match()
 
     # Check if token needs refresh
     threshold = config.refresh_threshold if auto_refresh else 0
@@ -164,15 +213,24 @@ def get_token_status() -> dict:
     Get the current token status information.
 
     Returns:
-        Dict with keys: authenticated, expires_at, is_expired, can_refresh
+        Dict with keys: authenticated, expires_at, is_expired, can_refresh,
+        auth_url, token_auth_url, endpoint_match
     """
     token = credentials.get_token()
     refresh_token = credentials.get_refresh_token()
     expires_at = credentials.get_token_expires_at()
+    token_auth_url = credentials.get_token_auth_url()
 
     return {
         "authenticated": token is not None,
         "expires_at": expires_at,
         "is_expired": credentials.is_token_expired() if token else False,
         "can_refresh": refresh_token is not None,
+        "auth_url": config.auth_url,
+        "token_auth_url": token_auth_url,
+        # Credentials stored before endpoint binding (no stored URL) count
+        # as matching; they bind at the next login or refresh.
+        "endpoint_match": (
+            endpoint_mismatch() is None if token else True
+        ),
     }

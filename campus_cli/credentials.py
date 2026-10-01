@@ -169,6 +169,9 @@ class CredentialStorage:
         with contextlib.suppress(CredentialError):
             # May not exist
             self.delete_password("token_expires_at")
+        with contextlib.suppress(CredentialError):
+            # May not exist (tokens stored before endpoint binding)
+            self.delete_password("token_auth_url")
 
     def get_refresh_token(self) -> str | None:
         """
@@ -191,6 +194,25 @@ class CredentialStorage:
     def delete_refresh_token(self) -> None:
         """Delete the stored OAuth refresh token."""
         self.delete_password("refresh_token")
+
+    def get_token_auth_url(self) -> str | None:
+        """
+        Get the auth endpoint URL that minted the stored tokens.
+
+        Returns:
+            The auth URL, or None for credentials stored before
+            endpoint binding was introduced.
+        """
+        return self.get_password("token_auth_url")
+
+    def set_token_auth_url(self, auth_url: str) -> None:
+        """
+        Store the auth endpoint URL that minted the tokens.
+
+        Args:
+            auth_url: The resolved auth URL that issued the tokens.
+        """
+        self.set_password("token_auth_url", auth_url)
 
     def get_token_expires_at(self) -> str | None:
         """

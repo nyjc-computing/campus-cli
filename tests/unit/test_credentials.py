@@ -77,6 +77,28 @@ def test_get_token_expires_at_returns_none_when_not_set(credential_storage):
     assert credential_storage.get_token_expires_at() is None
 
 
+def test_get_token_auth_url_returns_none_when_not_set(credential_storage):
+    """Test that get_token_auth_url returns None when not set."""
+    assert credential_storage.get_token_auth_url() is None
+
+
+def test_set_and_get_token_auth_url(credential_storage):
+    """Test setting and retrieving the minting auth endpoint."""
+    credential_storage.set_token_auth_url("https://auth.example.com/auth/v1")
+    assert (
+        credential_storage.get_token_auth_url()
+        == "https://auth.example.com/auth/v1"
+    )
+
+
+def test_delete_token_also_deletes_token_auth_url(credential_storage):
+    """Test that deleting the token also removes its endpoint binding."""
+    credential_storage.set_token("test_token")
+    credential_storage.set_token_auth_url("https://auth.example.com/auth/v1")
+    credential_storage.delete_token()
+    assert credential_storage.get_token_auth_url() is None
+
+
 def test_set_and_get_token_expires_at(credential_storage):
     """Test setting and retrieving token expiry timestamp."""
     credential_storage.set_token_expires_at("2024-01-01T00:00:00+00:00")
