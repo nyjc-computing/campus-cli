@@ -9,7 +9,7 @@ A command-line interface tool for interacting with the Campus API, enabling user
 
 #### 1. Authentication Commands
 - `campus auth login` - OAuth-based browser authentication
-- `campus auth logout` - Clear stored credentials
+- `campus auth logout` - Clear stored credentials and revoke tokens server-side (best-effort)
 
 #### 2. OAuth Client Management
 - `campus client list` - List all OAuth clients
@@ -50,7 +50,11 @@ equivalent `campus_python` code without authenticating or calling the API.
 - Stores access and refresh tokens in credential store
 - Uses public client ID (`guest`) - public client type (is_public=True) stored in database
 
+#### Logout
+- Attempts server-side token revocation (RFC 7009) of the refresh and access tokens before clearing local state
+- Revocation is best-effort: logout succeeds even if the auth server is unreachable or deployed without a revocation endpoint (a note is shown and only local credentials are cleared)
+
 #### API Integration
 - Uses `campus-api-python` library
 - Handles API errors gracefully
-- Configurable API endpoint
+- Auth endpoint configurable via `CAMPUS_AUTH_URL`, config file, or built-in default

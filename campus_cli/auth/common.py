@@ -37,7 +37,40 @@ def get_auth_urls() -> dict:
     return {
         "device_code_url": f"{base_url}/oauth/device_authorize",
         "token_url": f"{base_url}/oauth/token",
+        "revoke_url": f"{base_url}/oauth/revoke",
     }
+
+
+def revoke_token(token: str, token_type_hint: str) -> bool:
+    """
+    Revoke a token via the auth server's revocation endpoint (RFC 7009).
+
+    Best-effort by design: logout must still succeed when the server is
+    unreachable or deployed without /oauth/revoke, so any failure is
+    reported as False instead of raising.
+
+    Args:
+        token: The access or refresh token to revoke.
+        token_type_hint: "access_token" or "refresh_token".
+
+    Returns:
+        True if the server confirmed revocation, False otherwise.
+    """
+    urls = get_auth_urls()
+
+    try:
+        response = requests.post(
+            urls["revoke_url"],
+            data={
+                "token": token,
+                "token_type_hint": token_type_hint,
+                "client_id": PUBLIC_OAUTH_CLIENT_ID,
+            },
+            timeout=10,
+        )
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
 
 
 def normalize_auth_url(url: str) -> str:

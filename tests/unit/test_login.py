@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 import requests
 
+from campus_cli.auth.common import revoke_token
 from campus_cli.auth.login import DeviceAuthError, request_device_code
 
 
@@ -73,3 +74,37 @@ def test_request_device_code_network_error():
         pytest.raises(DeviceAuthError, match="connection refused"),
     ):
         request_device_code()
+
+
+def test_revoke_token_sends_rfc7009_payload_and_reports_success():
+    """A 200 response confirms revocation and the payload follows RFC 7009."""
+    response = mock.Mock(spec=requests.Response, status_code=200)
+    with mock.patch(
+        "campus_cli.auth.common.requests.post", return_value=response
+    ) as mock_post:
+        assert revoke_token("tok-123", "refresh_token") is True
+
+    mock_post.assert_called_once()
+    assert mock_post.call_args.kwargs["data"] == {
+        "token": "tok-123",
+        "token_type_hint": "refresh_token",
+        "client_id": "guest",
+    }
+
+
+def test_revoke_token_reports_failure_on_http_error():
+    """Non-200 responses (e.g. endpoint not deployed) mean not revoked."""
+    response = mock.Mock(spec=requests.Response, status_code=404)
+    with mock.patch(
+        "campus_cli.auth.common.requests.post", return_value=response
+    ):
+        assert revoke_token("tok-123", "access_token") is False
+
+
+def test_revoke_token_reports_failure_on_network_error():
+    """Network errors degrade to False instead of raising from logout."""
+    with mock.patch(
+        "campus_cli.auth.common.requests.post",
+        side_effect=requests.ConnectionError("connection refused"),
+    ):
+        assert revoke_token("tok-123", "refresh_token") is False
