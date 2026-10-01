@@ -40,7 +40,7 @@ def get_auth_urls() -> dict:
     """
     Get OAuth endpoint URLs.
 
-    Uses CAMPUS_AUTH_URL env var, config file, or default.
+    Uses CAMPUS_AUTH_URL env var, config file, ENV/CAMPUS_ENV, or default.
 
     Returns:
         Dict with device_code_url and token_url.
@@ -193,7 +193,7 @@ def login_cmd(
     4. Store the received token in your credential manager
 
     The auth endpoint is resolved from the CAMPUS_AUTH_URL environment
-    variable, the config file, or the built-in default (see campus_cli.config).
+    variable, the config file, or ENV/CAMPUS_ENV (see campus_cli.config).
     """
     # The endpoint this invocation targets; tokens minted below are bound to it.
     auth_url = config.auth_url
