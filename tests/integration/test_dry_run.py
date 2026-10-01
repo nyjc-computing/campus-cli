@@ -86,6 +86,26 @@ def test_client_update_dry_run_only_passed_fields():
     assert "description=" not in result.stdout
 
 
+def test_client_update_dry_run_redirect_uris():
+    """client update --dry-run passes redirect_uris only when given."""
+    result = _invoke_dry_run(
+        "client", "update", "--client-id", "uid-x",
+        "--redirect-uri", "https://a/cb",
+        "--redirect-uri", "http://localhost:8000/cb",
+    )
+
+    assert "campus.auth.clients['uid-x'].update(" in result.stdout
+    assert (
+        "redirect_uris=['https://a/cb', 'http://localhost:8000/cb']"
+        in result.stdout
+    )
+
+    plain = _invoke_dry_run(
+        "client", "update", "--client-id", "uid-x", "--name", "N"
+    )
+    assert "redirect_uris" not in plain.stdout
+
+
 def test_client_delete_dry_run_skips_confirmation():
     """client delete --dry-run shows the delete call without prompting."""
     result = _invoke_dry_run("client", "delete", "--client-id", "uid-x")

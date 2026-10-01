@@ -16,7 +16,7 @@ A command-line interface tool for interacting with the Campus API, enabling user
 - `campus auth client get --client-id <client_id>` - Get client details
 - `campus auth client delete --client-id <client_id>` - Delete a client
 - `campus auth client revoke --client-id <client_id>` - Revoke client access
-- `campus auth client update --client-id <client_id> [--name <name>] [--description <descr>]` - Update client metadata
+- `campus auth client update --client-id <client_id> [--name <name>] [--description <descr>] [--redirect-uri <uri>]` - Update client metadata or replace redirect URIs
 
 #### 3. Client Access Management
 - `campus auth client access get --client-id <client_id>` - Get access permissions
