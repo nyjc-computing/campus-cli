@@ -73,27 +73,64 @@ def test_auth_status_not_authenticated():
 
 
 def test_auth_logout_with_token():
-    """Test logout clears stored credentials and reports success."""
-    with patch("campus_cli.auth.login.credentials") as mock_creds:
+    """Test logout revokes tokens server-side and clears stored credentials."""
+    with (
+        patch("campus_cli.auth.login.credentials") as mock_creds,
+        patch(
+            "campus_cli.auth.login.revoke_token", return_value=True
+        ) as mock_revoke,
+    ):
         mock_creds.get_token.return_value = "test_access_token"
+        mock_creds.get_refresh_token.return_value = "test_refresh_token"
 
         result = runner.invoke(app, ["auth", "logout"])
 
         assert result.exit_code == 0
         assert "Logged out successfully" in result.stdout
+        assert mock_revoke.call_args_list == [
+            (("test_refresh_token", "refresh_token"),),
+            (("test_access_token", "access_token"),),
+        ]
+        mock_creds.delete_token.assert_called_once()
+        mock_creds.delete_refresh_token.assert_called_once()
+
+
+def test_auth_logout_revocation_unavailable():
+    """Logout still clears local credentials when revocation fails."""
+    with (
+        patch("campus_cli.auth.login.credentials") as mock_creds,
+        patch(
+            "campus_cli.auth.login.revoke_token", return_value=False
+        ) as mock_revoke,
+    ):
+        mock_creds.get_token.return_value = "test_access_token"
+        mock_creds.get_refresh_token.return_value = None
+
+        result = runner.invoke(app, ["auth", "logout"])
+
+        assert result.exit_code == 0
+        assert "Logged out successfully" in result.stdout
+        assert "revocation was unavailable" in result.stdout
+        assert mock_revoke.call_args_list == [
+            (("test_access_token", "access_token"),),
+        ]
         mock_creds.delete_token.assert_called_once()
         mock_creds.delete_refresh_token.assert_called_once()
 
 
 def test_auth_logout_not_authenticated():
     """Test logout is a friendly no-op when no token is stored."""
-    with patch("campus_cli.auth.login.credentials") as mock_creds:
+    with (
+        patch("campus_cli.auth.login.credentials") as mock_creds,
+        patch("campus_cli.auth.login.revoke_token") as mock_revoke,
+    ):
         mock_creds.get_token.return_value = None
 
         result = runner.invoke(app, ["auth", "logout"])
 
         assert result.exit_code == 0
         assert "Not logged in" in result.stdout
+        mock_revoke.assert_not_called()
         mock_creds.delete_token.assert_not_called()
         # A stray refresh token without an access token is still cleared
         mock_creds.delete_refresh_token.assert_called_once()
