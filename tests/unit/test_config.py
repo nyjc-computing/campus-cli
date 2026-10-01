@@ -70,6 +70,73 @@ def test_config_auth_url_from_env():
             os.environ.pop("CAMPUS_AUTH_URL", None)
 
 
+def test_config_auth_url_defaults_to_development(monkeypatch, tmp_path):
+    """With nothing set, auth_url resolves to the built-in development default."""
+    for var in ("CAMPUS_AUTH_URL", "ENV", "CAMPUS_ENV"):
+        monkeypatch.delenv(var, raising=False)
+    config = Config(config_path=tmp_path / "config.json")
+    assert config.auth_url == Config.DEFAULT_AUTH_URL
+
+
+def test_config_auth_url_follows_env(monkeypatch, tmp_path):
+    """Each ENV value maps to its deployment environment's auth URL."""
+    expected = {
+        "development": Config.DEFAULT_AUTH_URL,
+        "testing": Config.DEFAULT_AUTH_URL,
+        "staging": Config.STAGING_AUTH_URL,
+        "production": Config.PRODUCTION_AUTH_URL,
+    }
+    for value, url in expected.items():
+        monkeypatch.setenv("ENV", value)
+        config = Config(config_path=tmp_path / f"{value}.json")
+        assert config.auth_url == url
+
+
+def test_config_auth_url_env_wins_over_campus_env(monkeypatch, tmp_path):
+    """ENV takes precedence over CAMPUS_ENV, mirroring campus_python."""
+    monkeypatch.delenv("CAMPUS_AUTH_URL", raising=False)
+    monkeypatch.setenv("ENV", "staging")
+    monkeypatch.setenv("CAMPUS_ENV", "production")
+    config = Config(config_path=tmp_path / "config.json")
+    assert config.auth_url == Config.STAGING_AUTH_URL
+
+
+def test_config_auth_url_falls_back_to_campus_env(monkeypatch, tmp_path):
+    """CAMPUS_ENV is honored when ENV is unset."""
+    monkeypatch.delenv("CAMPUS_AUTH_URL", raising=False)
+    monkeypatch.delenv("ENV", raising=False)
+    monkeypatch.setenv("CAMPUS_ENV", "production")
+    config = Config(config_path=tmp_path / "config.json")
+    assert config.auth_url == Config.PRODUCTION_AUTH_URL
+
+
+def test_config_auth_url_explicit_env_var_wins_over_deploy_env(monkeypatch, tmp_path):
+    """CAMPUS_AUTH_URL overrides ENV/CAMPUS_ENV routing."""
+    monkeypatch.setenv("CAMPUS_AUTH_URL", "https://env-auth.example.com")
+    monkeypatch.setenv("ENV", "production")
+    config = Config(config_path=tmp_path / "config.json")
+    assert config.auth_url == "https://env-auth.example.com"
+
+
+def test_config_auth_url_config_file_wins_over_deploy_env(monkeypatch, tmp_path):
+    """The config file's auth_url overrides ENV/CAMPUS_ENV routing."""
+    monkeypatch.delenv("CAMPUS_AUTH_URL", raising=False)
+    monkeypatch.setenv("ENV", "production")
+    config_path = tmp_path / "config.json"
+    Config(config_path=config_path).set("auth_url", "https://config-auth.example.com")
+    config = Config(config_path=config_path)
+    assert config.auth_url == "https://config-auth.example.com"
+
+
+def test_config_auth_url_invalid_env_raises(monkeypatch, tmp_path):
+    """An unrecognized ENV value is an error, like campus_python."""
+    monkeypatch.delenv("CAMPUS_AUTH_URL", raising=False)
+    monkeypatch.setenv("ENV", "nonsense")
+    config = Config(config_path=tmp_path / "config.json")
+    with pytest.raises(ValueError, match="Invalid deployment environment"):
+        _ = config.auth_url
+
+
 def test_config_persistence(tmp_path):
     """Test that config values persist across instances."""
     config_path = tmp_path / "config.json"

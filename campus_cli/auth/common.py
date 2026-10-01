@@ -27,7 +27,7 @@ def get_auth_urls() -> dict:
     """
     Get OAuth endpoint URLs.
 
-    Uses CAMPUS_AUTH_URL env var, config file, or default.
+    Uses CAMPUS_AUTH_URL env var, config file, ENV/CAMPUS_ENV, or default.
 
     Returns:
         Dict with device_code_url and token_url.

@@ -23,6 +23,10 @@ class Config:
     """Configuration manager for Campus CLI."""
 
     DEFAULT_AUTH_URL = "https://campusauth-development.up.railway.app/auth/v1"
+    # Unlike campus_python's staging/production defaults, these carry the
+    # /auth/v1 prefix because the CLI appends /oauth/... paths itself
+    STAGING_AUTH_URL = "https://auth.campus.nyjc.dev/auth/v1"
+    PRODUCTION_AUTH_URL = "https://auth.campus.nyjc.app/auth/v1"
     DEFAULT_AUTO_REFRESH = True
     DEFAULT_REFRESH_THRESHOLD = 300  # 5 minutes
 
@@ -107,13 +111,41 @@ class Config:
 
     @property
     def auth_url(self) -> str:
-        """Get the auth server URL (from env, config, or default)."""
-        # Check environment variable first
+        """
+        Get the auth server URL.
+
+        Resolution order (mirrors campus_python's base URL resolution):
+        1. CAMPUS_AUTH_URL environment variable
+        2. auth_url key in the config file
+        3. ENV/CAMPUS_ENV environment variable (ENV wins) mapped to the
+           deployment environment's auth service URL
+        4. Built-in development default
+        """
         env_auth_url = os.getenv("CAMPUS_AUTH_URL")
         if env_auth_url:
             return env_auth_url
-        # Fall back to config file, then default
-        return self.get("auth_url", self.DEFAULT_AUTH_URL)
+        config_auth_url = self.get("auth_url")
+        if config_auth_url:
+            return config_auth_url
+        return self._env_auth_url()
+
+    @staticmethod
+    def _env_auth_url() -> str:
+        """Resolve the auth URL from the ENV/CAMPUS_ENV deployment environment."""
+        campus_env = os.environ.get("ENV", os.environ.get("CAMPUS_ENV", "development"))
+        match campus_env:
+            case "development" | "testing":
+                return Config.DEFAULT_AUTH_URL
+            case "staging":
+                return Config.STAGING_AUTH_URL
+            case "production":
+                return Config.PRODUCTION_AUTH_URL
+            case _:
+                raise ValueError(
+                    f"Invalid deployment environment {campus_env!r} in "
+                    "ENV/CAMPUS_ENV; expected development, staging, or "
+                    "production (or set CAMPUS_AUTH_URL explicitly)"
+                )
 
     @auth_url.setter
     def auth_url(self, value: str) -> None:

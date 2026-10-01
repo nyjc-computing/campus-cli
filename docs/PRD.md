@@ -57,4 +57,4 @@ equivalent `campus_python` code without authenticating or calling the API.
 #### API Integration
 - Uses `campus-api-python` library
 - Handles API errors gracefully
-- Auth endpoint configurable via `CAMPUS_AUTH_URL`, config file, or built-in default
+- Auth endpoint resolved from `CAMPUS_AUTH_URL`, the config file, `ENV`/`CAMPUS_ENV`, or the built-in development default
