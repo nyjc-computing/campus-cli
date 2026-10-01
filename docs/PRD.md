@@ -3,7 +3,7 @@
 ## Project: campus-cli
 
 ### Overview
-A command-line interface tool for interacting with the Campus API, enabling users to perform authentication and vault operations directly from the shell.
+A command-line interface tool for interacting with the Campus API, enabling users to perform authentication, OAuth client management, and vault operations directly from the shell.
 
 ### Core Features
 
@@ -12,23 +12,27 @@ A command-line interface tool for interacting with the Campus API, enabling user
 - `campus auth logout` - Clear stored credentials
 
 #### 2. OAuth Client Management
-- `campus auth client new --name <name> --description <descr>` - Create new OAuth client
-- `campus auth client get --client-id <client_id>` - Get client details
-- `campus auth client delete --client-id <client_id>` - Delete a client
-- `campus auth client revoke --client-id <client_id>` - Revoke client access
-- `campus auth client update --client-id <client_id> [--name <name>] [--description <descr>]` - Update client metadata
+- `campus client list` - List all OAuth clients
+- `campus client new --name <name> --description <descr> [--public] [--redirect-uri <uri>]` - Create new OAuth client
+- `campus client get --client-id <client_id>` - Get client details
+- `campus client delete --client-id <client_id>` - Delete a client
+- `campus client revoke --client-id <client_id>` - Generate a new client secret (the only time it is displayed)
+- `campus client update --client-id <client_id> [--name <name>] [--description <descr>] [--redirect-uri <uri>]` - Update client metadata or replace redirect URIs
 
 #### 3. Client Access Management
-- `campus auth client access get --client-id <client_id>` - Get access permissions
-- `campus auth client access grant --client-id <client_id>` - Grant access
-- `campus auth client access revoke --client-id <client_id>` - Revoke access
-- `campus auth client access update --client-id <client_id>` - Update access
+- `campus client access get --client-id <client_id> [--vault <label>]` - Get access permissions
+- `campus client access grant --client-id <client_id> --vault <label> --permission <bitflag>` - Grant vault access (1=READ, 2=CREATE, 4=UPDATE, 8=DELETE)
+- `campus client access revoke --client-id <client_id> --vault <label> --permission <bitflag>` - Revoke vault access
+- `campus client access update --client-id <client_id> --vault <label> --permission <bitflag>` - Set (replace) a vault's access level
 
 #### 4. Vault Management
-- `campus auth vault list --vault <label>` - List all entries in a vault
-- `campus auth vault get --vault <label>` - Get entire vault
-- `campus auth vault get --vault <label> --key <key>` - Get specific key from vault
-- `campus auth vault set --vault <label> --key <key> --value <value>` - Set key-value in vault
+- `campus vault list --vault <label>` - List all entries in a vault
+- `campus vault get --vault <label> [--key <key>]` - Get a specific key, or the whole vault if --key is omitted
+- `campus vault set --vault <label> --key <key> --value <value>` - Set key-value in vault
+- `campus vault delete --vault <label> --key <key>` - Delete a key from the vault
+
+All `client` and `vault` commands accept `--dry-run`, which prints the
+equivalent `campus_python` code without authenticating or calling the API.
 
 ### Non-Functional Requirements
 

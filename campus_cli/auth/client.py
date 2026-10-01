@@ -241,16 +241,28 @@ def client_update(
     description: str | None = typer.Option(
         None, "--description", "-d", help="New client description"
     ),
+    redirect_uri: list[str] = typer.Option(  # noqa: B008
+        [],
+        "--redirect-uri",
+        help="OAuth redirect URI (repeat for multiple; REPLACES the existing"
+        " list, so re-pass the full list when adding one)",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Update an OAuth client.
 
-    Updates the name and/or description of an existing client.
+    Updates the name, description and/or redirect URIs of an existing
+    client. --redirect-uri replaces the whole redirect URI list: the
+    authorization endpoint will require an exact match (RFC 6749
+    §3.1.2.2), so re-pass every URI the client must keep.
     """
-    if not name and not description:
-        print_error("At least one of --name or --description must be provided.")
+    if not name and not description and not redirect_uri:
+        print_error(
+            "At least one of --name, --description or --redirect-uri "
+            "must be provided."
+        )
         raise typer.Exit(1)
 
     if dry_run:
@@ -259,6 +271,8 @@ def client_update(
             update_kwargs.append(f"name={name!r}")
         if description:
             update_kwargs.append(f"description={description!r}")
+        if redirect_uri:
+            update_kwargs.append(f"redirect_uris={list(redirect_uri)!r}")
         print_python_api(
             "campus client update",
             [
@@ -272,7 +286,14 @@ def client_update(
 
     try:
         api = get_api_client()
-        client = api.auth_clients[client_id].update(name=name, description=description)
+        update_kwargs: dict = {}
+        if name:
+            update_kwargs["name"] = name
+        if description:
+            update_kwargs["description"] = description
+        if redirect_uri:
+            update_kwargs["redirect_uris"] = list(redirect_uri)
+        client = api.auth_clients[client_id].update(**update_kwargs)
 
         result = _format_client(client)
 
