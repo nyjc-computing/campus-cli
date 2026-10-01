@@ -25,6 +25,9 @@ def _mock_client(**overrides):
         is_public=False,
         redirect_uris=[],
     )
+    # `name` as a Mock kwarg names the mock itself; the attribute needs
+    # setting explicitly or .name is a child Mock (breaks JSON output).
+    client.name = "Test Client"
     for key, value in overrides.items():
         setattr(client, key, value)
     return client
@@ -229,6 +232,56 @@ def test_client_new_redirect_uri_repeatable():
         _, kwargs = mock_get.return_value.auth_clients.new.call_args
         assert kwargs["redirect_uris"] == ["https://a/cb", "https://b/cb"]
         assert kwargs["is_public"] is False
+
+
+def test_client_get_json_includes_redirect_uris_and_is_public():
+    """issue #21: client get --json no longer drops redirect_uris/is_public."""
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        mock_get.return_value.auth_clients["uid-client-test1234"].get.return_value = (
+            _mock_client(redirect_uris=["https://a/cb"], is_public=True)
+        )
+
+        result = runner.invoke(
+            app, ["client", "get", "--client-id", "uid-client-test1234", "--json"]
+        )
+
+    assert result.exit_code == 0
+    payload = json_loads(result.stdout)
+    assert payload["redirect_uris"] == ["https://a/cb"]
+    assert payload["is_public"] is True
+
+
+def test_client_list_json_includes_redirect_uris_and_is_public():
+    """issue #21: client list --json no longer drops redirect_uris/is_public."""
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        mock_get.return_value.auth_clients.list.return_value = [
+            _mock_client(redirect_uris=["https://a/cb"], is_public=True),
+        ]
+
+        result = runner.invoke(app, ["client", "list", "--json"])
+
+    assert result.exit_code == 0
+    payload = json_loads(result.stdout)
+    assert payload[0]["redirect_uris"] == ["https://a/cb"]
+    assert payload[0]["is_public"] is True
+
+
+def test_client_list_table_shows_redirect_uris_and_public_flag():
+    """issue #21: table mode prints each redirect URI and the public flag."""
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        mock_get.return_value.auth_clients.list.return_value = [
+            _mock_client(redirect_uris=["https://a/cb"], is_public=True),
+            _mock_client(),
+        ]
+
+        result = runner.invoke(app, ["client", "list"])
+
+    assert result.exit_code == 0
+    assert result.stdout.count("Redirect URIs:") == 2
+    assert "    - https://a/cb" in result.stdout
+    assert "    (none)" in result.stdout
+    assert result.stdout.count("Public client: yes") == 1
+    assert result.stdout.count("Public client: no") == 1
 
 
 def test_vault_help():
