@@ -41,6 +41,11 @@ def _format_client(client) -> dict:
         # so admins need to see which clients have none registered.
         "redirect_uris": client.redirect_uris or [],
         "is_public": client.is_public,
+        # Fail-closed admin fields (docs/auth-token-invariants.md A1/B3/C1):
+        # admins vetting a client need to see exactly what it may hold.
+        "allowed_scopes": client.allowed_scopes or [],
+        "upstream_scopes": client.upstream_scopes or {},
+        "token_bridge": bool(client.token_bridge),
     }
 
 
@@ -63,6 +68,7 @@ def _print_client_details(client_data: dict) -> None:
             console.print(f"  - {vault}: {access}")
 
     _print_client_redirect_uris(client_data)
+    _print_client_scopes(client_data)
 
 
 def _print_client_redirect_uris(client_data: dict, indent: str = "") -> None:
@@ -77,6 +83,30 @@ def _print_client_redirect_uris(client_data: dict, indent: str = "") -> None:
     console.print(
         f"{indent}[bold]Public client:[/bold] "
         f"{'yes' if client_data.get('is_public') else 'no'}"
+    )
+
+
+def _print_client_scopes(client_data: dict, indent: str = "") -> None:
+    """Print the scope allowlists and token-bridge flag."""
+    allowed = client_data.get("allowed_scopes") or []
+    console.print(f"{indent}[bold]Allowed scopes:[/bold]")
+    if allowed:
+        for scope in allowed:
+            console.print(f"{indent}  - {scope}")
+    else:
+        console.print(f"{indent}  (none)")
+    upstream = client_data.get("upstream_scopes") or {}
+    console.print(f"{indent}[bold]Upstream scopes:[/bold]")
+    if upstream:
+        for provider, scopes in upstream.items():
+            console.print(f"{indent}  {provider}:")
+            for scope in scopes:
+                console.print(f"{indent}    - {scope}")
+    else:
+        console.print(f"{indent}  (none)")
+    console.print(
+        f"{indent}[bold]Token bridge:[/bold] "
+        f"{'yes' if client_data.get('token_bridge') else 'no'}"
     )
 
 
@@ -256,6 +286,26 @@ def client_get(
         raise typer.Exit(1) from e
 
 
+def _group_upstream_scopes(values: list[str]) -> dict[str, list[str]]:
+    """Group repeated --upstream-scope values by provider.
+
+    Each value must be `provider=scope`; the scope URL may contain '='.
+    Providers keep first-seen order; scopes keep flag order.
+    """
+    grouped: dict[str, list[str]] = {}
+    for value in values:
+        provider, sep, scope = value.partition("=")
+        if not sep or not provider or not scope:
+            print_error(
+                f"Invalid --upstream-scope {value!r}: expected"
+                " provider=scope (e.g."
+                " google=https://www.googleapis.com/auth/classroom.rosters)."
+            )
+            raise typer.Exit(1)
+        grouped.setdefault(provider, []).append(scope)
+    return grouped
+
+
 @client_app.command("update")
 def client_update(
     client_id: str = typer.Option(..., "--client-id", "-i", help="Client ID"),
@@ -269,21 +319,60 @@ def client_update(
         help="OAuth redirect URI (repeat for multiple; REPLACES the existing"
         " list, so re-pass the full list when adding one)",
     ),
+    allowed_scope: list[str] = typer.Option(  # noqa: B008
+        [],
+        "--allowed-scope",
+        help="Scope this client may be granted on campus tokens (repeat for"
+        " multiple; REPLACES the whole allowlist, so re-pass every scope the"
+        " client must keep). Fail-closed: an empty allowlist grants nothing",
+    ),
+    clear_allowed_scopes: bool = typer.Option(
+        False,
+        "--clear-allowed-scopes",
+        help="Empty the scope allowlist (fail-closed: grants nothing)",
+    ),
+    upstream_scope: list[str] = typer.Option(  # noqa: B008
+        [],
+        "--upstream-scope",
+        help="Upstream scope as provider=scope (repeat for multiple;"
+        " scopes of the same provider are grouped; REPLACES the whole"
+        " upstream scope map, so re-pass every provider=scope pair the"
+        " client must keep)",
+    ),
+    token_bridge: bool | None = typer.Option(  # noqa: B008
+        None,
+        "--token-bridge/--no-token-bridge",
+        help="Grant/revoke broker token-bridge access (confidential clients"
+        " only; the server rejects it for public clients)",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
     """
     Update an OAuth client.
 
-    Updates the name, description and/or redirect URIs of an existing
-    client. --redirect-uri replaces the whole redirect URI list: the
-    authorization endpoint will require an exact match (RFC 6749
-    §3.1.2.2), so re-pass every URI the client must keep.
+    Updates the name, description, redirect URIs, scope allowlists and/or
+    token-bridge access of an existing client. List-valued options
+    (--redirect-uri, --allowed-scope, --upstream-scope) REPLACE the whole
+    stored value: the API layer full-replaces each provided field, so
+    re-pass every entry the client must keep. Fields you omit are left
+    untouched.
     """
-    if not name and not description and not redirect_uri:
+    if clear_allowed_scopes and allowed_scope:
         print_error(
-            "At least one of --name, --description or --redirect-uri "
-            "must be provided."
+            "--clear-allowed-scopes cannot be combined with --allowed-scope."
+        )
+        raise typer.Exit(1)
+
+    upstream_scopes = _group_upstream_scopes(list(upstream_scope))
+
+    if not (name or description or redirect_uri or allowed_scope
+            or clear_allowed_scopes or upstream_scope
+            or token_bridge is not None):
+        print_error(
+            "At least one of --name, --description, --redirect-uri,"
+            " --allowed-scope, --clear-allowed-scopes, --upstream-scope or"
+            " --token-bridge must be provided."
         )
         raise typer.Exit(1)
 
@@ -295,6 +384,14 @@ def client_update(
             update_kwargs.append(f"description={description!r}")
         if redirect_uri:
             update_kwargs.append(f"redirect_uris={list(redirect_uri)!r}")
+        if allowed_scope:
+            update_kwargs.append(f"allowed_scopes={list(allowed_scope)!r}")
+        if clear_allowed_scopes:
+            update_kwargs.append("allowed_scopes=[]")
+        if upstream_scope:
+            update_kwargs.append(f"upstream_scopes={upstream_scopes!r}")
+        if token_bridge is not None:
+            update_kwargs.append(f"token_bridge={token_bridge}")
         print_python_api(
             "campus client update",
             [
@@ -315,6 +412,14 @@ def client_update(
             update_kwargs["description"] = description
         if redirect_uri:
             update_kwargs["redirect_uris"] = list(redirect_uri)
+        if allowed_scope:
+            update_kwargs["allowed_scopes"] = list(allowed_scope)
+        elif clear_allowed_scopes:
+            update_kwargs["allowed_scopes"] = []
+        if upstream_scope:
+            update_kwargs["upstream_scopes"] = upstream_scopes
+        if token_bridge is not None:
+            update_kwargs["token_bridge"] = token_bridge
         client = api.auth_clients[client_id].update(**update_kwargs)
 
         result = _format_client(client)

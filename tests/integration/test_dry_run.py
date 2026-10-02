@@ -106,6 +106,39 @@ def test_client_update_dry_run_redirect_uris():
     assert "redirect_uris" not in plain.stdout
 
 
+def test_client_update_dry_run_scope_bridge_fields():
+    """campus-cli#24: dry-run previews the scope/bridge kwargs it would send."""
+    result = _invoke_dry_run(
+        "client", "update", "--client-id", "uid-x",
+        "--allowed-scope", "openid",
+        "--upstream-scope", "google=https://a.example/calendar",
+        "--token-bridge",
+    )
+
+    assert "campus.auth.clients['uid-x'].update(" in result.stdout
+    assert "allowed_scopes=['openid']" in result.stdout
+    assert "upstream_scopes={'google': ['https://a.example/calendar']}" in (
+        result.stdout
+    )
+    assert "token_bridge=True" in result.stdout
+
+    plain = _invoke_dry_run(
+        "client", "update", "--client-id", "uid-x", "--name", "N"
+    )
+    assert "allowed_scopes" not in plain.stdout
+    assert "upstream_scopes" not in plain.stdout
+    assert "token_bridge" not in plain.stdout
+
+
+def test_client_update_dry_run_clear_allowed_scopes():
+    """--clear-allowed-scopes previews an explicit empty allowlist."""
+    result = _invoke_dry_run(
+        "client", "update", "--client-id", "uid-x", "--clear-allowed-scopes",
+    )
+
+    assert "allowed_scopes=[]" in result.stdout
+
+
 def test_client_delete_dry_run_skips_confirmation():
     """client delete --dry-run shows the delete call without prompting."""
     result = _invoke_dry_run("client", "delete", "--client-id", "uid-x")

@@ -24,6 +24,9 @@ def _mock_client(**overrides):
         permissions={},
         is_public=False,
         redirect_uris=[],
+        allowed_scopes=[],
+        upstream_scopes={},
+        token_bridge=False,
     )
     # `name` as a Mock kwarg names the mock itself; the attribute needs
     # setting explicitly or .name is a child Mock (breaks JSON output).
@@ -249,6 +252,51 @@ def test_client_get_json_includes_redirect_uris_and_is_public():
     payload = json_loads(result.stdout)
     assert payload["redirect_uris"] == ["https://a/cb"]
     assert payload["is_public"] is True
+
+
+def test_client_get_json_includes_scope_and_bridge_fields():
+    """campus-cli#24: client get --json carries the fail-closed fields."""
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        mock_get.return_value.auth_clients["uid-client-test1234"].get.return_value = (
+            _mock_client(
+                allowed_scopes=["openid"],
+                upstream_scopes={"google": ["https://a.example/calendar"]},
+                token_bridge=True,
+            )
+        )
+
+        result = runner.invoke(
+            app, ["client", "get", "--client-id", "uid-client-test1234", "--json"]
+        )
+
+    assert result.exit_code == 0
+    payload = json_loads(result.stdout)
+    assert payload["allowed_scopes"] == ["openid"]
+    assert payload["upstream_scopes"] == {"google": ["https://a.example/calendar"]}
+    assert payload["token_bridge"] is True
+
+
+def test_client_get_table_shows_scope_and_bridge_fields():
+    """campus-cli#24: table mode prints allowlists and the bridge flag."""
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        mock_get.return_value.auth_clients["uid-client-test1234"].get.return_value = (
+            _mock_client(
+                allowed_scopes=["openid"],
+                upstream_scopes={"google": ["https://a.example/calendar"]},
+                token_bridge=True,
+            )
+        )
+
+        result = runner.invoke(
+            app, ["client", "get", "--client-id", "uid-client-test1234"]
+        )
+
+    assert result.exit_code == 0
+    assert "Allowed scopes:" in result.stdout
+    assert "- openid" in result.stdout
+    assert "Upstream scopes:" in result.stdout
+    assert "google:" in result.stdout
+    assert "Token bridge: yes" in result.stdout
 
 
 def test_client_list_json_includes_redirect_uris_and_is_public():
