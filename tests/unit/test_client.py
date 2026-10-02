@@ -14,6 +14,9 @@ def _client(created_at, **overrides):
         "created_at": created_at,
         "permissions": {"campus.api": 1},
         "redirect_uris": [],
+        "allowed_scopes": [],
+        "upstream_scopes": {},
+        "token_bridge": False,
         "is_public": False,
     }
     fields.update(overrides)
@@ -57,3 +60,31 @@ def test_format_client_coerces_none_redirect_uris_to_empty_list():
     ))
     assert result["redirect_uris"] == []
     assert result["is_public"] is False
+
+
+def test_format_client_includes_scope_and_bridge_fields():
+    """campus-cli#24: JSON output must carry the fail-closed admin fields."""
+    result = _format_client(_client(
+        "2026-09-29T10:00:00+00:00",
+        allowed_scopes=["openid", "campus.api"],
+        upstream_scopes={"google": ["https://www.googleapis.com/auth/calendar"]},
+        token_bridge=True,
+    ))
+    assert result["allowed_scopes"] == ["openid", "campus.api"]
+    assert result["upstream_scopes"] == {
+        "google": ["https://www.googleapis.com/auth/calendar"]
+    }
+    assert result["token_bridge"] is True
+
+
+def test_format_client_defaults_scope_fields_when_none():
+    """Null scope/bridge fields project as empty values, always present."""
+    result = _format_client(_client(
+        "2026-09-29T10:00:00+00:00",
+        allowed_scopes=None,
+        upstream_scopes=None,
+        token_bridge=None,
+    ))
+    assert result["allowed_scopes"] == []
+    assert result["upstream_scopes"] == {}
+    assert result["token_bridge"] is False
