@@ -6,7 +6,11 @@ import pytest
 import requests
 
 from campus_cli.auth.common import revoke_token
-from campus_cli.auth.login import DeviceAuthError, request_device_code
+from campus_cli.auth.login import (
+    DeviceAuthError,
+    poll_for_token,
+    request_device_code,
+)
 
 
 def _http_error(error_body):
@@ -108,3 +112,64 @@ def test_revoke_token_reports_failure_on_network_error():
         side_effect=requests.ConnectionError("connection refused"),
     ):
         assert revoke_token("tok-123", "refresh_token") is False
+
+
+def test_revoke_token_targets_issuing_endpoint_when_given():
+    """auth_url overrides the current target for the revocation request."""
+    response = mock.Mock(spec=requests.Response, status_code=200)
+    with mock.patch(
+        "campus_cli.auth.common.requests.post", return_value=response
+    ) as mock_post:
+        assert revoke_token(
+            "tok-123",
+            "access_token",
+            auth_url="https://auth-old.example.com/auth/v1",
+        ) is True
+
+    assert mock_post.call_args.args[0] == (
+        "https://auth-old.example.com/auth/v1/oauth/revoke"
+    )
+
+
+def _oauth_400(oauth_error):
+    """Build a 400 response carrying Campus's structured oauth_error body."""
+    response = mock.Mock(spec=requests.Response, status_code=400)
+    response.json.return_value = {
+        "error": {
+            "code": "AUTH_DEVICE_FLOW",
+            "message": "oauth error",
+            "details": {"oauth_error": oauth_error},
+        }
+    }
+    return response
+
+
+def test_poll_for_token_slow_down_persists_increased_interval():
+    """slow_down raises the poll interval for the rest of the flow (RFC 8628)."""
+    responses = [
+        _oauth_400("authorization_pending"),
+        _oauth_400("slow_down"),
+        _oauth_400("slow_down"),
+        _oauth_400("access_denied"),
+    ]
+    with (
+        mock.patch("campus_cli.auth.login.requests.post", side_effect=responses),
+        mock.patch("campus_cli.auth.login.time.sleep") as mock_sleep,
+        pytest.raises(DeviceAuthError, match="denied"),
+    ):
+        poll_for_token("device_code", interval=5, max_attempts=10)
+
+    assert [c.args[0] for c in mock_sleep.call_args_list] == [5, 10, 15]
+
+
+def test_poll_for_token_clamps_zero_interval():
+    """A zero interval from the server is clamped to 1s, not zero-divided."""
+    responses = [_oauth_400("authorization_pending")] * 3
+    with (
+        mock.patch("campus_cli.auth.login.requests.post", side_effect=responses),
+        mock.patch("campus_cli.auth.login.time.sleep") as mock_sleep,
+        pytest.raises(DeviceAuthError, match="timed out"),
+    ):
+        poll_for_token("device_code", interval=0, max_attempts=3)
+
+    assert [c.args[0] for c in mock_sleep.call_args_list] == [1, 1, 1]

@@ -14,6 +14,7 @@ from campus_cli.auth.common import (
     ensure_endpoint_match,
     get_token_status,
     refresh_access_token,
+    resolve_auth_url,
     revoke_token,
 )
 from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
@@ -45,7 +46,7 @@ def get_auth_urls() -> dict:
     Returns:
         Dict with device_code_url and token_url.
     """
-    base_url = config.auth_url
+    base_url = resolve_auth_url()
 
     return {
         "device_code_url": f"{base_url}/oauth/device_authorize",
@@ -114,6 +115,9 @@ def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> d
         DeviceAuthError: If polling times out or the request fails.
     """
     urls = get_auth_urls()
+    # A missing or zero interval from the server would stall polling or
+    # zero-divide on the max_attempts computation at the call site.
+    poll_interval = max(1, int(interval))
 
     for attempt in range(max_attempts):
         try:
@@ -146,10 +150,13 @@ def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> d
 
                 if oauth_error == "authorization_pending":
                     console.print(".", end="")
-                    time.sleep(interval)
+                    time.sleep(poll_interval)
                     continue
                 elif oauth_error == "slow_down":
-                    time.sleep(interval + 5)
+                    # RFC 8628 §3.5: the raised interval persists for the
+                    # remainder of the flow, not just the next attempt.
+                    poll_interval += 5
+                    time.sleep(poll_interval)
                     continue
                 elif oauth_error == "expired_token":
                     raise DeviceAuthError(
@@ -167,7 +174,7 @@ def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> d
 
         except requests.RequestException as e:
             if attempt < max_attempts - 1:
-                time.sleep(interval)
+                time.sleep(poll_interval)
                 continue
             raise DeviceAuthError(f"Network error during token poll: {e}") from e
 
@@ -196,7 +203,7 @@ def login_cmd(
     variable, the config file, or ENV/CAMPUS_ENV (see campus_cli.config).
     """
     # The endpoint this invocation targets; tokens minted below are bound to it.
-    auth_url = config.auth_url
+    auth_url = resolve_auth_url()
 
     # Check if already logged in. An endpoint mismatch does not
     # short-circuit: login is the remediation for stale credentials,
@@ -226,7 +233,9 @@ def login_cmd(
         user_code = device_auth_data["user_code"]
         verification_uri = device_auth_data["verification_uri"]
         device_code = device_auth_data["device_code"]
-        interval = device_auth_data.get("interval", 5)
+        # A zero/absent interval would zero-divide below; 5s is the
+        # RFC 8628 default when the server omits it.
+        interval = device_auth_data.get("interval") or 5
         expires_in = device_auth_data.get("expires_in", 300)
 
         # Step 2: Display instructions to user
@@ -287,7 +296,7 @@ def login_cmd(
 @login_app.command("logout")
 def logout_cmd(
     confirm: bool = typer.Option(
-        True,
+        False,
         "--confirm",
         "-y",
         help="Skip confirmation prompt",
@@ -302,18 +311,35 @@ def logout_cmd(
     deployed without a revocation endpoint. Logging out while not
     authenticated is a no-op reported as success.
     """
-    if not confirm:
-        typer.confirm("Are you sure you want to log out?", abort=True)
-
     try:
         access_token = credentials.get_token()
         had_token = access_token is not None
+        # Only confirm when there is something to log out of; the
+        # not-logged-in path below stays a promptless no-op.
+        if had_token and not confirm:
+            typer.confirm("Are you sure you want to log out?", abort=True)
         if had_token:
             revoked = True
             refresh_token = credentials.get_refresh_token()
+            # Revoke where the tokens are valid: the endpoint that minted
+            # them. After a target switch the current endpoint would
+            # reject them as unknown tokens and they would stay live.
+            issuing_auth_url = credentials.get_token_auth_url()
             if refresh_token:
-                revoked = revoke_token(refresh_token, "refresh_token") and revoked
-            revoked = revoke_token(access_token, "access_token") and revoked
+                revoked = (
+                    revoke_token(
+                        refresh_token,
+                        "refresh_token",
+                        auth_url=issuing_auth_url,
+                    )
+                    and revoked
+                )
+            revoked = (
+                revoke_token(
+                    access_token, "access_token", auth_url=issuing_auth_url
+                )
+                and revoked
+            )
             if not revoked:
                 console.print(
                     "[dim]Note: server-side token revocation was unavailable;"
@@ -369,7 +395,9 @@ def refresh_cmd(
             import json
 
             expires_at = credentials.get_token_expires_at()
-            console.print(json.dumps({
+            # Machine-readable output: plain stdout write, since Rich's
+            # word wrap can split long tokens mid-string and corrupt JSON.
+            typer.echo(json.dumps({
                 "success": True,
                 "access_token": new_token,
                 "expires_at": expires_at,
@@ -415,8 +443,11 @@ def status_cmd(
     status = get_token_status()
 
     if output_json:
+        # Plain stdout write: Rich's word wrap can split long values
+        # mid-string and corrupt machine-readable JSON.
         import json
-        console.print(json.dumps(status))
+
+        typer.echo(json.dumps(status))
     else:
         if status["authenticated"]:
             print_success("Authenticated")
