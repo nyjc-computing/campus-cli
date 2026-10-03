@@ -23,16 +23,38 @@ def dry_run_option():
     )
 
 
-def get_auth_urls() -> dict:
+def resolve_auth_url() -> str:
+    """Resolve the auth endpoint the CLI currently targets.
+
+    Exits with a clean, actionable error when ENV/CAMPUS_ENV is invalid,
+    instead of letting config.auth_url's ValueError escape as a traceback
+    from whichever command touched it first.
+
+    Returns:
+        The targeted auth endpoint URL.
+    """
+    try:
+        return config.auth_url
+    except ValueError as e:
+        print_error(str(e))
+        raise typer.Exit(1) from e
+
+
+def get_auth_urls(auth_url: str | None = None) -> dict:
     """
     Get OAuth endpoint URLs.
 
-    Uses CAMPUS_AUTH_URL env var, config file, ENV/CAMPUS_ENV, or default.
+    Uses the given auth endpoint, or resolves the current target from
+    CAMPUS_AUTH_URL env var, config file, ENV/CAMPUS_ENV, or default.
+
+    Args:
+        auth_url: Base endpoint to build URLs from; defaults to the
+                  CLI's current target.
 
     Returns:
         Dict with device_code_url and token_url.
     """
-    base_url = config.auth_url
+    base_url = auth_url if auth_url is not None else resolve_auth_url()
 
     return {
         "device_code_url": f"{base_url}/oauth/device_authorize",
@@ -41,7 +63,9 @@ def get_auth_urls() -> dict:
     }
 
 
-def revoke_token(token: str, token_type_hint: str) -> bool:
+def revoke_token(
+    token: str, token_type_hint: str, auth_url: str | None = None
+) -> bool:
     """
     Revoke a token via the auth server's revocation endpoint (RFC 7009).
 
@@ -52,11 +76,15 @@ def revoke_token(token: str, token_type_hint: str) -> bool:
     Args:
         token: The access or refresh token to revoke.
         token_type_hint: "access_token" or "refresh_token".
+        auth_url: Revoke against this endpoint instead of the CLI's
+                  current target. Callers should pass the endpoint that
+                  minted the token — a token is unknown to (and leaked
+                  to) any other endpoint of the deployment.
 
     Returns:
         True if the server confirmed revocation, False otherwise.
     """
-    urls = get_auth_urls()
+    urls = get_auth_urls(auth_url)
 
     try:
         response = requests.post(
@@ -90,7 +118,7 @@ def endpoint_mismatch() -> tuple[str, str] | None:
     stored = credentials.get_token_auth_url()
     if not stored:
         return None
-    current = config.auth_url
+    current = resolve_auth_url()
     if normalize_auth_url(stored) != normalize_auth_url(current):
         return (stored, current)
     return None
@@ -259,7 +287,7 @@ def get_token_status() -> dict:
         "expires_at": expires_at,
         "is_expired": credentials.is_token_expired() if token else False,
         "can_refresh": refresh_token is not None,
-        "auth_url": config.auth_url,
+        "auth_url": resolve_auth_url(),
         "token_auth_url": token_auth_url,
         # Credentials stored before endpoint binding (no stored URL) count
         # as matching; they bind at the next login or refresh.

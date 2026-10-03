@@ -443,7 +443,7 @@ def client_delete(
         ..., "--client-id", "-i", help="Client ID"
     ),
     confirm: bool = typer.Option(
-        True, "--confirm", "-y", help="Skip confirmation"
+        False, "--confirm", "-y", help="Skip confirmation"
     ),
     dry_run: bool = dry_run_option(),
 ) -> None:
@@ -480,7 +480,7 @@ def client_delete(
 @client_app.command("revoke")
 def client_revoke(
     client_id: str = typer.Option(..., "--client-id", "-i", help="Client ID"),
-    confirm: bool = typer.Option(True, "--confirm", "-y", help="Skip confirmation"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
