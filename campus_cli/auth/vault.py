@@ -5,7 +5,11 @@ import contextlib
 import typer
 from rich.console import Console
 
-from campus_cli.auth.common import dry_run_option, get_api_client
+from campus_cli.auth.common import (
+    confirm_destructive,
+    dry_run_option,
+    get_api_client,
+)
 from campus_cli.utils.output import (
     print_error,
     print_json,
@@ -197,12 +201,9 @@ def vault_delete(
         )
         return
 
-    if not confirm:
-        typer.confirm(
-            f"Are you sure you want to delete key '{key}' "
-            f"from vault '{vault}'?",
-            abort=True
-        )
+    confirm_destructive(
+        f"delete key '{key}' from vault '{vault}'", confirm
+    )
 
     try:
         api = get_api_client()

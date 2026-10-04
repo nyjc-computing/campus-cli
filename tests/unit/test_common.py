@@ -7,6 +7,7 @@ import typer
 
 from campus_cli.auth import common
 from campus_cli.auth.common import (
+    confirm_destructive,
     endpoint_mismatch,
     ensure_endpoint_match,
     normalize_auth_url,
@@ -121,3 +122,64 @@ def test_resolve_auth_url_exits_cleanly_on_invalid_env(monkeypatch, capsys):
 
     assert excinfo.value.exit_code == 1
     assert "bogus" in capsys.readouterr().err
+
+
+def test_confirm_destructive_skips_when_flag_passed():
+    """--confirm/-y waives the confirmation entirely."""
+    confirm_destructive("delete the thing", skip=True)
+
+
+@pytest.mark.parametrize("value", ["1", "true", "yes", "YES", " True "])
+def test_confirm_destructive_assume_yes_env_truthy_values(monkeypatch, value):
+    """CAMPUS_ASSUME_YES accepts the usual truthy spellings."""
+    monkeypatch.setenv("CAMPUS_ASSUME_YES", value)
+    confirm_destructive("delete the thing", skip=False)
+
+
+def test_confirm_destructive_assume_yes_env_falsy_values(monkeypatch, capsys):
+    """'0'/'false'/'' do not waive confirmation: non-TTY still refuses."""
+    monkeypatch.setattr("sys.stdin", mock.Mock(isatty=mock.Mock(return_value=False)))
+    for value in ["0", "false", ""]:
+        monkeypatch.setenv("CAMPUS_ASSUME_YES", value)
+        with pytest.raises(typer.Exit) as excinfo:
+            confirm_destructive("delete the thing", skip=False)
+        assert excinfo.value.exit_code == 1
+    assert "delete the thing" in capsys.readouterr().err
+
+
+def test_confirm_destructive_refuses_fast_without_tty(monkeypatch, capsys):
+    """Non-interactive callers get an exit naming -y, never a blocking read."""
+    monkeypatch.setattr("sys.stdin", mock.Mock(isatty=mock.Mock(return_value=False)))
+    monkeypatch.delenv("CAMPUS_ASSUME_YES", raising=False)
+
+    with (
+        mock.patch.object(common.typer, "confirm") as mock_confirm,
+        pytest.raises(typer.Exit) as excinfo,
+    ):
+        confirm_destructive("delete client 'uid-x'", skip=False)
+
+    assert excinfo.value.exit_code == 1
+    mock_confirm.assert_not_called()
+    err = capsys.readouterr().err
+    assert "Refusing to proceed" in err
+    assert "delete client 'uid-x'" in err
+    assert "-y" in err
+    assert "CAMPUS_ASSUME_YES=1" in err
+
+
+def test_confirm_destructive_prompts_when_tty(monkeypatch):
+    """With a TTY the interactive prompt still runs and propagates aborts."""
+    tty_stdin = mock.Mock()
+    tty_stdin.isatty.return_value = True
+    monkeypatch.setattr("sys.stdin", tty_stdin)
+    monkeypatch.delenv("CAMPUS_ASSUME_YES", raising=False)
+
+    with (
+        mock.patch.object(
+            common.typer, "confirm", side_effect=typer.Abort
+        ) as mock_confirm,
+        pytest.raises(typer.Abort),
+    ):
+        confirm_destructive("delete client 'uid-x'", skip=False)
+
+    mock_confirm.assert_called_once_with("delete client 'uid-x'", abort=True)

@@ -154,23 +154,27 @@ def test_auth_logout_not_authenticated():
         mock_creds.delete_refresh_token.assert_called_once()
 
 
-def test_auth_logout_prompts_without_confirm_flag():
-    """logout asks for confirmation before clearing live credentials."""
+def test_auth_logout_refuses_without_confirmation_when_non_interactive():
+    """No TTY and no waiver exits with the remedy instead of blocking."""
     with (
         patch("campus_cli.auth.login.credentials") as mock_creds,
         patch("campus_cli.auth.login.revoke_token", return_value=True),
     ):
         mock_creds.get_token.return_value = "test_access_token"
 
-        result = runner.invoke(app, ["auth", "logout"], input="n\n")
+        result = runner.invoke(app, ["auth", "logout"])
 
-    assert result.exit_code != 0
-    assert "Are you sure" in result.output
+    assert result.exit_code == 1
+    assert "Refusing to proceed" in result.output
+    assert "-y" in result.output
+    assert "CAMPUS_ASSUME_YES" in result.output
     mock_creds.delete_token.assert_not_called()
+    mock_creds.delete_refresh_token.assert_not_called()
 
 
-def test_auth_logout_prompt_accepts_yes():
-    """Answering the confirmation prompt proceeds with logout."""
+def test_auth_logout_assume_yes_env_proceeds_without_flag(monkeypatch):
+    """CAMPUS_ASSUME_YES=1 waives confirmation for the session."""
+    monkeypatch.setenv("CAMPUS_ASSUME_YES", "1")
     with (
         patch("campus_cli.auth.login.credentials") as mock_creds,
         patch(
@@ -180,12 +184,44 @@ def test_auth_logout_prompt_accepts_yes():
         mock_creds.get_token.return_value = "test_access_token"
         mock_creds.get_refresh_token.return_value = None
 
-        result = runner.invoke(app, ["auth", "logout"], input="y\n")
+        result = runner.invoke(app, ["auth", "logout"])
 
     assert result.exit_code == 0
     assert "Logged out successfully" in result.stdout
     mock_revoke.assert_called_once()
     mock_creds.delete_token.assert_called_once()
+
+
+def test_client_delete_refuses_non_interactive_without_waiver():
+    """client delete without -y refuses fast when there is no TTY."""
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        result = runner.invoke(app, ["client", "delete", "--client-id", "uid-x"])
+
+    assert result.exit_code == 1
+    assert "Refusing to proceed" in result.output
+    assert "delete client 'uid-x'" in result.output
+    mock_get.assert_not_called()
+
+
+def test_client_delete_y_flag_proceeds():
+    """-y waives the confirmation for one invocation."""
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        result = runner.invoke(
+            app, ["client", "delete", "--client-id", "uid-x", "-y"]
+        )
+
+    assert result.exit_code == 0
+    mock_get.return_value.auth_clients["uid-x"].delete.assert_called_once()
+
+
+def test_client_delete_assume_yes_env_proceeds(monkeypatch):
+    """CAMPUS_ASSUME_YES=1 waives the confirmation without -y."""
+    monkeypatch.setenv("CAMPUS_ASSUME_YES", "1")
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        result = runner.invoke(app, ["client", "delete", "--client-id", "uid-x"])
+
+    assert result.exit_code == 0
+    mock_get.return_value.auth_clients["uid-x"].delete.assert_called_once()
 
 
 def test_auth_status_json_format():

@@ -52,6 +52,24 @@ client = campus.auth.clients.new(
 print(client.id)
 ```
 
+### Non-interactive use (scripts, CI, agents)
+
+Destructive commands — `auth logout`, `client delete`, `client revoke`,
+`vault delete` — confirm before acting. When no terminal is attached
+the CLI never blocks waiting for input: it refuses immediately with an
+error naming the remedy. Waive the confirmation per command with
+`--confirm`/`-y`, or for a whole session with the `CAMPUS_ASSUME_YES`
+environment variable (`1`/`true`/`yes`):
+
+```bash
+campus client delete --client-id <id> -y    # per command
+CAMPUS_ASSUME_YES=1 campus auth logout      # per session
+```
+
+Automation should expect exit code 1 and a `Refusing to proceed`
+message on stderr when a destructive command is invoked without a
+waiver.
+
 ## Development
 
 For development and testing, use Poetry to install the project with development dependencies:

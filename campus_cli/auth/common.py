@@ -1,5 +1,8 @@
 """Shared utilities for auth commands."""
 
+import os
+import sys
+
 import requests
 import typer
 
@@ -12,6 +15,46 @@ class RefreshError(Exception):
     """Exception raised for token refresh errors."""
 
     pass
+
+
+# Session-level opt-out from confirmation prompts, for agents and other
+# non-interactive callers (per-command --confirm/-y still takes precedence).
+ASSUME_YES_ENV = "CAMPUS_ASSUME_YES"
+
+
+def assume_yes_from_env() -> bool:
+    """Whether the CAMPUS_ASSUME_YES environment variable is set truthy."""
+    return os.environ.get(ASSUME_YES_ENV, "").strip().lower() in (
+        "1", "true", "yes",
+    )
+
+
+def confirm_destructive(message: str, skip: bool) -> None:
+    """Confirm a destructive action, refusing fast when there is no TTY.
+
+    Non-interactive callers (agents, CI) never block waiting for input:
+    without -y (or CAMPUS_ASSUME_YES) the command exits 1 with an error
+    naming the remedy, rather than hanging on or opaquely aborting the
+    confirmation read.
+
+    Args:
+        message: What the command is about to do (lowercase clause).
+        skip: True when the caller passed --confirm/-y.
+
+    Raises:
+        typer.Exit: In non-interactive mode without a confirmation waiver.
+        typer.Abort: When the user declines the interactive prompt.
+    """
+    if skip or assume_yes_from_env():
+        return
+    if not sys.stdin.isatty():
+        print_error(
+            f"Refusing to proceed without confirmation (no TTY): {message}."
+            f" Re-run with -y, or set {ASSUME_YES_ENV}=1 for"
+            " non-interactive use."
+        )
+        raise typer.Exit(1)
+    typer.confirm(message, abort=True)
 
 
 def dry_run_option():
