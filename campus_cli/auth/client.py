@@ -3,7 +3,11 @@
 import typer
 from rich.console import Console
 
-from campus_cli.auth.common import dry_run_option, get_api_client
+from campus_cli.auth.common import (
+    confirm_destructive,
+    dry_run_option,
+    get_api_client,
+)
 from campus_cli.utils.output import (
     print_error,
     print_json,
@@ -459,11 +463,7 @@ def client_delete(
         )
         return
 
-    if not confirm:
-        typer.confirm(
-            f"Are you sure you want to delete client '{client_id}'?",
-            abort=True
-        )
+    confirm_destructive(f"delete client '{client_id}'", confirm)
 
     try:
         api = get_api_client()
@@ -501,12 +501,9 @@ def client_revoke(
         )
         return
 
-    if not confirm:
-        typer.confirm(
-            f"Are you sure you want to generate a new secret for "
-            f"client '{client_id}'?",
-            abort=True
-        )
+    confirm_destructive(
+        f"revoke and regenerate the secret for client '{client_id}'", confirm
+    )
 
     try:
         api = get_api_client()

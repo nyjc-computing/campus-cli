@@ -10,6 +10,7 @@ from rich.console import Console
 
 from campus_cli.auth.common import (
     RefreshError,
+    confirm_destructive,
     endpoint_mismatch,
     ensure_endpoint_match,
     get_token_status,
@@ -314,11 +315,10 @@ def logout_cmd(
     try:
         access_token = credentials.get_token()
         had_token = access_token is not None
-        # Only confirm when there is something to log out of; the
-        # not-logged-in path below stays a promptless no-op.
-        if had_token and not confirm:
-            typer.confirm("Are you sure you want to log out?", abort=True)
         if had_token:
+            # Only confirm when there is something to log out of; the
+            # not-logged-in path below stays a promptless no-op.
+            confirm_destructive("log out and revoke the stored tokens", confirm)
             revoked = True
             refresh_token = credentials.get_refresh_token()
             # Revoke where the tokens are valid: the endpoint that minted
