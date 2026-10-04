@@ -4,7 +4,7 @@ These tests test CLI commands with mocked dependencies for isolation.
 """
 
 from json import loads as json_loads
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 from typer.testing import CliRunner
 
@@ -91,14 +91,23 @@ def test_auth_logout_with_token():
     ):
         mock_creds.get_token.return_value = "test_access_token"
         mock_creds.get_refresh_token.return_value = "test_refresh_token"
+        mock_creds.get_token_auth_url.return_value = (
+            "https://auth-minted.example.com/auth/v1"
+        )
 
-        result = runner.invoke(app, ["auth", "logout"])
+        result = runner.invoke(app, ["auth", "logout", "-y"])
 
         assert result.exit_code == 0
         assert "Logged out successfully" in result.stdout
         assert mock_revoke.call_args_list == [
-            (("test_refresh_token", "refresh_token"),),
-            (("test_access_token", "access_token"),),
+            (
+                ("test_refresh_token", "refresh_token"),
+                {"auth_url": "https://auth-minted.example.com/auth/v1"},
+            ),
+            (
+                ("test_access_token", "access_token"),
+                {"auth_url": "https://auth-minted.example.com/auth/v1"},
+            ),
         ]
         mock_creds.delete_token.assert_called_once()
         mock_creds.delete_refresh_token.assert_called_once()
@@ -115,13 +124,13 @@ def test_auth_logout_revocation_unavailable():
         mock_creds.get_token.return_value = "test_access_token"
         mock_creds.get_refresh_token.return_value = None
 
-        result = runner.invoke(app, ["auth", "logout"])
+        result = runner.invoke(app, ["auth", "logout", "-y"])
 
         assert result.exit_code == 0
         assert "Logged out successfully" in result.stdout
         assert "revocation was unavailable" in result.stdout
         assert mock_revoke.call_args_list == [
-            (("test_access_token", "access_token"),),
+            (("test_access_token", "access_token"), {"auth_url": ANY}),
         ]
         mock_creds.delete_token.assert_called_once()
         mock_creds.delete_refresh_token.assert_called_once()
@@ -143,6 +152,40 @@ def test_auth_logout_not_authenticated():
         mock_creds.delete_token.assert_not_called()
         # A stray refresh token without an access token is still cleared
         mock_creds.delete_refresh_token.assert_called_once()
+
+
+def test_auth_logout_prompts_without_confirm_flag():
+    """logout asks for confirmation before clearing live credentials."""
+    with (
+        patch("campus_cli.auth.login.credentials") as mock_creds,
+        patch("campus_cli.auth.login.revoke_token", return_value=True),
+    ):
+        mock_creds.get_token.return_value = "test_access_token"
+
+        result = runner.invoke(app, ["auth", "logout"], input="n\n")
+
+    assert result.exit_code != 0
+    assert "Are you sure" in result.output
+    mock_creds.delete_token.assert_not_called()
+
+
+def test_auth_logout_prompt_accepts_yes():
+    """Answering the confirmation prompt proceeds with logout."""
+    with (
+        patch("campus_cli.auth.login.credentials") as mock_creds,
+        patch(
+            "campus_cli.auth.login.revoke_token", return_value=True
+        ) as mock_revoke,
+    ):
+        mock_creds.get_token.return_value = "test_access_token"
+        mock_creds.get_refresh_token.return_value = None
+
+        result = runner.invoke(app, ["auth", "logout"], input="y\n")
+
+    assert result.exit_code == 0
+    assert "Logged out successfully" in result.stdout
+    mock_revoke.assert_called_once()
+    mock_creds.delete_token.assert_called_once()
 
 
 def test_auth_status_json_format():
@@ -483,6 +526,30 @@ def test_auth_refresh_endpoint_mismatch_fails_fast():
     assert result.exit_code == 1
     mock_refresh.assert_not_called()
     assert "issued by" in result.output
+
+
+def test_auth_refresh_json_output_survives_long_tokens():
+    """--json is machine-readable: Rich wrapping must not split the token."""
+    long_token = "a" * 200
+    creds = Mock()
+    creds.get_token.return_value = "stale_access_token"
+    creds.get_token_expires_at.return_value = "2026-10-04T12:00:00+00:00"
+    with (
+        patch("campus_cli.auth.login.credentials", creds),
+        patch(
+            "campus_cli.auth.common.credentials",
+            Mock(get_token_auth_url=Mock(return_value=None)),
+        ),
+        patch(
+            "campus_cli.auth.login.refresh_access_token",
+            return_value=long_token,
+        ),
+    ):
+        result = runner.invoke(app, ["auth", "refresh", "--json"])
+
+    assert result.exit_code == 0
+    payload = json_loads(result.stdout)
+    assert payload["access_token"] == long_token
 
 
 def test_auth_status_shows_endpoint_mismatch():

@@ -182,7 +182,7 @@ def vault_set(
 def vault_delete(
     vault: str = typer.Option(..., "--vault", "-v", help="Vault label"),
     key: str = typer.Option(..., "--key", "-k", help="Key to delete"),
-    confirm: bool = typer.Option(True, "--confirm", "-y", help="Skip confirmation"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
     dry_run: bool = dry_run_option(),
 ) -> None:
     """

@@ -93,3 +93,31 @@ def test_refresh_access_token_binds_credentials_to_auth_url(monkeypatch):
 
     assert token == "new_access_token"
     creds.set_token_auth_url.assert_called_once_with(TARGET)
+
+
+class _InvalidEnvConfig:
+    """Config stub whose auth_url raises like an invalid ENV/CAMPUS_ENV."""
+
+    @property
+    def auth_url(self):
+        raise ValueError(
+            "Invalid deployment environment 'bogus' in ENV/CAMPUS_ENV; "
+            "expected development, staging, or production"
+        )
+
+
+def test_resolve_auth_url_returns_current_target(monkeypatch):
+    """The resolved auth URL is the configured target."""
+    monkeypatch.setattr(common, "config", mock.Mock(auth_url=TARGET))
+    assert common.resolve_auth_url() == TARGET
+
+
+def test_resolve_auth_url_exits_cleanly_on_invalid_env(monkeypatch, capsys):
+    """An invalid ENV/CAMPUS_ENV exits with an error, not a traceback."""
+    monkeypatch.setattr(common, "config", _InvalidEnvConfig())
+
+    with pytest.raises(typer.Exit) as excinfo:
+        common.resolve_auth_url()
+
+    assert excinfo.value.exit_code == 1
+    assert "bogus" in capsys.readouterr().err
