@@ -102,7 +102,6 @@ def get_auth_urls(auth_url: str | None = None) -> dict:
     return {
         "device_code_url": f"{base_url}/oauth/device_authorize",
         "token_url": f"{base_url}/oauth/token",
-        "revoke_url": f"{base_url}/oauth/revoke",
     }
 
 
@@ -112,9 +111,15 @@ def revoke_token(
     """
     Revoke a token via the auth server's revocation endpoint (RFC 7009).
 
+    Goes through the client library's OAuth resource
+    (`auth.oauth.revoke`, campus-api-python#80): the endpoint targets
+    the given auth endpoint (or the CLI's current target), and the
+    server accepts JSON on all OAuth endpoints.
+
     Best-effort by design: logout must still succeed when the server is
     unreachable or deployed without /oauth/revoke, so any failure is
-    reported as False instead of raising.
+    reported as False instead of raising — including when the client
+    library is unavailable, matching get_api_client's degradation.
 
     Args:
         token: The access or refresh token to revoke.
@@ -127,20 +132,28 @@ def revoke_token(
     Returns:
         True if the server confirmed revocation, False otherwise.
     """
-    urls = get_auth_urls(auth_url)
+    base_url = auth_url if auth_url is not None else resolve_auth_url()
 
     try:
-        response = requests.post(
-            urls["revoke_url"],
-            data={
-                "token": token,
-                "token_type_hint": token_type_hint,
-                "client_id": PUBLIC_OAUTH_CLIENT_ID,
-            },
-            timeout=10,
+        from campus_python import AuthRoot, CampusRequest, errors
+    except ImportError:
+        return False
+
+    try:
+        # Device mode: no credentials, no Authorization header — the
+        # public revoke endpoint takes the client_id in the body.
+        auth = AuthRoot(
+            json_client=CampusRequest(
+                base_url=base_url, mode="device", timeout=10
+            )
         )
-        return response.status_code == 200
-    except requests.RequestException:
+        auth.oauth.revoke(
+            token,
+            client_id=PUBLIC_OAUTH_CLIENT_ID,
+            token_type_hint=token_type_hint,
+        )
+        return True
+    except (errors.APIError, requests.RequestException):
         return False
 
 
