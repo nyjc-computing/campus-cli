@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 import requests
+from campus_python import errors
 
 from campus_cli.auth.common import revoke_token
 from campus_cli.auth.login import (
@@ -81,53 +82,66 @@ def test_request_device_code_network_error():
 
 
 def test_revoke_token_sends_rfc7009_payload_and_reports_success():
-    """A 200 response confirms revocation and the payload follows RFC 7009."""
-    response = mock.Mock(spec=requests.Response, status_code=200)
-    with mock.patch(
-        "campus_cli.auth.common.requests.post", return_value=response
-    ) as mock_post:
+    """A clean library call confirms revocation with the RFC 7009 args."""
+    with mock.patch.multiple(
+        "campus_python", AuthRoot=mock.DEFAULT, CampusRequest=mock.DEFAULT
+    ) as mocked:
+        auth_root = mocked["AuthRoot"].return_value
         assert revoke_token("tok-123", "refresh_token") is True
 
-    mock_post.assert_called_once()
-    assert mock_post.call_args.kwargs["data"] == {
-        "token": "tok-123",
-        "token_type_hint": "refresh_token",
-        "client_id": "guest",
-    }
+    auth_root.oauth.revoke.assert_called_once_with(
+        "tok-123", client_id="guest", token_type_hint="refresh_token"
+    )
+    mocked["CampusRequest"].assert_called_once_with(
+        base_url=mock.ANY, mode="device", timeout=10
+    )
 
 
 def test_revoke_token_reports_failure_on_http_error():
-    """Non-200 responses (e.g. endpoint not deployed) mean not revoked."""
-    response = mock.Mock(spec=requests.Response, status_code=404)
-    with mock.patch(
-        "campus_cli.auth.common.requests.post", return_value=response
-    ):
+    """API errors (e.g. a deployment without the endpoint) mean not revoked."""
+    with mock.patch.multiple(
+        "campus_python", AuthRoot=mock.DEFAULT, CampusRequest=mock.DEFAULT
+    ) as mocked:
+        auth_root = mocked["AuthRoot"].return_value
+        auth_root.oauth.revoke.side_effect = errors.NotFoundError(
+            status_code=404, error_description="no revoke endpoint"
+        )
         assert revoke_token("tok-123", "access_token") is False
 
 
 def test_revoke_token_reports_failure_on_network_error():
     """Network errors degrade to False instead of raising from logout."""
-    with mock.patch(
-        "campus_cli.auth.common.requests.post",
-        side_effect=requests.ConnectionError("connection refused"),
-    ):
+    with mock.patch.multiple(
+        "campus_python", AuthRoot=mock.DEFAULT, CampusRequest=mock.DEFAULT
+    ) as mocked:
+        auth_root = mocked["AuthRoot"].return_value
+        auth_root.oauth.revoke.side_effect = requests.ConnectionError(
+            "connection refused"
+        )
+        assert revoke_token("tok-123", "refresh_token") is False
+
+
+def test_revoke_token_reports_failure_when_library_unavailable():
+    """A missing client library degrades to False (logout still clears)."""
+    with mock.patch.dict("sys.modules", {"campus_python": None}):
         assert revoke_token("tok-123", "refresh_token") is False
 
 
 def test_revoke_token_targets_issuing_endpoint_when_given():
     """auth_url overrides the current target for the revocation request."""
-    response = mock.Mock(spec=requests.Response, status_code=200)
-    with mock.patch(
-        "campus_cli.auth.common.requests.post", return_value=response
-    ) as mock_post:
+    with mock.patch.multiple(
+        "campus_python", AuthRoot=mock.DEFAULT, CampusRequest=mock.DEFAULT
+    ) as mocked:
         assert revoke_token(
             "tok-123",
             "access_token",
             auth_url="https://auth-old.example.com/auth/v1",
         ) is True
 
-    assert mock_post.call_args.args[0] == (
-        "https://auth-old.example.com/auth/v1/oauth/revoke"
+    mocked["CampusRequest"].assert_called_once_with(
+        base_url="https://auth-old.example.com/auth/v1",
+        mode="device",
+        timeout=10,
     )
 
 
