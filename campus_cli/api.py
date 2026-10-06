@@ -1,5 +1,7 @@
 """Campus API client wrapper for campus-cli."""
 
+from campus_cli.config import config
+
 
 class CampusClient:
     """
@@ -22,6 +24,7 @@ class CampusClient:
         """Lazy-load the Campus client."""
         if self._campus is None:
             from campus_python import Campus
+            from campus_python.tracing import DEVICE_ID_HEADER
 
             # Create Campus instance in device mode (no credentials required)
             # We'll use Bearer token authentication instead
@@ -30,6 +33,17 @@ class CampusClient:
             self._campus.auth.client.set_bearer_authorization(self._token)
             # Also set it for the API client
             self._campus.api.client.set_bearer_authorization(self._token)
+            # Present this install's stable device id on every call
+            # (#837): bearer tokens are shared per (user, client), so
+            # the header is the only way server-side spans attribute to
+            # this device rather than just "a device that logged in".
+            device_id = config.get_device_id()
+            self._campus.api.client.set_default_header(
+                DEVICE_ID_HEADER, device_id
+            )
+            self._campus.auth.client.set_default_header(
+                DEVICE_ID_HEADER, device_id
+            )
 
         return self._campus
 
