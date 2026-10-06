@@ -8,6 +8,7 @@ import requests
 import typer
 from rich.console import Console
 
+from campus_cli import __version__
 from campus_cli.auth.common import (
     RefreshError,
     confirm_destructive,
@@ -36,6 +37,63 @@ class DeviceAuthError(Exception):
     """Exception raised for device authentication errors."""
 
     pass
+
+
+def _agent_string() -> str:
+    """Build the login-session agent string for this CLI install."""
+    import platform
+    return (
+        f"campus-cli/{__version__} "
+        f"({platform.system()} {platform.release()})"
+    )
+
+
+def create_login_session(auth_url: str, user_id: str) -> str | None:
+    """Create the login-session record server-side (best-effort, #837).
+
+    The device grant echoes the authorizing user; this call records the
+    login against this install's stable device id (config-persisted) so
+    audit spans attribute to the device, not just the user. Returns the
+    session id, or None when the server predates the route or the call
+    fails — attribution is observational and must never block login.
+    """
+    try:
+        response = requests.post(
+            f"{auth_url}/logins/",
+            json={
+                "client_id": CLI_CLIENT_ID,
+                "user_id": user_id,
+                "device_id": config.get_device_id(),
+                "agent_string": _agent_string(),
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json().get("id")
+    except (requests.RequestException, ValueError):
+        console.print(
+            "[dim]Note: device attribution unavailable "
+            "(login session was not recorded).[/dim]"
+        )
+        return None
+
+
+def delete_login_session(auth_url: str, session_id: str, token: str) -> bool:
+    """Revoke the stored login-session record (best-effort, #837).
+
+    The bearer-owned path (campus#838) accepts our access token: the
+    session belongs to the same user the token was minted for. Returns
+    True when the server confirmed the deletion.
+    """
+    try:
+        response = requests.delete(
+            f"{auth_url}/logins/{session_id}/",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
 
 
 def get_auth_urls() -> dict:
@@ -276,6 +334,17 @@ def login_cmd(
                 credentials.set_refresh_token(refresh_token)
             credentials.set_token_auth_url(auth_url)
 
+            # Record the login server-side (#837): the device grant
+            # echoes the authorizing user, and the login-session record
+            # carries this install's stable device id so audit spans
+            # attribute to the device. Best-effort — an older auth
+            # deployment without the logins route must not fail login.
+            user_id = token_data.get("user_id")
+            if user_id:
+                login_session_id = create_login_session(auth_url, user_id)
+                if login_session_id:
+                    credentials.set_login_session_id(login_session_id)
+
             print_success("Authentication successful!")
             console.print(f"[dim]Authenticated against: {auth_url}[/dim]")
             if output_token:
@@ -345,6 +414,17 @@ def logout_cmd(
                     "[dim]Note: server-side token revocation was unavailable;"
                     " local credentials were cleared.[/dim]"
                 )
+            # Revoke the login-session record too (#837): the
+            # bearer-owned path accepts our access token (same user).
+            # Best-effort like token revocation; the local id is always
+            # cleared.
+            with contextlib.suppress(CredentialError):
+                login_session_id = credentials.get_login_session_id()
+                if login_session_id and issuing_auth_url:
+                    delete_login_session(
+                        issuing_auth_url, login_session_id, access_token
+                    )
+                credentials.delete_login_session_id()
             credentials.delete_token()
         # A stray refresh token without an access token is still cleared
         # locally (no revocation attempt on the logged-out path).

@@ -2,6 +2,7 @@
 
 import json
 import os
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,9 @@ class ConfigError(Exception):
 # This is a public client (is_public=True) that exists in the database
 # Public clients don't have a client_secret per RFC 6749 Section 2.1
 PUBLIC_OAUTH_CLIENT_ID = "guest"
+
+# Config key holding this install's stable device id (#837).
+DEVICE_ID_CONFIG_KEY = "device_id"
 
 
 class Config:
@@ -161,6 +165,23 @@ class Config:
     def auto_refresh(self, value: bool) -> None:
         """Set whether to automatically refresh expired tokens."""
         self.set("auto_refresh", value)
+
+    def get_device_id(self) -> str:
+        """Get (or mint-and-persist) this install's stable device id (#837).
+
+        Device = this CLI install on this machine, per the #825 design:
+        minted once, persisted in the config file, and reused across
+        logins — passed at login-session creation and on API calls as
+        X-Campus-Device for audit attribution. Client-asserted by
+        design (same trust level as the User-Agent).
+        """
+        device_id = self.get(DEVICE_ID_CONFIG_KEY)
+        if not device_id:
+            # Same uid-device-* shape the auth service mints for the
+            # browser cookie lane.
+            device_id = f"uid-device-{uuid.uuid4().hex[:16]}"
+            self.set(DEVICE_ID_CONFIG_KEY, device_id)
+        return str(device_id)
 
     @property
     def refresh_threshold(self) -> int:

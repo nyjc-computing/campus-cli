@@ -214,6 +214,28 @@ class CredentialStorage:
         """
         self.set_password("token_auth_url", auth_url)
 
+    def get_login_session_id(self) -> str | None:
+        """
+        Get the stored login-session id (#837).
+
+        Returns:
+            The login-session id, or None if not found.
+        """
+        return self.get_password("login_session_id")
+
+    def set_login_session_id(self, session_id: str) -> None:
+        """
+        Store the login-session id created at login (#837).
+
+        Args:
+            session_id: The id returned by POST /logins/.
+        """
+        self.set_password("login_session_id", session_id)
+
+    def delete_login_session_id(self) -> None:
+        """Delete the stored login-session id (#837)."""
+        self.delete_password("login_session_id")
+
     def get_token_expires_at(self) -> str | None:
         """
         Get the token expiry timestamp.
