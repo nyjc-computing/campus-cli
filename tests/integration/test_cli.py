@@ -534,11 +534,18 @@ def test_auth_login_binds_tokens_to_target_auth_url():
             return_value=token_data,
         ),
         patch("campus_cli.auth.login.webbrowser"),
+        # Never touch a real clipboard from CI (#43).
+        patch(
+            "campus_cli.auth.login.copy_to_clipboard",
+            return_value="native",
+        ) as mock_copy,
     ):
         result = runner.invoke(app, ["auth", "login"])
 
     assert result.exit_code == 0
     assert "Authentication successful" in result.stdout
+    assert "Code copied to clipboard" in result.stdout
+    mock_copy.assert_called_once_with("ABC-123")
     assert target in result.stdout
     creds.set_token_auth_url.assert_called_once_with(target)
 
