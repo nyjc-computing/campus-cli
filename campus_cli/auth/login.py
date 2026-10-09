@@ -351,6 +351,12 @@ def login_cmd(
 
         user_code = device_auth_data["user_code"]
         verification_uri = device_auth_data["verification_uri"]
+        # Prefer verification_uri_complete (RFC 8628 §3.3.1), which embeds
+        # the user code: the consent page (#869) discloses the requested
+        # scopes only on that pre-filled page. Older servers may omit it.
+        verification_uri_complete = device_auth_data.get(
+            "verification_uri_complete"
+        )
         device_code = device_auth_data["device_code"]
         # A zero/absent interval would zero-divide below; 5s is the
         # RFC 8628 default when the server omits it.
@@ -361,6 +367,13 @@ def login_cmd(
         console.print(
             "\n[bold cyan]To authenticate, use a web browser to open:[/bold cyan]"
         )
+        if verification_uri_complete:
+            console.print(
+                f"[link={verification_uri_complete}]"
+                f"{verification_uri_complete}[/link]\n"
+            )
+        # Keep the bare URI + code visible regardless (RFC 8628 wants the
+        # code displayed; some users open the bare URL on another device).
         console.print(f"[link={verification_uri}]{verification_uri}[/link]\n")
         console.print(
             f"[bold]Enter the following code:[/bold] "
@@ -381,7 +394,7 @@ def login_cmd(
 
         # Open browser automatically
         console.print("Opening browser to verification page...")
-        webbrowser.open(verification_uri)
+        webbrowser.open(verification_uri_complete or verification_uri)
 
         # Step 3: Poll for token
         console.print("\nWaiting for authentication to complete...")
