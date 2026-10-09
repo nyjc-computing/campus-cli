@@ -67,7 +67,7 @@ def test_auth_help():
 
 
 def test_auth_status_not_authenticated():
-    """Test auth status when not logged in."""
+    """Test auth status when not logged in: friendly message, exit 1."""
     # Mock credentials to ensure no token is stored (isolated test)
     with patch("campus_cli.auth.common.credentials") as mock_creds:
         mock_creds.get_token.return_value = None
@@ -77,7 +77,7 @@ def test_auth_status_not_authenticated():
 
         result = runner.invoke(app, ["auth", "status"])
 
-        assert result.exit_code == 0
+        assert result.exit_code == 1
         assert "Not authenticated" in result.stdout
 
 
@@ -235,8 +235,8 @@ def test_auth_status_json_format():
 
         result = runner.invoke(app, ["auth", "status", "--json"])
 
-        assert result.exit_code == 0
-        assert '"authenticated":' in result.stdout
+        assert result.exit_code == 1
+        assert '"authenticated": false' in result.stdout
 
 
 def test_client_help():
@@ -425,12 +425,20 @@ def test_vault_help():
 def test_auth_status_authenticated():
     """Test auth status when authenticated."""
     # Mock credentials to simulate authenticated state
-    with patch("campus_cli.auth.common.credentials") as mock_creds:
+    with (
+        patch("campus_cli.auth.common.credentials") as mock_creds,
+        patch(
+            "campus_cli.auth.status.probe_token_validity",
+            return_value=("valid", None),
+        ),
+    ):
         mock_creds.get_token.return_value = "test_access_token"
         mock_creds.get_refresh_token.return_value = "test_refresh_token"
         mock_creds.get_token_expires_at.return_value = "2024-12-31T23:59:59+00:00"
         mock_creds.is_token_expired.return_value = False
         mock_creds.get_token_auth_url.return_value = None
+        mock_creds.get_token_scopes.return_value = None
+        mock_creds.get_token_user_id.return_value = None
 
         result = runner.invoke(app, ["auth", "status"])
 
@@ -734,7 +742,13 @@ def test_auth_refresh_json_output_survives_long_tokens():
 
 def test_auth_status_shows_endpoint_mismatch():
     """A stored token from a different endpoint is flagged in status."""
-    with patch("campus_cli.auth.common.credentials") as mock_creds:
+    with (
+        patch("campus_cli.auth.common.credentials") as mock_creds,
+        patch(
+            "campus_cli.auth.status.probe_token_validity",
+            return_value=("valid", None),
+        ) as mock_probe,
+    ):
         mock_creds.get_token.return_value = "test_access_token"
         mock_creds.get_refresh_token.return_value = None
         mock_creds.get_token_expires_at.return_value = None
@@ -742,17 +756,30 @@ def test_auth_status_shows_endpoint_mismatch():
         mock_creds.get_token_auth_url.return_value = (
             "https://auth-other.example.com/auth/v1"
         )
+        mock_creds.get_token_scopes.return_value = None
+        mock_creds.get_token_user_id.return_value = None
 
         result = runner.invoke(app, ["auth", "status"])
 
         assert result.exit_code == 0
         assert "Endpoint mismatch" in result.stdout
         assert "https://auth-other.example.com/auth/v1" in result.stdout
+        # The validity probe follows the token: it asks the endpoint
+        # that minted it, not the CLI's current target.
+        assert mock_probe.call_args.args[0] == (
+            "https://auth-other.example.com/auth/v1"
+        )
 
 
 def test_auth_status_json_includes_endpoint_binding():
     """auth status --json exposes both endpoints and the match verdict."""
-    with patch("campus_cli.auth.common.credentials") as mock_creds:
+    with (
+        patch("campus_cli.auth.common.credentials") as mock_creds,
+        patch(
+            "campus_cli.auth.status.probe_token_validity",
+            return_value=("valid", None),
+        ),
+    ):
         mock_creds.get_token.return_value = "test_access_token"
         mock_creds.get_refresh_token.return_value = None
         mock_creds.get_token_expires_at.return_value = None
@@ -760,6 +787,8 @@ def test_auth_status_json_includes_endpoint_binding():
         mock_creds.get_token_auth_url.return_value = (
             "https://auth-other.example.com/auth/v1"
         )
+        mock_creds.get_token_scopes.return_value = None
+        mock_creds.get_token_user_id.return_value = None
 
         result = runner.invoke(app, ["auth", "status", "--json"])
 

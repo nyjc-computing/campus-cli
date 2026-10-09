@@ -14,7 +14,6 @@ from campus_cli.auth.common import (
     confirm_destructive,
     endpoint_mismatch,
     ensure_endpoint_match,
-    get_token_status,
     refresh_access_token,
     resolve_auth_url,
     revoke_token,
@@ -419,12 +418,26 @@ def login_cmd(
                 credentials.set_refresh_token(refresh_token)
             credentials.set_token_auth_url(auth_url)
 
-            # Record the login server-side (#837): the device grant
-            # echoes the authorizing user, and the login-session record
-            # carries this install's stable device id so audit spans
-            # attribute to the device. Best-effort — an older auth
-            # deployment without the logins route must not fail login.
+            # Record the granted scopes and authorizing principal
+            # locally (#45), so `campus auth status` can report them
+            # without a network round-trip. Purely additive: the device
+            # grant response carries the space-joined `scope` and the
+            # `user_id`; credentials stored before this simply lack the
+            # keys and status reports them as unknown.
+            scopes = token_data.get("scope")
+            if isinstance(scopes, str) and scopes.strip():
+                credentials.set_token_scopes(scopes.split())
             user_id = token_data.get("user_id")
+            if user_id:
+                credentials.set_token_user_id(user_id)
+
+            # Record the login server-side (#837): the device grant
+            # echoes the authorizing user (already extracted above for
+            # the local principal record, #45), and the login-session
+            # record carries this install's stable device id so audit
+            # spans attribute to the device. Best-effort — an older
+            # auth deployment without the logins route must not fail
+            # login.
             if user_id:
                 login_session_id = create_login_session(auth_url, user_id)
                 if login_session_id:
@@ -599,74 +612,34 @@ def status_cmd(
         "--json",
         help="Output status as JSON",
     ),
+    offline: bool = typer.Option(
+        False,
+        "--offline",
+        help=(
+            "Skip the authenticated validity check (no network calls;"
+            " the check verifies the stored token against GET users/,"
+            " where FORBIDDEN means valid and UNAUTHORIZED invalid)."
+            " Exit codes: 0 when a stored token is present and valid —"
+            " or its check was skipped, unreachable, or inconclusive;"
+            " 1 when not logged in or the token was rejected by the"
+            " server."
+        ),
+    ),
 ) -> None:
     """
-    Check authentication status.
+    Show the stored credential's identity and scopes (#45).
 
-    Shows whether you are currently authenticated and token expiry information.
+    Prints the auth client id, the endpoint in use (and the endpoint
+    that minted the token), the authenticated principal, the scopes
+    the stored token carries, and token expiry — everything scripts
+    need to answer "what can this token do?" before acting. Unless
+    --offline is given, a lightweight authenticated check also reports
+    whether the token still authenticates (network errors are
+    non-fatal: they are reported without failing the command).
+
+    Exit code: 1 when not logged in, or when the stored token is
+    rejected by the server; 0 otherwise.
     """
-    status = get_token_status()
+    from campus_cli.auth.status import run_status
 
-    if output_json:
-        # Plain stdout write: Rich's word wrap can split long values
-        # mid-string and corrupt machine-readable JSON.
-        import json
-
-        typer.echo(json.dumps(status))
-    else:
-        if status["authenticated"]:
-            print_success("Authenticated")
-            console.print("You are logged in to Campus API.")
-            console.print(f"Auth endpoint: {status['auth_url']}")
-
-            if not status["endpoint_match"]:
-                console.print(
-                    "[red bold]Endpoint mismatch:[/red bold] the stored "
-                    "token was issued by a different auth endpoint. "
-                    "Run [bold]campus auth login[/bold] to re-authenticate."
-                )
-            if status["token_auth_url"]:
-                console.print(f"Token issued by: {status['token_auth_url']}")
-            else:
-                console.print(
-                    "[dim]Token issued by: unknown (stored before endpoint"
-                    " binding; binds at next login or refresh)[/dim]"
-                )
-
-            if status["expires_at"]:
-                from datetime import datetime, timezone
-
-                try:
-                    expiry_dt = datetime.fromisoformat(status["expires_at"])
-                    if expiry_dt.tzinfo is None:
-                        expiry_dt = expiry_dt.replace(tzinfo=timezone.utc)
-                    now = datetime.now(timezone.utc)
-
-                    if status["is_expired"]:
-                        console.print("[red bold]Token has expired.[/red bold]")
-                    else:
-                        remaining = expiry_dt - now
-                        minutes = int(remaining.total_seconds() // 60)
-                        seconds = int(remaining.total_seconds() % 60)
-                        console.print(
-                            f"Token expires in: [cyan]{minutes}m {seconds}s[/cyan]"
-                        )
-
-                    console.print(
-                        f"Expires at: {expiry_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}"
-                    )
-                except ValueError:
-                    console.print(f"Expires at: {status['expires_at']}")
-            else:
-                console.print("[dim](No expiry information available)[/dim]")
-
-            if status["can_refresh"]:
-                refresh_status = (
-                    "[green]enabled[/green]" if config.auto_refresh
-                    else "[yellow]disabled[/yellow]"
-                )
-                console.print(f"Auto-refresh: {refresh_status}")
-        else:
-            console.print("[yellow]Not authenticated[/yellow]")
-            console.print(f"Auth endpoint: {status['auth_url']}")
-            console.print("Run [bold]campus auth login[/bold] to authenticate.")
+    run_status(output_json=output_json, offline=offline)

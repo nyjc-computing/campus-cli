@@ -23,6 +23,17 @@ campus auth login
 # unknown scopes)
 campus auth login --scope clients:write
 
+# Show what the stored token can do: client, endpoint, principal,
+# scopes, expiry — plus a lightweight server-side validity check
+# (network errors are reported without failing; exit code 0)
+campus auth status
+
+# Same, as JSON for scripts and agents
+campus auth status --json
+
+# Skip the validity check entirely (no network calls)
+campus auth status --offline
+
 # Create an OAuth client
 campus client new --name "My App" --description "My application"
 
@@ -77,6 +88,18 @@ The semantics are exact-request, not Google-style accumulation:
   scopes consult `AUTH_ADMIN_USER_IDS`, users scopes consult
   `AUTH_USERS_ADMIN_USER_IDS` (a clients-admin is not a
   users-admin).
+
+**Check before you re-login:** `campus auth status` reports the
+scopes the stored token carries (along with the client, endpoints,
+principal and expiry), so scripts and agents can answer "what can
+this token do?" before hitting a 403. Use `--json` for
+machine-readable output; `--offline` skips the validity check when
+no network is wanted. Scopes are recorded locally at login —
+credentials stored before this was recorded show them as unknown
+until the next login. `campus auth status` exits 1 when you are not
+logged in or the server rejects the stored token, and 0 otherwise
+(including when the server is unreachable, which is reported as a
+warning).
 
 For scripts and agents: request the full scope set you will need
 up front, and treat a 403 `Token lacks '<scope>'` as the cue to
