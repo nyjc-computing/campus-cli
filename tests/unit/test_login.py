@@ -109,6 +109,60 @@ def test_request_device_code_omits_scope_when_absent():
     assert "scope" not in kwargs["data"]
 
 
+def test_request_device_code_invalid_scope_appends_allowlist_hint():
+    """invalid_scope failures name the operator remedy (#36)."""
+    error = _http_error({
+        "error": {
+            "code": "AUTH_INVALID_SCOPE",
+            "message": (
+                "Requested scopes not allowed for this client:"
+                " clients:write"
+            ),
+            "details": {"oauth_error": "invalid_scope"},
+        }
+    })
+    with (
+        mock.patch("campus_cli.auth.login.requests.post", side_effect=error),
+        pytest.raises(
+            DeviceAuthError,
+            match="outside this CLI client's registered allowlist"
+            ".*campus client update --client-id",
+        ),
+    ):
+        request_device_code(scopes=["clients:write"])
+
+
+def test_request_device_code_plain_invalid_scope_appends_allowlist_hint():
+    """Plain OAuth 2.0 invalid_scope bodies get the same hint."""
+    error = _http_error({"error": "invalid_scope"})
+    with (
+        mock.patch("campus_cli.auth.login.requests.post", side_effect=error),
+        pytest.raises(
+            DeviceAuthError, match="allowlist.*--allowed-scope"
+        ),
+    ):
+        request_device_code(scopes=["clients:write"])
+
+
+def test_request_device_code_generic_error_has_no_allowlist_hint():
+    """Only invalid_scope failures carry the operator remedy."""
+    error = _http_error({
+        "error": {
+            "code": "AUTH_INVALID_REQUEST",
+            "message": "Client 'guest' not found",
+            "details": {"oauth_error": "invalid_client"},
+        }
+    })
+    with (
+        mock.patch("campus_cli.auth.login.requests.post", side_effect=error),
+        pytest.raises(DeviceAuthError, match="Client 'guest' not found")
+        as exc_info,
+    ):
+        request_device_code()
+
+    assert "allowlist" not in str(exc_info.value)
+
+
 def test_revoke_token_sends_rfc7009_payload_and_reports_success():
     """A clean library call confirms revocation with the RFC 7009 args."""
     with mock.patch.multiple(

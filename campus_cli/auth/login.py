@@ -132,6 +132,26 @@ def _response_error_detail(e: requests.RequestException) -> str:
     return error_obj or str(e)
 
 
+def _response_oauth_error(e: requests.RequestException) -> str | None:
+    """Extract the RFC 6749 error code from a failed HTTP response.
+
+    Campus OAuth errors surface as structured bodies carrying
+    details.oauth_error ("invalid_scope", "invalid_client", ...);
+    plain OAuth 2.0 bodies carry the code as the top-level "error"
+    string. Returns None when neither shape is present.
+    """
+    response = getattr(e, "response", None)
+    if response is None:
+        return None
+    try:
+        error_obj = response.json().get("error", None)
+    except ValueError:
+        return None
+    if isinstance(error_obj, dict):
+        return error_obj.get("details", {}).get("oauth_error")
+    return error_obj if isinstance(error_obj, str) else None
+
+
 def request_device_code(scopes: list[str] | None = None) -> dict:
     """
     Request a device code from the authorization server.
@@ -163,9 +183,17 @@ def request_device_code(scopes: list[str] | None = None) -> dict:
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
-        raise DeviceAuthError(
-            f"Failed to request device code: {_response_error_detail(e)}"
-        ) from e
+        message = f"Failed to request device code: {_response_error_detail(e)}"
+        # The server message names the offending scopes but not the
+        # remedy: the allowlist is operator-controlled, so point there.
+        if _response_oauth_error(e) == "invalid_scope":
+            message += (
+                " The requested scopes are outside this CLI client's"
+                " registered allowlist — ask the operator to widen it"
+                " (campus client update --client-id <id>"
+                " --allowed-scope <scope>)."
+            )
+        raise DeviceAuthError(message) from e
 
 
 def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> dict:
