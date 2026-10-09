@@ -40,12 +40,14 @@ def version() -> None:
 from campus_cli.auth import (  # noqa: E402
     client_app,
     login_app,
+    user_app,
     vault_app,
 )
 
 # Register sub-apps
 app.add_typer(login_app, name="auth", help="Authentication commands")
 app.add_typer(client_app, name="client", help="OAuth client management commands")
+app.add_typer(user_app, name="user", help="User management commands")
 app.add_typer(vault_app, name="vault", help="Vault management commands")
 
 

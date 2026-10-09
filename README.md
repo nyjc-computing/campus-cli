@@ -29,6 +29,11 @@ campus client new --name "My App" --description "My application"
 # Generate the client's secret (only time it is shown)
 campus client revoke --client-id <id>
 
+# Manage users (requires users:* scopes and users-admin designation)
+campus user list
+campus user new --email "new.member@school.edu" --name "New Member"
+campus user activate --user-id "new.member@school.edu"
+
 # List vault entries
 campus vault list --vault myvault
 
@@ -58,15 +63,20 @@ The semantics are exact-request, not Google-style accumulation:
   campus invariant A2 (no silent widening). `campus auth refresh`
   reissues exactly the granted scopes and never widens them.
 - **Management scopes are monotonic**: `clients:admin` ⊇
-  `clients:write` ⊇ `clients:read`, so request only the highest
-  tier you need.
+  `clients:write` ⊇ `clients:read`, and `users:admin` ⊇
+  `users:write` ⊇ `users:mod` ⊇ `users:read`, so request only the
+  highest tier you need. The users tiers map to commands: read
+  lists/gets, mod activates, write creates/renames, admin deletes.
 - **The client allowlist is fail-closed.** A scope outside the
   CLI client's registered `allowed_scopes` fails the login
   outright with `invalid_scope`; an operator must widen the
   allowlist first (`campus client update --client-id <id>
   --allowed-scope <scope>`). Carrying a management scope is still
   not enough on its own — the authorizing account must also be a
-  designated admin user server-side (campus invariant A8).
+  designated admin user server-side (campus invariant A8): clients
+  scopes consult `AUTH_ADMIN_USER_IDS`, users scopes consult
+  `AUTH_USERS_ADMIN_USER_IDS` (a clients-admin is not a
+  users-admin).
 
 For scripts and agents: request the full scope set you will need
 up front, and treat a 403 `Token lacks '<scope>'` as the cue to
@@ -82,7 +92,7 @@ scopes never self-confer).
 
 ### Dry-run mode
 
-All `client` and `vault` commands accept `--dry-run`. Instead of
+All `client`, `user` and `vault` commands accept `--dry-run`. Instead of
 authenticating and calling the API, the command prints the equivalent
 Python snippet using the
 [campus-api-python](https://pypi.org/project/campus-api-python/)
@@ -104,7 +114,7 @@ print(client.id)
 ### Non-interactive use (scripts, CI, agents)
 
 Destructive commands — `auth logout`, `client delete`, `client revoke`,
-`vault delete` — confirm before acting. When no terminal is attached
+`user delete`, `vault delete` — confirm before acting. When no terminal is attached
 the CLI never blocks waiting for input: it refuses immediately with an
 error naming the remedy. Waive the confirmation per command with
 `--confirm`/`-y`, or for a whole session with the `CAMPUS_ASSUME_YES`
