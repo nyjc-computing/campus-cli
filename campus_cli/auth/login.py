@@ -132,9 +132,16 @@ def _response_error_detail(e: requests.RequestException) -> str:
     return error_obj or str(e)
 
 
-def request_device_code() -> dict:
+def request_device_code(scopes: list[str] | None = None) -> dict:
     """
     Request a device code from the authorization server.
+
+    Args:
+        scopes: Optional scope request (#865). Passed through to the
+            device_authorize endpoint as the RFC 6749 space-delimited
+            `scope` parameter; the server validates it against the
+            client's registered allowlist and rejects unknown scopes.
+            Absent means the server's default CLI scope set.
 
     Returns:
         Dict containing device_code, user_code, verification_uri, expires_in, interval.
@@ -143,11 +150,14 @@ def request_device_code() -> dict:
         DeviceAuthError: If the request fails.
     """
     urls = get_auth_urls()
+    data = {"client_id": CLI_CLIENT_ID}
+    if scopes:
+        data["scope"] = " ".join(scopes)
 
     try:
         response = requests.post(
             urls["device_code_url"],
-            data={"client_id": CLI_CLIENT_ID},
+            data=data,
             timeout=30,
         )
         response.raise_for_status()
@@ -248,6 +258,17 @@ def login_cmd(
         "-t",
         help="Output the access token to stdout",
     ),
+    scope: list[str] = typer.Option(  # noqa: B008
+        [],
+        "--scope",
+        "-s",
+        help=(
+            "Request a management scope for the token (#865); repeat for"
+            " multiple (e.g. --scope clients:write). The server rejects"
+            " scopes outside this client's registered allowlist — an"
+            " operator must widen it first."
+        ),
+    ),
 ) -> None:
     """
     Authenticate with Campus API using Device Authorization Flow.
@@ -287,7 +308,7 @@ def login_cmd(
     try:
         # Step 1: Request device code
         console.print("[bold]Requesting device code...[/bold]")
-        device_auth_data = request_device_code()
+        device_auth_data = request_device_code(scopes=list(scope))
 
         user_code = device_auth_data["user_code"]
         verification_uri = device_auth_data["verification_uri"]
