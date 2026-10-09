@@ -21,6 +21,7 @@ from campus_cli.auth.common import (
 )
 from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
 from campus_cli.credentials import CredentialError, credentials
+from campus_cli.utils.clipboard import copy_to_clipboard
 from campus_cli.utils.output import print_error, print_success
 
 login_app = typer.Typer(help="Authentication commands")
@@ -355,6 +356,18 @@ def login_cmd(
             f"[bold]Enter the following code:[/bold] "
             f"[bold yellow]{user_code}[/bold yellow]\n"
         )
+
+        # Best-effort convenience (#43): a transcription typo costs a
+        # full browser round-trip, so try the clipboard; failure prints
+        # nothing extra and never blocks login.
+        copy_status = copy_to_clipboard(user_code)
+        if copy_status == "native":
+            console.print("[dim]Code copied to clipboard.[/dim]")
+        elif copy_status == "osc52":
+            console.print(
+                "[dim]Sent the code to your terminal's clipboard (OSC 52);"
+                " if it doesn't paste, copy it manually.[/dim]"
+            )
 
         # Open browser automatically
         console.print("Opening browser to verification page...")
