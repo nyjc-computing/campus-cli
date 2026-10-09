@@ -81,6 +81,34 @@ def test_request_device_code_network_error():
         request_device_code()
 
 
+def test_request_device_code_passes_scope_through():
+    """Requested scopes ride along as the RFC 6749 scope parameter (#865)."""
+    with mock.patch(
+        "campus_cli.auth.login.requests.post"
+    ) as mock_post, mock.patch(
+        "campus_cli.auth.login.requests.Response.raise_for_status"
+    ):
+        mock_post.return_value.json.return_value = {"device_code": "dc"}
+        request_device_code(scopes=["clients:read", "clients:write"])
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["data"]["scope"] == "clients:read clients:write"
+
+
+def test_request_device_code_omits_scope_when_absent():
+    """No --scope means no scope parameter: the server default applies."""
+    with mock.patch(
+        "campus_cli.auth.login.requests.post"
+    ) as mock_post, mock.patch(
+        "campus_cli.auth.login.requests.Response.raise_for_status"
+    ):
+        mock_post.return_value.json.return_value = {"device_code": "dc"}
+        request_device_code()
+
+    _, kwargs = mock_post.call_args
+    assert "scope" not in kwargs["data"]
+
+
 def test_revoke_token_sends_rfc7009_payload_and_reports_success():
     """A clean library call confirms revocation with the RFC 7009 args."""
     with mock.patch.multiple(

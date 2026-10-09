@@ -18,6 +18,11 @@ This installs the `campus` command system-wide.
 # Authenticate with Campus API
 campus auth login
 
+# Authenticate requesting a management scope (#865; requires the
+# client's registered allowlist to include it — the server rejects
+# unknown scopes)
+campus auth login --scope clients:write
+
 # Create an OAuth client
 campus client new --name "My App" --description "My application"
 
