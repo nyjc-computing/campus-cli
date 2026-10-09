@@ -172,6 +172,59 @@ class CredentialStorage:
         with contextlib.suppress(CredentialError):
             # May not exist (tokens stored before endpoint binding)
             self.delete_password("token_auth_url")
+        with contextlib.suppress(CredentialError):
+            # May not exist (tokens stored before scope recording, #45)
+            self.delete_password("token_scopes")
+        with contextlib.suppress(CredentialError):
+            # May not exist (tokens stored before principal recording, #45)
+            self.delete_password("token_user_id")
+
+    def get_token_scopes(self) -> list[str] | None:
+        """
+        Get the scopes the stored access token was minted with (#45).
+
+        Tokens carry exactly the scopes requested at login (no
+        accumulation), so this is authoritative until the next login
+        replaces the token.
+
+        Returns:
+            The scope list, or None for credentials stored before
+            scope recording was introduced (unknown, not empty).
+        """
+        raw = self.get_password("token_scopes")
+        if raw is None:
+            return None
+        # Scopes are stored space-joined (RFC 6749 scope syntax: no
+        # spaces within a scope token), so split() round-trips.
+        return raw.split()
+
+    def set_token_scopes(self, scopes: list[str]) -> None:
+        """
+        Store the scopes the access token was minted with (#45).
+
+        Args:
+            scopes: The granted scope list.
+        """
+        self.set_password("token_scopes", " ".join(scopes))
+
+    def get_token_user_id(self) -> str | None:
+        """
+        Get the principal (user id) the stored token was minted for (#45).
+
+        Returns:
+            The user id, or None for credentials stored before
+            principal recording was introduced.
+        """
+        return self.get_password("token_user_id")
+
+    def set_token_user_id(self, user_id: str) -> None:
+        """
+        Store the principal (user id) the token was minted for (#45).
+
+        Args:
+            user_id: The authorizing user echoed by the device grant.
+        """
+        self.set_password("token_user_id", user_id)
 
     def get_refresh_token(self) -> str | None:
         """

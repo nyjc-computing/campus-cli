@@ -269,3 +269,68 @@ def test_poll_for_token_clamps_zero_interval():
         poll_for_token("device_code", interval=0, max_attempts=3)
 
     assert [c.args[0] for c in mock_sleep.call_args_list] == [1, 1, 1]
+
+
+def _run_login_with_token_data(token_data):
+    """Drive login_cmd through a mocked device flow with token_data.
+
+    Returns the mocked credential store so tests can assert what was
+    persisted.
+    """
+    from typer.testing import CliRunner
+
+    from campus_cli.cli import app
+
+    device_data = {
+        "device_code": "dc",
+        "user_code": "ABCD-EFGH",
+        "verification_uri": "https://auth.example.com/activate",
+        "interval": 1,
+        "expires_in": 300,
+    }
+    creds = mock.Mock()
+    creds.get_token.return_value = None  # no short-circuit
+    with (
+        mock.patch("campus_cli.auth.login.credentials", creds),
+        mock.patch(
+            "campus_cli.auth.login.request_device_code", return_value=device_data
+        ),
+        mock.patch(
+            "campus_cli.auth.login.poll_for_token", return_value=token_data
+        ),
+        mock.patch("campus_cli.auth.login.webbrowser.open"),
+        mock.patch("campus_cli.auth.login.copy_to_clipboard"),
+        mock.patch(
+            "campus_cli.auth.login.create_login_session", return_value=None
+        ),
+    ):
+        result = CliRunner().invoke(app, ["auth", "login"])
+    assert result.exit_code == 0, result.output
+    return creds
+
+
+def test_login_records_scopes_and_principal():
+    """The granted scopes and authorizing user are stored (#45)."""
+    creds = _run_login_with_token_data({
+        "access_token": "tok-123",
+        "refresh_token": "refresh-123",
+        "expires_in": 3600,
+        "scope": "read clients:write",
+        "user_id": "user-alice@example.com",
+    })
+
+    creds.set_token_scopes.assert_called_once_with(["read", "clients:write"])
+    creds.set_token_user_id.assert_called_once_with("user-alice@example.com")
+    creds.set_token_auth_url.assert_called_once()
+
+
+def test_login_without_scope_response_records_neither():
+    """Older servers that omit scope/user_id store neither (#45)."""
+    creds = _run_login_with_token_data({
+        "access_token": "tok-123",
+        "refresh_token": "refresh-123",
+        "expires_in": 3600,
+    })
+
+    creds.set_token_scopes.assert_not_called()
+    creds.set_token_user_id.assert_not_called()
