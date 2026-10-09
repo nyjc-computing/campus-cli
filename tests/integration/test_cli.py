@@ -501,6 +501,64 @@ def test_auth_login_already_authenticated_matching_endpoint():
     assert "Authenticated against" in result.stdout
 
 
+def test_auth_login_scope_bypasses_already_authenticated():
+    """issue #38: --scope mints a new token instead of no-op short-circuit.
+
+    A valid stored token for the same endpoint must not swallow an
+    explicit --scope request: re-login with wider scopes is the
+    documented upgrade path, so the device flow must run with them.
+    """
+    creds, patches = _bound_mocks(
+        stored_auth_url="https://auth-target.example.com/auth/v1",
+        target_auth_url="https://auth-target.example.com/auth/v1",
+    )
+
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patch(
+            "campus_cli.auth.login.request_device_code",
+            side_effect=DeviceAuthError("stop here"),
+        ) as mock_device,
+    ):
+        result = runner.invoke(
+            app,
+            ["auth", "login", "--scope", "clients:write"],
+        )
+
+    assert result.exit_code == 1
+    assert "Already authenticated" not in result.stdout
+    assert "Re-authenticating to request scopes: clients:write" in result.stdout
+    assert "Requesting device code" in result.stdout
+    mock_device.assert_called_once_with(scopes=["clients:write"])
+
+
+def test_auth_login_scopeless_keeps_short_circuit():
+    """issue #38: scope-less login with a valid token stays a no-op."""
+    creds, patches = _bound_mocks(
+        stored_auth_url="https://auth-target.example.com/auth/v1",
+        target_auth_url="https://auth-target.example.com/auth/v1",
+    )
+
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patch(
+            "campus_cli.auth.login.request_device_code",
+            side_effect=DeviceAuthError("must not run"),
+        ) as mock_device,
+    ):
+        result = runner.invoke(app, ["auth", "login"])
+
+    assert result.exit_code == 0
+    assert "Already authenticated" in result.stdout
+    mock_device.assert_not_called()
+
+
 def test_auth_login_binds_tokens_to_target_auth_url():
     """A successful login stamps the issuing endpoint onto the credentials."""
     target = "https://auth-target.example.com/auth/v1"

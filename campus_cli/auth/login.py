@@ -317,20 +317,30 @@ def login_cmd(
     # Check if already logged in. An endpoint mismatch does not
     # short-circuit: login is the remediation for stale credentials,
     # so re-authentication proceeds against the current target.
+    # An explicit --scope request bypasses the short-circuit too (#38):
+    # it asks for a token minted with those scopes, so a valid stored
+    # token must not swallow it as a no-op (the documented upgrade path
+    # is re-login with the wider scope).
     existing_token = credentials.get_token()
     if existing_token and not credentials.is_token_expired():
         mismatch = endpoint_mismatch()
-        if mismatch is None:
+        if mismatch is None and not scope:
             console.print("[yellow]Already authenticated.[/yellow]")
             console.print(f"[dim]Authenticated against: {auth_url}[/dim]")
             if output_token:
                 console.print(existing_token)
             return
-        stored, _ = mismatch
-        console.print(
-            f"[yellow]Stored credentials were issued by {stored}, but the "
-            f"CLI is targeting {auth_url}. Re-authenticating.[/yellow]"
-        )
+        if mismatch is not None:
+            stored, _ = mismatch
+            console.print(
+                f"[yellow]Stored credentials were issued by {stored}, but the "
+                f"CLI is targeting {auth_url}. Re-authenticating.[/yellow]"
+            )
+        else:
+            console.print(
+                "[dim]Re-authenticating to request scopes: "
+                f"{' '.join(scope)}[/dim]"
+            )
 
     console.print(f"[dim]Authenticating against: {auth_url}[/dim]")
 
