@@ -543,6 +543,85 @@ def test_auth_login_binds_tokens_to_target_auth_url():
     creds.set_token_auth_url.assert_called_once_with(target)
 
 
+def _login_device_data(**extra):
+    """Build a device-code response for login tests, with optional extras."""
+    device_data = {
+        "user_code": "ABC-123",
+        "verification_uri": "https://verify.example.com",
+        "device_code": "device_code",
+        "interval": 5,
+        "expires_in": 300,
+    }
+    device_data.update(extra)
+    return device_data
+
+
+def _run_login_with_device_data(device_data):
+    """Run `auth login` with request_device_code and polling mocked out."""
+    creds, patches = _bound_mocks(
+        stored_auth_url=None,
+        target_auth_url="https://auth-target.example.com/auth/v1",
+    )
+    creds.get_token.return_value = None
+    token_data = {
+        "access_token": "new_access_token",
+        "refresh_token": "new_refresh_token",
+        "expires_in": 3600,
+    }
+
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patch(
+            "campus_cli.auth.login.request_device_code",
+            return_value=device_data,
+        ),
+        patch(
+            "campus_cli.auth.login.poll_for_token",
+            return_value=token_data,
+        ),
+        patch("campus_cli.auth.login.webbrowser") as mock_webbrowser,
+    ):
+        result = runner.invoke(app, ["auth", "login"])
+
+    return result, mock_webbrowser
+
+
+def test_auth_login_opens_verification_uri_complete():
+    """The complete URL is opened and printed when the server provides it.
+
+    The consent page discloses requested scopes only on the pre-filled
+    variant (#39); the bare URI and user code stay visible as fallback.
+    """
+    device_data = _login_device_data(
+        verification_uri_complete="https://verify.example.com/device?user_code=ABC-123"
+    )
+    result, mock_webbrowser = _run_login_with_device_data(device_data)
+
+    assert result.exit_code == 0
+    mock_webbrowser.open.assert_called_once_with(
+        "https://verify.example.com/device?user_code=ABC-123"
+    )
+    assert "https://verify.example.com/device?user_code=ABC-123" in result.stdout
+    # Manual fallback stays: the bare URI is printed in addition to the
+    # complete URL (which contains it as a prefix), plus the user code.
+    assert result.stdout.count("https://verify.example.com") >= 2
+    assert "ABC-123" in result.stdout
+
+
+def test_auth_login_falls_back_to_bare_verification_uri():
+    """Absent verification_uri_complete keeps the bare-URI flow."""
+    device_data = _login_device_data()
+    result, mock_webbrowser = _run_login_with_device_data(device_data)
+
+    assert result.exit_code == 0
+    mock_webbrowser.open.assert_called_once_with("https://verify.example.com")
+    assert "https://verify.example.com" in result.stdout
+    assert "ABC-123" in result.stdout
+
+
 def test_auth_refresh_endpoint_mismatch_fails_fast():
     """refresh refuses to send a foreign refresh token to this endpoint."""
     _, patches = _bound_mocks(
