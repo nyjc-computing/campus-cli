@@ -39,6 +39,7 @@ import typer
 
 from campus_cli.auth import common
 from campus_cli.auth.common import get_token_status
+from campus_cli.auth.grants import _format_access
 from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID
 from campus_cli.utils.output import console, print_success, print_warning
 
@@ -94,6 +95,48 @@ def probe_token_validity(auth_url: str, token: str) -> tuple[str, str | None]:
     return VALIDITY_UNKNOWN, f"server returned HTTP {response.status_code}"
 
 
+# Note shown when the caller cannot read grant rows: the list
+# endpoint is gated to the operator, the root, and grants admins.
+GRANTS_UNREADABLE_NOTE = (
+    "grant rows are visible to the operator, the root, and grants "
+    "admins only (campus grant list with authority)"
+)
+
+
+def fetch_grant_rows(
+        auth_url: str, token: str, user_id: str | None,
+) -> tuple[list | None, str | None]:
+    """Fetch the caller's grant rows for the status report (#50).
+
+    GET /grants/ filtered by grantee where the principal is known
+    (the root may read unfiltered). The list endpoint is gated to
+    the operator, the root, and same-vocabulary admins, so an
+    ordinary user's 403 reads as "rows exist but are not visible
+    here" — never as "no rows".
+
+    Returns:
+        (rows, note): rows is the grant-row list when readable, else
+        None with a note explaining why.
+    """
+    query = {"grantee_type": "user"}
+    if user_id:
+        query["grantee_id"] = user_id
+    try:
+        response = requests.get(
+            f"{auth_url}/grants/",
+            headers={"Authorization": f"Bearer {token}"},
+            params=query,
+            timeout=_PROBE_TIMEOUT,
+        )
+    except requests.RequestException as e:
+        return None, f"could not reach server ({e})"
+    if response.status_code == 200:
+        return response.json().get("grants", []), None
+    if response.status_code in (401, 403):
+        return None, GRANTS_UNREADABLE_NOTE
+    return None, f"inconclusive (HTTP {response.status_code})"
+
+
 def _expires_in_seconds(expires_at: str | None) -> int | None:
     """Seconds until the stored expiry, negative once past.
 
@@ -146,7 +189,10 @@ def build_status(offline: bool) -> dict:
     }
 
     if not authenticated:
-        status.update(token_validity=None, probe_url=None, probe_note=None)
+        status.update(
+            token_validity=None, probe_url=None, probe_note=None,
+            grants=None, grants_note=None,
+        )
         return status
 
     if offline:
@@ -154,6 +200,8 @@ def build_status(offline: bool) -> dict:
             token_validity=VALIDITY_NOT_CHECKED,
             probe_url=None,
             probe_note=None,
+            grants=None,
+            grants_note="not fetched (--offline)",
         )
         return status
 
@@ -164,6 +212,8 @@ def build_status(offline: bool) -> dict:
     probe_url = token["token_auth_url"] or token["auth_url"]
     validity, note = probe_token_validity(probe_url, creds.get_token())
     status.update(token_validity=validity, probe_url=probe_url, probe_note=note)
+    rows, grants_note = fetch_grant_rows(probe_url, creds.get_token(), user_id)
+    status.update(grants=rows, grants_note=grants_note)
     return status
 
 
@@ -280,6 +330,22 @@ def _print_human(status: dict) -> None:
         )
 
     _print_validity_line(status)
+    _print_grants_line(status)
+
+
+def _print_grants_line(status: dict) -> None:
+    """Render the caller's grant rows, or why they are not shown."""
+    rows = status.get("grants")
+    if rows is None:
+        note = status.get("grants_note")
+        if note:
+            console.print(f"[dim]Grant rows: {note}[/dim]")
+        return
+    if not rows:
+        console.print("Grant rows: (none)")
+        return
+    rendered = ", ".join(_format_access(row) for row in rows)
+    console.print(f"Grant rows: {rendered}")
 
 
 def run_status(output_json: bool, offline: bool) -> None:

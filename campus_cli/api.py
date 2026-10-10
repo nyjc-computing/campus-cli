@@ -63,6 +63,11 @@ class CampusClient:
         return self.campus.auth.users
 
     @property
+    def auth_grants(self):
+        """Access the auth access-grant store resource."""
+        return self.campus.auth.grants
+
+    @property
     def api_timetables(self):
         """Access the API timetable resource."""
         return self.campus.api.timetable
