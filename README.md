@@ -40,10 +40,15 @@ campus client new --name "My App" --description "My application"
 # Generate the client's secret (only time it is shown)
 campus client revoke --client-id <id>
 
-# Manage users (requires users:* scopes and users-admin designation)
+# Manage users (needs a users:* grant row AND the matching scope)
 campus user list
 campus user new --email "new.member@school.edu" --name "New Member"
 campus user activate --user-id "new.member@school.edu"
+
+# See — and administer — who can do what (#883 grant store)
+campus grant list
+campus grant grant --grantee-type user --grantee-id someone@school.edu \
+    --resource-type users --level write
 
 # List vault entries
 campus vault list --vault myvault
@@ -78,23 +83,33 @@ The semantics are exact-request, not Google-style accumulation:
   `users:write` ⊇ `users:mod` ⊇ `users:read`, so request only the
   highest tier you need. The users tiers map to commands: read
   lists/gets, mod activates, write creates/renames, admin deletes.
+- **Management authority = grant row AND scope.** Carrying a
+  management scope is only half the story: the authorizing account
+  must also hold a matching row in the access-grant store —
+  `campus grant list` shows the matrix, `campus grant grant/revoke`
+  administers it (operator or a same-vocabulary admin only; no
+  principal administers its own grants, and vocabulary-level
+  `clients:admin` rows are rejected). Clients grant rows cap at
+  write: registering or deleting clients stays operator/root-only
+  (campus invariant A8, nyjc-computing/campus#883).
+- **The super-admin root is the one exception** (A8 carve-out): the
+  env-nominated `AUTH_SUPER_ADMIN` account holds full authority with
+  no grant rows and no scope requirement. Safeguard it; use it to
+  seed grants, then work day-to-day on a sub-admin account.
 - **The client allowlist is fail-closed.** A scope outside the
   CLI client's registered `allowed_scopes` fails the login
   outright with `invalid_scope`; an operator must widen the
   allowlist first (`campus client update --client-id <id>
-  --allowed-scope <scope>`). Carrying a management scope is still
-  not enough on its own — the authorizing account must also be a
-  designated admin user server-side (campus invariant A8): clients
-  scopes consult `AUTH_ADMIN_USER_IDS`, users scopes consult
-  `AUTH_USERS_ADMIN_USER_IDS` (a clients-admin is not a
-  users-admin).
+  --allowed-scope <scope>`).
 
 **Check before you re-login:** `campus auth status` reports the
 scopes the stored token carries (along with the client, endpoints,
 principal and expiry), so scripts and agents can answer "what can
 this token do?" before hitting a 403. Use `--json` for
 machine-readable output; `--offline` skips the validity check when
-no network is wanted. Scopes are recorded locally at login —
+no network is wanted. It also shows your grant rows when your
+account may read them (operator, root, or grants admin). Scopes are
+recorded locally at login —
 credentials stored before this was recorded show them as unknown
 until the next login. `campus auth status` exits 1 when you are not
 logged in or the server rejects the stored token, and 0 otherwise

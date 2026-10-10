@@ -1,9 +1,10 @@
 """User management commands (#42).
 
-Every command requires the matching users:* management scope on the
-token (login with `campus auth login --scope users:...`) AND the
-account to be listed in the deployment's AUTH_USERS_ADMIN_USER_IDS
-(campus invariant A8, per-vocabulary designation):
+Authority model (campus#883 grant store): each command needs a
+matching grant row AND the matching users:* scope on the token —
+either leg alone confers nothing (campus invariant A8). The
+env-nominated super-admin root needs neither. Inspect and administer
+rows with `campus grant`:
 
 - list/get: users:read
 - activate: users:mod (implies read)
@@ -79,8 +80,9 @@ def user_list(
     """
     List all Campus users.
 
-    Requires the users:read scope (login with
-    `campus auth login --scope users:read`).
+    Requires users:read authority: a users:read grant row AND the
+    users:read scope on your token (see `campus grant list`; the
+    super-admin root needs neither).
     """
     if dry_run:
         print_python_api(
@@ -136,9 +138,10 @@ def user_new(
     """
     Create a new Campus user.
 
-    Requires the users:write scope (login with
-    `campus auth login --scope users:write`). The user starts
-    inactive; activate them with 'campus user activate'.
+    Requires users:write authority: a users:write grant row AND
+    the users:write scope on your token (see `campus grant list`;
+    the super-admin root needs neither). The user starts inactive;
+    activate them with 'campus user activate'.
     """
     if dry_run:
         print_python_api(
@@ -185,8 +188,9 @@ def user_get(
     """
     Get details of a Campus user.
 
-    Requires the users:read scope (login with
-    `campus auth login --scope users:read`).
+    Requires users:read authority: a users:read grant row AND the
+    users:read scope on your token (see `campus grant list`; the
+    super-admin root needs neither).
     """
     if dry_run:
         print_python_api(
@@ -225,8 +229,9 @@ def user_activate(
     """
     Activate a Campus user.
 
-    Requires the users:mod scope or higher (login with
-    `campus auth login --scope users:mod`).
+    Requires users:mod authority or higher: a users:mod grant row
+    AND the matching scope on your token (see `campus grant list`;
+    the super-admin root needs neither).
     """
     if dry_run:
         print_python_api(
@@ -267,10 +272,10 @@ def user_edit(
     """
     Rename a Campus user.
 
-    Requires the users:write scope (login with
-    `campus auth login --scope users:write`). Name is the only
-    editable field: a user's ID IS its email, so identity fields
-    stay fixed.
+    Requires users:write authority: a users:write grant row AND
+    the users:write scope on your token (see `campus grant list`;
+    the super-admin root needs neither). Name is the only editable
+    field: a user's ID IS its email, so identity fields stay fixed.
     """
     if dry_run:
         print_python_api(
@@ -312,8 +317,10 @@ def user_delete(
     """
     Delete a Campus user.
 
-    Permanently deletes the user record. Requires the users:admin
-    scope (login with `campus auth login --scope users:admin`).
+    Permanently deletes the user record. Requires users:admin
+    authority: a users:admin grant row AND the users:admin scope on
+    your token (see `campus grant list`; the super-admin root needs
+    neither).
     """
     if dry_run:
         print_python_api(

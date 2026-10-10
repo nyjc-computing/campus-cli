@@ -195,6 +195,9 @@ def client_new(
     By default the client is confidential: the client secret is NOT
     returned; use 'campus client revoke' to generate and retrieve it.
     Public clients (--public) have no client secret at all.
+
+    Authority: operator or super-admin root — client registration is
+    not grantable through the access-grant store (campus#883).
     """
     if dry_run:
         new_kwargs = [
@@ -361,6 +364,11 @@ def client_update(
     stored value: the API layer full-replaces each provided field, so
     re-pass every entry the client must keep. Fields you omit are left
     untouched.
+
+    Authority: your own client's profile fields are self-service;
+    other clients need clients:write authority (grant row plus scope);
+    the scope caps and token-bridge flag stay operator/root-only
+    (campus#883 — clients grant rows cap at write).
     """
     if clear_allowed_scopes and allowed_scope:
         print_error(
@@ -455,6 +463,8 @@ def client_delete(
     Delete an OAuth client.
 
     Permanently deletes the specified OAuth client.
+
+    Authority: operator or super-admin root (campus#883).
     """
     if dry_run:
         print_python_api(
@@ -490,6 +500,9 @@ def client_revoke(
     Revokes the current client secret and generates a new one.
     The new secret will be displayed (this is the only way to retrieve it).
     Use this when first creating a client or when you need to rotate the secret.
+
+    Authority: the client itself (own secret), or the operator /
+    super-admin root (campus#883).
     """
     if dry_run:
         print_python_api(

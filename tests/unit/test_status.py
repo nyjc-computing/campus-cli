@@ -8,6 +8,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from unittest import mock
 
+import pytest
 import requests
 from typer.testing import CliRunner
 
@@ -23,6 +24,18 @@ from campus_cli.auth.status import (
 from campus_cli.cli import app
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _no_grant_fetch(monkeypatch):
+    """Default-stub the grants readout (#50); row tests re-patch it.
+
+    Without this, every non-offline build_status test would make a
+    real HTTP call to fetch grant rows.
+    """
+    monkeypatch.setattr(
+        "campus_cli.auth.status.fetch_grant_rows", lambda *_args, **_kwargs: ([], None)
+    )
 
 
 def _mock_credentials(**overrides):
@@ -339,6 +352,60 @@ class TestStatusCliOutput:
         assert result.exit_code == 1
         payload = json.loads(result.stdout)
         assert payload["token_validity"] == "invalid"
+
+    def test_grant_rows_render_in_human_output(self):
+        """Readable grant rows render as access summaries (#50)."""
+        rows = [
+            {"resource_type": "users", "level": "write", "resource_id": ""},
+            {"resource_type": "clients", "level": "write", "resource_id": ""},
+        ]
+        creds = _mock_credentials()
+        with (
+            mock.patch("campus_cli.auth.common.credentials", creds),
+            mock.patch(
+                "campus_cli.auth.status.probe_token_validity",
+                return_value=(VALIDITY_VALID, None),
+            ),
+            mock.patch(
+                "campus_cli.auth.status.fetch_grant_rows",
+                return_value=(rows, None),
+            ),
+        ):
+            result = runner.invoke(app, ["auth", "status"])
+
+        assert result.exit_code == 0
+        assert "Grant rows: users:write, clients:write" in result.stdout
+
+    def test_unreadable_grant_rows_explain_why(self):
+        """A 403 from the grants list degrades to an explanatory note."""
+        creds = _mock_credentials()
+        with (
+            mock.patch("campus_cli.auth.common.credentials", creds),
+            mock.patch(
+                "campus_cli.auth.status.probe_token_validity",
+                return_value=(VALIDITY_VALID, None),
+            ),
+            mock.patch(
+                "campus_cli.auth.status.fetch_grant_rows",
+                return_value=(None, "grant rows are visible to the operator"),
+            ),
+        ):
+            result = runner.invoke(app, ["auth", "status"])
+
+        assert result.exit_code == 0
+        assert "Grant rows:" in result.stdout
+        assert "visible to the operator" in result.stdout
+
+    def test_offline_notes_grant_rows_not_fetched(self):
+        """--offline says grant rows were not fetched."""
+        creds = _mock_credentials()
+        with mock.patch("campus_cli.auth.common.credentials", creds):
+            result = runner.invoke(app, ["auth", "status", "--offline", "--json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload["grants"] is None
+        assert "offline" in payload["grants_note"]
 
     def test_unreachable_server_is_nonfatal(self):
         """Network failure warns but exits 0: identity still printed."""
