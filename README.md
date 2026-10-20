@@ -51,7 +51,7 @@ campus grant grant --grantee-type user --grantee-id someone@school.edu \
     --resource-type users --level write
 
 # campus.audit: mint a student's trace-reading key (operator, #54)
-campus audit login --api-key <operator key>
+CAMPUS_AUDIT_API_KEY=<operator key> campus audit login
 campus audit keys new --name "Alice" --owner alice@school.edu \
     --scope traces:read --rate-limit 60
 campus audit keys list --owner alice@school.edu
@@ -150,9 +150,13 @@ URL it was stored for (per `ENV`/`CAMPUS_ENV` or `CAMPUS_AUDIT_URL`,
 like every other endpoint):
 
 ```bash
-# Store a key: --api-key, the CAMPUS_AUDIT_API_KEY env var, or an
-# interactive prompt. The key is verified against the service first
-# (--skip-verify stores it without the round trip)
+# Store a key: the CAMPUS_AUDIT_API_KEY env var, an interactive prompt
+# (hidden input), or --api-key. Prefer the first two: --api-key lands
+# the key in your shell history and in the process list. The key is
+# verified against the service first (--skip-verify stores it without
+# the round trip)
+CAMPUS_AUDIT_API_KEY=audit_v1_… campus audit login
+campus audit login                 # prompts for the key
 campus audit login --api-key audit_v1_…
 
 # …and the login state is cleared locally by:
@@ -177,8 +181,9 @@ Two roles use the group:
 
   Plaintext key material is shown exactly once, at creation and at
   regeneration (the server keeps only the hash) — pass it to the
-  student, who stores it with `campus audit login`. `owner_id` is an
-  email-format label used for organization and filtering only;
+  student, who stores it with `campus audit login`. `owner_id` is a
+  free-form label used for organization and filtering only (an email
+  is the convention, but the server accepts any string);
   campus.audit is user-blind and self-contained by design, so it
   never resolves to a campus user account.
 

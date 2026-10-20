@@ -11,8 +11,11 @@ from typer.testing import CliRunner
 from campus_cli.audit.client import (
     api_error_details,
     audit_endpoint_mismatch,
+    fail_api,
+    get_audit_client,
     resolve_audit_url,
 )
+from campus_cli.audit.keys import _key_status, _parse_timestamp
 from campus_cli.audit.login import _resolve_key_input, verify_api_key
 from campus_cli.audit.traces import _format_trace_summary, _status_markup
 from campus_cli.cli import app
@@ -341,3 +344,184 @@ class TestAuditCredentialStorage:
     def test_delete_without_key_raises(self, credential_storage):
         with pytest.raises(CredentialError):
             credential_storage.delete_audit_api_key()
+
+
+class TestKeyStatus:
+    """Key status distinguishes revoked, expired, and still-active keys."""
+
+    def test_future_expiry_is_still_active(self):
+        # The server counts a key as active when it is neither revoked
+        # nor expired, so a future expiry must not read as a status.
+        record = {
+            "id": "k1",
+            "name": "Alice",
+            "owner_id": "alice@school.edu",
+            "scopes": ["traces:read"],
+            "expires_at": "2999-12-31T23:59:59+00:00",
+            "revoked_at": None,
+        }
+        assert "active" in _key_status(record)
+
+    def test_past_expiry_is_expired(self):
+        record = {
+            "id": "k2",
+            "name": "Bob",
+            "owner_id": "bob@school.edu",
+            "scopes": ["traces:read"],
+            "expires_at": "2000-01-01T00:00:00+00:00",
+            "revoked_at": None,
+        }
+        assert "expired" in _key_status(record)
+
+    def test_revoked_wins_over_expiry(self):
+        record = {
+            "id": "k3",
+            "name": "Carol",
+            "owner_id": "carol@school.edu",
+            "scopes": ["traces:read"],
+            "expires_at": "2000-01-01T00:00:00+00:00",
+            "revoked_at": "2026-10-05T00:00:00+00:00",
+        }
+        assert "revoked" in _key_status(record)
+
+    def test_no_expiry_is_active(self):
+        record = {
+            "id": "k4",
+            "name": "Dan",
+            "owner_id": "dan@school.edu",
+            "scopes": ["traces:read"],
+            "expires_at": None,
+            "revoked_at": None,
+        }
+        assert "active" in _key_status(record)
+
+    def test_unparsable_expiry_is_not_expired(self):
+        record = {
+            "id": "k5",
+            "name": "Eve",
+            "owner_id": "eve@school.edu",
+            "scopes": ["traces:read"],
+            "expires_at": "not-a-date",
+            "revoked_at": None,
+        }
+        assert "active" in _key_status(record)
+
+    def test_timestamp_parsing_handles_zulu_and_naive(self):
+        assert _parse_timestamp("2026-12-31T23:59:59Z") is not None
+        assert _parse_timestamp("2026-12-31T23:59:59") is not None
+        assert _parse_timestamp("nonsense") is None
+        assert _parse_timestamp(None) is None
+
+
+class TestFailApiMessage:
+    """Failed audit calls report one clean sentence plus the remedy."""
+
+    def _message(self, error):
+        with (
+            mock.patch("campus_cli.audit.client.print_error") as mock_print,
+            pytest.raises(typer.Exit),
+        ):
+            fail_api("list API keys", error)
+        return mock_print.call_args[0][0]
+
+    def test_no_double_full_stop(self):
+        message = self._message(
+            errors.APIError(
+                status_code=403,
+                error_description="Missing required scope: apikeys:read.",
+            )
+        )
+        assert "apikeys:read.. " not in message
+        assert "apikeys:read." in message
+
+    def test_missing_stop_is_added(self):
+        message = self._message(
+            errors.APIError(
+                status_code=400, error_description="bad request"
+            )
+        )
+        assert "Failed to list API keys: bad request." in message
+
+    def test_401_carries_the_relogin_remedy(self):
+        message = self._message(
+            errors.APIError(status_code=401, error_description="Invalid API key")
+        )
+        assert "Re-run 'campus audit login'" in message
+
+
+class TestCredentialStoreFailures:
+    """A broken credential store is reported, not raised as a traceback."""
+
+    def test_login_reports_a_store_failure(self):
+        creds = mock.Mock()
+        creds.set_audit_api_key.side_effect = CredentialError("keyring locked")
+        with (
+            mock.patch("campus_cli.audit.login.credentials", creds),
+            mock.patch(
+                "campus_cli.audit.login.verify_api_key", return_value="verified"
+            ),
+            mock.patch.dict(
+                "os.environ",
+                {
+                    "CAMPUS_AUDIT_URL": AUDIT_URL,
+                    "CAMPUS_AUDIT_API_KEY": "audit_v1_new",
+                },
+            ),
+        ):
+            result = CliRunner().invoke(app, ["audit", "login"])
+        assert result.exit_code == 1
+        assert "Failed to store the audit API key" in result.stderr
+
+    def test_client_reports_an_unreadable_store(self, monkeypatch):
+        creds = mock.Mock()
+        creds.get_audit_api_key.side_effect = CredentialError("keyring locked")
+        monkeypatch.setattr("campus_cli.audit.client.credentials", creds)
+        with pytest.raises(typer.Exit):
+            get_audit_client()
+
+
+class TestKeysRevokeJson:
+    """`keys revoke --json` reports the revocation as JSON."""
+
+    def test_json_output(self):
+        api = mock.MagicMock()
+        with mock.patch("campus_cli.audit.keys.get_audit_client", return_value=api):
+            result = CliRunner().invoke(
+                app, ["audit", "keys", "revoke", "--key-id", "k1", "-y", "--json"]
+            )
+        assert result.exit_code == 0, result.output
+        assert '"revoked": true' in result.stdout
+        api.apikeys.__getitem__.assert_called_once_with("k1")
+
+
+class TestKeysListDryRun:
+    """The keys list snippet carries only the fields the caller set."""
+
+    def test_no_filters_means_no_arguments(self):
+        result = CliRunner().invoke(
+            app, ["audit", "keys", "list", "--dry-run"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "campus_audit.apikeys.list()" in result.stdout
+        assert "owner_id=" not in result.stdout
+        assert "active_only=" not in result.stdout
+
+    def test_only_the_given_filters_appear(self):
+        result = CliRunner().invoke(
+            app,
+            [
+                "audit", "keys", "list", "--owner", "alice@school.edu",
+                "--dry-run",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "owner_id='alice@school.edu'" in result.stdout
+        assert "active_only=" not in result.stdout
+        assert "limit=" not in result.stdout
+
+    def test_all_flag_widens_active_only(self):
+        result = CliRunner().invoke(
+            app, ["audit", "keys", "list", "--all", "--dry-run"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "active_only=False" in result.stdout

@@ -11,7 +11,7 @@ against and rejected on a target mismatch.
 import typer
 
 from campus_cli.config import config
-from campus_cli.credentials import credentials
+from campus_cli.credentials import CredentialError, credentials
 from campus_cli.utils.output import print_error
 
 # Key material of the campus.audit service is minted with this prefix;
@@ -37,6 +37,21 @@ def resolve_audit_url() -> str:
         raise typer.Exit(1) from e
 
 
+def _stored_audit_key_url() -> str | None:
+    """Read the audit URL the stored key was bound to.
+
+    Raises:
+        typer.Exit: If the credential store cannot be read (locked
+                    keyring, unreadable fallback file) — the store
+                    failure is reported, not raised as a traceback.
+    """
+    try:
+        return credentials.get_audit_key_url()
+    except CredentialError as e:
+        print_error(f"Failed to read the stored audit API key: {e}")
+        raise typer.Exit(1) from e
+
+
 def audit_endpoint_mismatch() -> tuple[str, str] | None:
     """
     Check whether the stored audit key was stored for the targeted service URL.
@@ -46,7 +61,7 @@ def audit_endpoint_mismatch() -> tuple[str, str] | None:
         stored before URL binding (no stored URL) are treated as
         matching; they bind at the next 'campus audit login'.
     """
-    stored = credentials.get_audit_key_url()
+    stored = _stored_audit_key_url()
     if not stored:
         return None
     current = resolve_audit_url()
@@ -85,7 +100,11 @@ def get_audit_client():
     Raises:
         typer.Exit: If no key is stored, or it targets another URL.
     """
-    api_key = credentials.get_audit_api_key()
+    try:
+        api_key = credentials.get_audit_api_key()
+    except CredentialError as e:
+        print_error(f"Failed to read the stored audit API key: {e}")
+        raise typer.Exit(1) from e
     if not api_key:
         print_error(
             "Not authenticated with campus.audit. Run 'campus audit login'"
@@ -155,5 +174,10 @@ def fail_api(action: str, e: Exception) -> None:
             " The stored key lacks the required scope;"
             " mint or update it with 'campus audit keys'."
         )
-    print_error(f"Failed to {action}: {message}.{hint}")
+    # The server's message may already be a sentence: don't double the
+    # full stop when appending the remedy hint.
+    detail = message.strip()
+    if detail and not detail.endswith((".", "!", "?")):
+        detail += "."
+    print_error(f"Failed to {action}: {detail}{hint}")
     raise typer.Exit(1) from e

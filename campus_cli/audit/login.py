@@ -138,7 +138,11 @@ def login_cmd(
     if not skip_verify:
         verify_api_key(audit_url, api_key)
 
-    credentials.set_audit_api_key(api_key, audit_url)
+    try:
+        credentials.set_audit_api_key(api_key, audit_url)
+    except CredentialError as e:
+        print_error(f"Failed to store the audit API key: {e}")
+        raise typer.Exit(1) from e
     print_success("Audit API key stored.")
     console.print(f"[dim]Audit service: {audit_url}[/dim]")
 

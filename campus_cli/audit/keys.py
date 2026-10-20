@@ -1,15 +1,16 @@
 """campus.audit API key management (#54).
 
 The operator workflow for minting and managing audit API keys, e.g.
-one per student for dev-environment access: `owner_id` is an
-email-format label (organizational only — campus.audit is user-blind
-and self-contained by design), `scopes` gate what the key may call
-(e.g. ["traces:read"]), and key management itself requires apikeys:*
-scopes, held only by the operator key. Plaintext key material is
-shown exactly once, at creation and at regeneration (mirroring the
-server).
+one per student for dev-environment access: `owner_id` is a free-form
+label, conventionally the student's email (organizational only —
+campus.audit is user-blind and self-contained by design), `scopes`
+gate what the key may call (e.g. ["traces:read"]), and key management
+itself requires apikeys:* scopes, held only by the operator key.
+Plaintext key material is shown exactly once, at creation and at
+regeneration (mirroring the server).
 """
 
+from datetime import datetime, timezone
 from typing import Optional
 
 import typer
@@ -61,13 +62,42 @@ def _print_reveal_key(key_value: str) -> None:
     console.print("[dim]-------8<-------[/dim]")
 
 
+def _parse_timestamp(value: object) -> Optional[datetime]:
+    """Parse an ISO 8601 timestamp into an aware datetime.
+
+    Returns:
+        The parsed datetime, or None when the value is missing or
+        unparsable (an unknown expiry never counts as expired).
+    """
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _key_status(record: dict) -> str:
+    """Status label for a key record: revoked, expired, or active.
+
+    A key with a future expiry is still active — the server counts a
+    key as active when it is neither revoked nor expired — so the
+    expiry is reported in the detail line, not as a status of its own.
+    """
+    if record.get("revoked_at"):
+        return "[red]revoked[/red]"
+    expires_at = _parse_timestamp(record.get("expires_at"))
+    if expires_at is not None and expires_at < datetime.now(timezone.utc):
+        return "[red]expired[/red]"
+    return "[green]active[/green]"
+
+
 def _print_key_record(record: dict) -> None:
     """Print one API key record in human-readable form."""
-    status = "[green]active[/green]"
-    if record.get("revoked_at"):
-        status = "[red]revoked[/red]"
-    elif record.get("expires_at"):
-        status = "[yellow]expires[/yellow]"
+    status = _key_status(record)
     console.print(f"[cyan]{record.get('name')}[/cyan] [dim]{record.get('id')}[/dim]")
     console.print(
         f"  Owner: {record.get('owner_id')}  Status: {status}"
@@ -103,14 +133,24 @@ def keys_list(
     Requires apikeys:read on the stored key (the operator key).
     """
     if dry_run:
+        # Only the fields the caller actually set: active_only defaults
+        # to True server-side, so it only appears when --all widened it.
+        list_kwargs = []
+        if owner is not None:
+            list_kwargs.append(f"    owner_id={owner!r},")
+        if include_inactive:
+            list_kwargs.append("    active_only=False,")
+        if limit is not None:
+            list_kwargs.append(f"    limit={limit!r},")
+        call = (
+            ["result = campus_audit.apikeys.list(", *list_kwargs, ")"]
+            if list_kwargs
+            else ["result = campus_audit.apikeys.list()"]
+        )
         print_python_api(
             "campus audit keys list",
             [
-                "result = campus_audit.apikeys.list(",
-                f"    owner_id={owner!r},",
-                f"    active_only={not include_inactive!r},",
-                f"    limit={limit!r},",
-                ")",
+                *call,
                 "for key in result['api_keys']:",
                 "    print(key['id'], key['name'], key['scopes'])",
             ],
@@ -315,6 +355,7 @@ def keys_update(
 def keys_revoke(
     key_id: str = ApiKeyOption,
     confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
     """
@@ -336,7 +377,12 @@ def keys_revoke(
     try:
         api = get_audit_client()
         api.apikeys[key_id].revoke()
-        print_success(f"API key '{key_id}' revoked (record kept for audit).")
+        if output_json:
+            print_json({"id": key_id, "revoked": True})
+        else:
+            print_success(
+                f"API key '{key_id}' revoked (record kept for audit)."
+            )
 
     except typer.Exit:
         raise
