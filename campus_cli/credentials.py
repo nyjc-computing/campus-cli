@@ -267,6 +267,48 @@ class CredentialStorage:
         """
         self.set_password("token_auth_url", auth_url)
 
+    def get_audit_api_key(self) -> str | None:
+        """
+        Get the stored campus.audit API key (#54).
+
+        Returns:
+            The API key (audit_v1_...), or None if not found.
+        """
+        return self.get_password("audit_api_key")
+
+    def set_audit_api_key(self, api_key: str, audit_url: str) -> None:
+        """
+        Store the campus.audit API key, bound to the service URL (#54).
+
+        Args:
+            api_key: The plaintext API key.
+            audit_url: The audit service base URL the key was stored
+                       (and verified) against.
+        """
+        self.set_password("audit_api_key", api_key)
+        self.set_password("audit_key_url", audit_url)
+
+    def get_audit_key_url(self) -> str | None:
+        """
+        Get the audit service URL the stored API key was stored against.
+
+        Returns:
+            The audit URL, or None if not found.
+        """
+        return self.get_password("audit_key_url")
+
+    def delete_audit_api_key(self) -> None:
+        """
+        Delete the stored campus.audit API key and its URL binding (#54).
+
+        Raises:
+            CredentialError: If no audit key is stored.
+        """
+        self.delete_password("audit_api_key")
+        with contextlib.suppress(CredentialError):
+            # May not exist (keys stored before URL binding, #54)
+            self.delete_password("audit_key_url")
+
     def get_login_session_id(self) -> str | None:
         """
         Get the stored login-session id (#837).

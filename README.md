@@ -50,6 +50,17 @@ campus grant list
 campus grant grant --grantee-type user --grantee-id someone@school.edu \
     --resource-type users --level write
 
+# campus.audit: mint a student's trace-reading key (operator, #54)
+campus audit login --api-key <operator key>
+campus audit keys new --name "Alice" --owner alice@school.edu \
+    --scope traces:read --rate-limit 60
+campus audit keys list --owner alice@school.edu
+
+# …and the queries that key unlocks (from any machine the student logs in on)
+campus audit traces list --limit 10
+campus audit traces search --path /auth/v1/users/ --status 500
+campus audit traces get --trace-id <32-char hex id>
+
 # List vault entries
 campus vault list --vault myvault
 
@@ -128,11 +139,70 @@ section of the campus login-flow doc, and the campus
 (A2 no silent widening, A5 supersession-is-deletion, A8 management
 scopes never self-confer).
 
+### campus.audit: API-key auth (#54)
+
+The audit service (`/audit/v1`) is a separate, user-blind deployment
+that does **not** accept OAuth tokens: it authenticates with its own
+API keys (`audit_v1_…`) sent as Bearer credentials. `campus audit` is
+the CLI's only command group using this second credential, stored in
+the same credential store as your OAuth tokens and bound to the audit
+URL it was stored for (per `ENV`/`CAMPUS_ENV` or `CAMPUS_AUDIT_URL`,
+like every other endpoint):
+
+```bash
+# Store a key: --api-key, the CAMPUS_AUDIT_API_KEY env var, or an
+# interactive prompt. The key is verified against the service first
+# (--skip-verify stores it without the round trip)
+campus audit login --api-key audit_v1_…
+
+# …and the login state is cleared locally by:
+campus audit logout
+```
+
+Two roles use the group:
+
+- **The operator** holds the key with `apikeys:*` scopes (the one
+  seeded from the server's `AUDIT_OPERATOR_API_KEY`) and administers
+  everyone else's keys — mint, inspect, update, rotate, revoke:
+
+  ```bash
+  campus audit keys new --name "Alice" --owner alice@school.edu \
+      --scope traces:read --rate-limit 60 --expires-at 2026-12-31T23:59:59Z
+  campus audit keys list --owner alice@school.edu
+  campus audit keys get --key-id <id>
+  campus audit keys update --key-id <id> --scope traces:read --rate-limit 120
+  campus audit keys regenerate --key-id <id>   # rotation; old value dies
+  campus audit keys revoke --key-id <id>       # record kept for audit
+  ```
+
+  Plaintext key material is shown exactly once, at creation and at
+  regeneration (the server keeps only the hash) — pass it to the
+  student, who stores it with `campus audit login`. `owner_id` is an
+  email-format label used for organization and filtering only;
+  campus.audit is user-blind and self-contained by design, so it
+  never resolves to a campus user account.
+
+- **Students** log in with their minted key and query traces
+  (gated on `traces:read`):
+
+  ```bash
+  campus audit traces list --limit 10            # recent, newest first
+  campus audit traces search --path /auth/v1/users/ --status 500
+  campus audit traces search --user alice@school.edu --since 2026-10-20T00:00:00Z
+  campus audit traces get --trace-id <32-char hex>
+  ```
+
+  List and search paginate: when a page has more, the command prints
+  the `--cursor` token to continue with. `logout` only clears the
+  local copy of a key — a leaked key is disabled with
+  `campus audit keys revoke` (operator) or by letting `--expires-at`
+  pass.
+
 ### Dry-run mode
 
-All `client`, `user` and `vault` commands accept `--dry-run`. Instead of
-authenticating and calling the API, the command prints the equivalent
-Python snippet using the
+All `client`, `user`, `vault` and `audit` commands accept `--dry-run`.
+Instead of authenticating and calling the API, the command prints the
+equivalent Python snippet using the
 [campus-api-python](https://pypi.org/project/campus-api-python/)
 library — useful for learning how to call the Campus API from Python:
 
@@ -149,10 +219,23 @@ client = campus.auth.clients.new(
 print(client.id)
 ```
 
+`campus audit` snippets open with the audit client instead — the
+service takes its own API key, not an OAuth token:
+
+```python
+from campus_python import AuditRoot, CampusRequest
+
+campus_audit = AuditRoot(json_client=CampusRequest(
+    base_url="<audit_url>", timeout=30, mode="device",
+))
+campus_audit.client.set_bearer_authorization("<audit_api_key>")
+```
+
 ### Non-interactive use (scripts, CI, agents)
 
 Destructive commands — `auth logout`, `client delete`, `client revoke`,
-`user delete`, `vault delete` — confirm before acting. When no terminal is attached
+`user delete`, `vault delete`, `audit logout`, `audit keys revoke`,
+`audit keys regenerate` — confirm before acting. When no terminal is attached
 the CLI never blocks waiting for input: it refuses immediately with an
 error naming the remedy. Waive the confirmation per command with
 `--confirm`/`-y`, or for a whole session with the `CAMPUS_ASSUME_YES`

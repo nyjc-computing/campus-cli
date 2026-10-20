@@ -37,6 +37,7 @@ def version() -> None:
 
 # Import auth commands
 # noqa: E402 - Imported here to avoid circular dependencies
+from campus_cli.audit import audit_app  # noqa: E402
 from campus_cli.auth import (  # noqa: E402
     client_app,
     grants_app,
@@ -51,6 +52,7 @@ app.add_typer(client_app, name="client", help="OAuth client management commands"
 app.add_typer(user_app, name="user", help="User management commands")
 app.add_typer(grants_app, name="grant", help="Access-grant store commands")
 app.add_typer(vault_app, name="vault", help="Vault management commands")
+app.add_typer(audit_app, name="audit", help="Campus Audit service commands")
 
 
 def main() -> None:
