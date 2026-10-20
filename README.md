@@ -161,7 +161,20 @@ campus audit login --api-key audit_v1_…
 
 # …and the login state is cleared locally by:
 campus audit logout
+
+# What does this install hold? A purely offline local view (no network
+# call): whether a key is stored, the audit URL it is bound to, the URL
+# the CLI currently targets (a mismatch is called out the way the
+# commands' guard does), and when the key was stored. Exit 1 when no
+# key is stored. --json emits the same fields for scripts.
+campus audit status
 ```
+
+`--json` in this group prints the server response verbatim, so every
+command has one shape: list envelopes keep their `count`
+(`keys list`) and pagination `cursor` (`traces list/search`); a
+bodyless action such as `keys revoke` reports `{"id": …, "revoked":
+true}`.
 
 Two roles use the group:
 

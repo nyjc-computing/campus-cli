@@ -166,7 +166,10 @@ def keys_list(
         keys = result.get("api_keys", [])
 
         if output_json:
-            print_json(keys)
+            # The server response verbatim, like every --json output in
+            # this group (#61): the {"api_keys": [...], "count": n}
+            # envelope, not the bare array.
+            print_json(result)
         else:
             if not keys:
                 console.print("[dim]No API keys found.[/dim]")

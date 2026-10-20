@@ -70,6 +70,23 @@ def audit_endpoint_mismatch() -> tuple[str, str] | None:
     return None
 
 
+def mismatch_message(stored: str | None, current: str | None) -> str | None:
+    """The standing binding-mismatch sentence, or None when URLs match.
+
+    Shared by the command guard and 'campus audit status' (#62) so the
+    two word the problem identically.
+    """
+    if not stored or not current:
+        return None
+    if stored.rstrip("/") == current.rstrip("/"):
+        return None
+    return (
+        f"Stored audit API key was stored for {stored} but the CLI is "
+        f"targeting {current}. Re-run 'campus audit login' against "
+        f"{current}."
+    )
+
+
 def ensure_audit_endpoint_match() -> None:
     """
     Fail fast if the stored audit key targets a different service URL.
@@ -82,11 +99,7 @@ def ensure_audit_endpoint_match() -> None:
     if mismatch is None:
         return
     stored, current = mismatch
-    print_error(
-        f"Stored audit API key was stored for {stored} but the CLI is "
-        f"targeting {current}. Re-run 'campus audit login' against "
-        f"{current}."
-    )
+    print_error(mismatch_message(stored, current))
     raise typer.Exit(1)
 
 
@@ -127,6 +140,30 @@ def get_audit_client():
         raise typer.Exit(1) from None
 
 
+def _render_field_errors(e: Exception) -> str:
+    """Render the server's field-level validation errors, when present.
+
+    The server's 422 body carries an errors array (field, code,
+    message) that campus_python parses into APIError.errors; without
+    this a rejected 'keys new' would report only "One or more fields
+    are invalid" with no indication of which field was rejected.
+    """
+    parts = []
+    for field_error in getattr(e, "errors", None) or []:
+        piece = str(getattr(field_error, "field", "?"))
+        code = getattr(field_error, "code", None)
+        message = getattr(field_error, "message", None)
+        if code:
+            piece += f" ({code}"
+            if message:
+                piece += f": {message}"
+            piece += ")"
+        elif message:
+            piece += f": {message}"
+        parts.append(piece)
+    return "; ".join(parts)
+
+
 def api_error_details(e: Exception) -> tuple[int | None, str]:
     """Best-effort (HTTP status, human message) from a failed audit call.
 
@@ -134,6 +171,12 @@ def api_error_details(e: Exception) -> tuple[int | None, str]:
     the status code and the server's error_description; raw transport
     failures (requests.HTTPError or connection errors) keep their
     exception text, with any structured Campus error body unpacked.
+
+    A non-2xx failure with no description (a proxy's HTML 502, an
+    empty body, a misrouted 404 page) falls back to "HTTP <status>" —
+    the status is the one breadcrumb an operator can act on. The 422
+    field-level errors array, when present, is appended so a rejected
+    payload names the offending field.
     """
     status = getattr(e, "status_code", None)
     description = getattr(e, "error_description", None)
@@ -148,9 +191,18 @@ def api_error_details(e: Exception) -> tuple[int | None, str]:
             description = error_obj.get("message") or error_obj.get("code")
         elif error_obj:
             description = error_obj
+
     if description:
-        return status, str(description)
-    return status, str(e)
+        message = str(description)
+    elif status is not None:
+        message = f"HTTP {status}"
+    else:
+        message = str(e)
+
+    fields = _render_field_errors(e)
+    if fields:
+        message = f"{message} (fields: {fields})"
+    return status, message
 
 
 def api_error_message(e: Exception) -> str:

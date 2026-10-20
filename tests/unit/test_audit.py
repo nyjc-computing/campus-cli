@@ -1,5 +1,6 @@
 """Unit tests for the campus.audit command group (#54)."""
 
+import json
 from unittest import mock
 
 import pytest
@@ -525,3 +526,213 @@ class TestKeysListDryRun:
         )
         assert result.exit_code == 0, result.output
         assert "active_only=False" in result.stdout
+
+
+class TestApiErrorFallbacks:
+    """Failures with no description still carry their status; 422s name fields."""
+
+    def test_missing_description_falls_back_to_status(self):
+        # A proxy's HTML 502 or an empty body: APIError with no
+        # description must not render as an empty message.
+        error = errors.APIError(status_code=502)
+        status, message = api_error_details(error)
+        assert status == 502
+        assert message == "HTTP 502"
+
+    def test_field_level_errors_are_surfaced(self):
+        error = errors.APIError(
+            status_code=422,
+            error_description="One or more fields are invalid",
+            errors=[
+                errors.FieldError(
+                    field="scopes",
+                    code="EMPTY",
+                    message="must be a non-empty list",
+                )
+            ],
+        )
+        status, message = api_error_details(error)
+        assert status == 422
+        assert "One or more fields are invalid" in message
+        assert "scopes (EMPTY: must be a non-empty list)" in message
+
+    def test_field_errors_append_to_status_fallback(self):
+        error = errors.APIError(
+            status_code=422,
+            errors=[
+                errors.FieldError(field="rate_limit", code="INVALID", message=""),
+            ],
+        )
+        _, message = api_error_details(error)
+        assert message.startswith("HTTP 422")
+        assert "rate_limit (INVALID)" in message
+
+
+class TestMismatchMessage:
+    """The guard and status share one mismatch sentence (#62)."""
+
+    def test_mismatch_sentence_matches_the_guard(self):
+        from campus_cli.audit.client import mismatch_message
+
+        message = mismatch_message("https://audit-old.test", AUDIT_URL)
+        assert message == (
+            "Stored audit API key was stored for https://audit-old.test"
+            f" but the CLI is targeting {AUDIT_URL}."
+            f" Re-run 'campus audit login' against {AUDIT_URL}."
+        )
+
+    def test_matching_or_missing_urls_give_none(self):
+        from campus_cli.audit.client import mismatch_message
+
+        assert mismatch_message(AUDIT_URL, AUDIT_URL + "/") is None
+        assert mismatch_message(None, AUDIT_URL) is None
+        assert mismatch_message(AUDIT_URL, None) is None
+
+
+class TestAuditStatusCmd:
+    """campus audit status is a purely offline local view (#62)."""
+
+    def _invoke(self, creds, *args):
+        with (
+            mock.patch("campus_cli.audit.login.credentials", creds),
+            mock.patch.dict(
+                "os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}
+            ),
+        ):
+            return CliRunner().invoke(app, ["audit", "status", *args])
+
+    def test_makes_no_network_call(self):
+        creds = mock.Mock()
+        creds.get_audit_api_key.return_value = "audit_v1_k"
+        creds.get_audit_key_url.return_value = AUDIT_URL
+        creds.get_audit_key_stored_at.return_value = None
+        with (
+            mock.patch("campus_cli.audit.login.credentials", creds),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+            mock.patch(
+                "campus_python.CampusRequest",
+                side_effect=AssertionError("status must not build a client"),
+            ),
+        ):
+            result = CliRunner().invoke(app, ["audit", "status"])
+        assert result.exit_code == 0, result.output
+
+    def test_not_logged_in_exits_1(self):
+        creds = mock.Mock()
+        creds.get_audit_api_key.return_value = None
+        creds.get_audit_key_url.return_value = None
+        creds.get_audit_key_stored_at.return_value = None
+        result = self._invoke(creds)
+        assert result.exit_code == 1
+        assert "Not logged in" in result.output
+
+    def test_stored_key_reports_binding_and_target(self):
+        creds = mock.Mock()
+        creds.get_audit_api_key.return_value = "audit_v1_k"
+        creds.get_audit_key_url.return_value = AUDIT_URL
+        creds.get_audit_key_stored_at.return_value = "2026-10-20T04:00:00+00:00"
+        result = self._invoke(creds)
+        assert result.exit_code == 0, result.output
+        assert "Audit API key stored." in result.stdout
+        assert AUDIT_URL in result.stdout
+        assert "Stored:" in result.stdout
+
+    def test_mismatch_is_called_out_like_the_guard(self):
+        creds = mock.Mock()
+        creds.get_audit_api_key.return_value = "audit_v1_k"
+        creds.get_audit_key_url.return_value = "https://audit-old.test"
+        creds.get_audit_key_stored_at.return_value = None
+        result = self._invoke(creds)
+        # Informational: exit 0, but the standing mismatch sentence
+        # (print_error writes stderr; result.output mixes both streams).
+        assert result.exit_code == 0, result.output
+        assert "was stored for https://audit-old.test" in result.output
+        assert "Re-run 'campus audit login'" in result.output
+
+    def test_unknown_stored_at_is_reported_as_unknown(self):
+        creds = mock.Mock()
+        creds.get_audit_api_key.return_value = "audit_v1_k"
+        creds.get_audit_key_url.return_value = AUDIT_URL
+        creds.get_audit_key_stored_at.return_value = None
+        result = self._invoke(creds)
+        assert result.exit_code == 0, result.output
+        assert "Stored: unknown" in result.stdout
+
+    def test_json_shape(self):
+        creds = mock.Mock()
+        creds.get_audit_api_key.return_value = "audit_v1_k"
+        creds.get_audit_key_url.return_value = AUDIT_URL
+        creds.get_audit_key_stored_at.return_value = "2026-10-20T04:00:00+00:00"
+        result = self._invoke(creds, "--json")
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.stdout)
+        assert payload == {
+            "authenticated": True,
+            "audit_url": AUDIT_URL,
+            "key_url": AUDIT_URL,
+            "endpoint_match": True,
+            "stored_at": "2026-10-20T04:00:00+00:00",
+        }
+
+    def test_json_not_logged_in_still_parses(self):
+        creds = mock.Mock()
+        creds.get_audit_api_key.return_value = None
+        creds.get_audit_key_url.return_value = None
+        creds.get_audit_key_stored_at.return_value = None
+        result = self._invoke(creds, "--json")
+        assert result.exit_code == 1
+        payload = json.loads(result.stdout)
+        assert payload["authenticated"] is False
+
+    def test_invalid_env_still_reports_the_local_state(self, tmp_path):
+        creds = mock.Mock()
+        creds.get_audit_api_key.return_value = "audit_v1_k"
+        creds.get_audit_key_url.return_value = AUDIT_URL
+        creds.get_audit_key_stored_at.return_value = None
+        isolated = Config(config_path=tmp_path / "config.json")
+        with (
+            mock.patch("campus_cli.audit.login.credentials", creds),
+            mock.patch("campus_cli.audit.login.config", isolated),
+            mock.patch.dict("os.environ", {"ENV": "qa"}),
+        ):
+            result = CliRunner().invoke(app, ["audit", "status"])
+        assert result.exit_code == 0, result.output
+        assert "unknown" in result.stdout
+
+    def test_store_failure_is_reported(self):
+        creds = mock.Mock()
+        creds.get_audit_api_key.side_effect = CredentialError("keyring locked")
+        result = self._invoke(creds)
+        assert result.exit_code == 1
+        assert "Failed to read the stored audit API key" in result.stderr
+
+
+class TestAuditJsonShapes:
+    """Every --json output prints the server response verbatim (#61)."""
+
+    def test_keys_list_json_keeps_the_envelope(self):
+        server_response = {
+            "api_keys": [{"id": "k1", "name": "Alice"}],
+            "count": 1,
+        }
+        api = mock.Mock()
+        api.apikeys.list.return_value = server_response
+        with mock.patch("campus_cli.audit.keys.get_audit_client", return_value=api):
+            result = CliRunner().invoke(app, ["audit", "keys", "list", "--json"])
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == server_response
+
+    def test_traces_list_json_keeps_the_envelope(self):
+        server_response = {
+            "traces": [{"trace_id": "a" * 32}],
+            "cursor": {"next": None, "has_more": False},
+        }
+        api = mock.Mock()
+        api.traces.list.return_value = server_response
+        with (
+            mock.patch("campus_cli.audit.traces.get_audit_client", return_value=api),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            result = CliRunner().invoke(app, ["audit", "traces", "list", "--json"])
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == server_response
