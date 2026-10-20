@@ -1,12 +1,14 @@
 """campus.audit commands (#54).
 
-The audit service (/audit/v1) is a separate, user-blind deployment
-authenticating with its own API keys (`audit_v1_...`, Bearer) rather
-than OAuth user tokens. The command group mirrors its two
-capabilities: the operator's key lifecycle (campus audit keys) and
-read-only trace queries (campus audit traces), plus login/logout and
-the offline status view over the stored key — the CLI's only
-non-OAuth credential.
+The audit service is a separate, user-blind deployment. Its versioned
+API (/audit/v1) authenticates with its own API keys (`audit_v1_...`,
+Bearer) rather than OAuth user tokens; the service's web UI has a
+separate browser gate (campus#929 superadmins, campus#916
+development-only key sign-in) that issues no CLI credentials. The
+command group maps the API's scope model onto two capabilities: key
+management (apikeys:write; campus audit keys) and trace reading
+(traces:read; campus audit traces), plus login/logout and the offline
+status view over the stored key — the CLI's only non-OAuth credential.
 """
 
 import typer

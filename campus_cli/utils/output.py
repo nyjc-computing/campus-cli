@@ -24,9 +24,9 @@ _PYTHON_API_PREAMBLE = [
     "",
 ]
 
-# Preamble for campus.audit --dry-run snippets (#54): the audit
-# service authenticates with one of its own API keys, not an OAuth
-# token, so its resource root is built directly.
+# Preamble for campus.audit --dry-run snippets (#54): the audit API
+# (/audit/v1) authenticates with one of its own API keys, not an
+# OAuth token, so its resource root is built directly.
 AUDIT_PYTHON_API_PREAMBLE = [
     "from campus_python import AuditRoot, CampusRequest",
     "",

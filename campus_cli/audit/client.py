@@ -1,11 +1,12 @@
 """Shared plumbing for campus.audit commands (#54).
 
-The audit service (/audit/v1) authenticates with one of its own API
-keys (`audit_v1_...`) sent as a Bearer token — OAuth user tokens are
-not accepted — so it gets its own credential slot and client here,
-parallel to the OAuth machinery in campus_cli.auth. Like the OAuth
-tokens, the stored key is bound to the service URL it was stored
-against and rejected on a target mismatch.
+The audit service's versioned API (/audit/v1) authenticates with one
+of its own API keys (`audit_v1_...`) sent as a Bearer token — OAuth
+user tokens are not accepted (the service's web UI has a separate
+browser gate, campus#929/#916) — so it gets its own credential slot
+and client here, parallel to the OAuth machinery in campus_cli.auth.
+Like the OAuth tokens, the stored key is bound to the service URL it
+was stored against and rejected on a target mismatch.
 """
 
 import typer

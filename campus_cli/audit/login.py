@@ -1,13 +1,15 @@
 """campus.audit login/logout/status (#54, #62).
 
-The audit service only accepts its own API keys, so 'campus audit
-login' stores a key from --api-key, CAMPUS_AUDIT_API_KEY, or an
-interactive prompt instead of running the OAuth device flow. The key
-is verified against the service (best-effort, never blocking on
-network errors) and bound to the audit URL it was stored for, like
-OAuth tokens are bound to their auth endpoint. 'status' reports the
-stored key's local state; the audit service has no "who am I"
-endpoint, so it is a purely offline view.
+The audit API (/audit/v1) accepts only the service's own API keys, so
+'campus audit login' stores a key from --api-key, CAMPUS_AUDIT_API_KEY,
+or an interactive prompt instead of running the OAuth device flow.
+(The service's web UI has a separate browser gate — campus#929
+superadmins, campus#916 development-only key sign-in — which issues no
+CLI credentials.) The key is verified against the service (best-effort,
+never blocking on network errors) and bound to the audit URL it was
+stored for, like OAuth tokens are bound to their auth endpoint.
+'status' reports the stored key's local state; the audit service has
+no "who am I" endpoint, so it is a purely offline view.
 """
 
 import json
