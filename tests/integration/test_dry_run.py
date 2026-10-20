@@ -329,6 +329,16 @@ def test_audit_traces_search_dry_run():
     assert "path='/auth/v1/users/'" in result.stdout
     assert "status=500" in result.stdout
     assert "user_id='alice@school.edu'" in result.stdout
+    assert "journey_id" not in result.stdout
+
+
+def test_audit_traces_search_journey_dry_run():
+    """audit traces search --dry-run carries the journey filter (#63)."""
+    result = _invoke_audit_dry_run(
+        "audit", "traces", "search", "--journey", "jrn-orientation-2026",
+    )
+
+    assert "journey_id='jrn-orientation-2026'" in result.stdout
 
 
 def test_dry_run_flag_documented_in_help():
@@ -396,6 +406,7 @@ def test_audit_dry_run_snippets_are_valid_python():
         ("audit", "traces", "list"),
         ("audit", "traces", "list", "--limit", "10", "--since", "2026-10-01"),
         ("audit", "traces", "search", "--path", "/x", "--status", "500"),
+        ("audit", "traces", "search", "--journey", "jrn-orientation-2026"),
     ]
     for case in cases:
         result = _invoke_audit_dry_run(*case)
