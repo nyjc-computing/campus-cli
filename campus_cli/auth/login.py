@@ -537,6 +537,19 @@ def logout_cmd(
     else:
         print_success("Not logged in.")
 
+    # The campus.audit API key rides the same credential store but is a
+    # separate credential (#54): say so, so "logged out" does not read
+    # as "every stored credential is gone".
+    try:
+        audit_key_stored = bool(credentials.get_audit_api_key())
+    except CredentialError:
+        audit_key_stored = False
+    if audit_key_stored:
+        console.print(
+            "[dim]Note: the stored campus.audit API key is unchanged;"
+            " run 'campus audit logout' to clear it.[/dim]"
+        )
+
 
 @login_app.command("refresh")
 def refresh_cmd(

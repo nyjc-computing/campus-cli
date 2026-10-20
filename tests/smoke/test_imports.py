@@ -33,6 +33,20 @@ def test_import_auth_modules():
         assert spec is not None, f"{module} module not found"
 
 
+def test_import_audit_modules():
+    """Test that audit submodules can be imported without errors (#54)."""
+    audit_modules = [
+        "campus_cli.audit.client",
+        "campus_cli.audit.keys",
+        "campus_cli.audit.login",
+        "campus_cli.audit.traces",
+    ]
+
+    for module in audit_modules:
+        spec = importlib.util.find_spec(module)
+        assert spec is not None, f"{module} module not found"
+
+
 def test_import_utils_modules():
     """Test that utility modules can be imported without errors."""
     utils_modules = [

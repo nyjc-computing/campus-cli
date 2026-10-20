@@ -24,6 +24,21 @@ _PYTHON_API_PREAMBLE = [
     "",
 ]
 
+# Preamble for campus.audit --dry-run snippets (#54): the audit
+# service authenticates with one of its own API keys, not an OAuth
+# token, so its resource root is built directly.
+AUDIT_PYTHON_API_PREAMBLE = [
+    "from campus_python import AuditRoot, CampusRequest",
+    "",
+    "campus_audit = AuditRoot(json_client=CampusRequest(",
+    '    base_url="<audit_url>", timeout=30, mode="device",',
+    "))",
+    "",
+    "# Set your audit API key (campus audit login)",
+    'campus_audit.client.set_bearer_authorization("<audit_api_key>")',
+    "",
+]
+
 
 def print_success(message: str) -> None:
     """
@@ -93,7 +108,11 @@ def print_json(data: Any, pretty: bool = True) -> None:
         console.print(json.dumps(data))
 
 
-def print_python_api(command: str, operation: list[str]) -> None:
+def print_python_api(
+    command: str,
+    operation: list[str],
+    preamble: Optional[list[str]] = None,
+) -> None:
     """
     Print the equivalent Python API code for a --dry-run invocation.
 
@@ -103,8 +122,11 @@ def print_python_api(command: str, operation: list[str]) -> None:
     Args:
         command: The CLI command the snippet corresponds to.
         operation: The API operation lines (after client setup).
+        preamble: Client-setup lines opening the snippet; defaults to
+                  the OAuth-token device client (audit commands pass
+                  the audit API-key setup instead, #54).
     """
-    code = "\n".join([*_PYTHON_API_PREAMBLE, *operation])
+    code = "\n".join([*(preamble or _PYTHON_API_PREAMBLE), *operation])
     console.print("[bold]Dry run:[/bold] no API call made.")
     console.print(f"Equivalent Python code for [cyan]{command}[/cyan]:\n")
     console.print(Syntax(code, "python", word_wrap=True, background_color="default"))

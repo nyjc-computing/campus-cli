@@ -31,6 +31,12 @@ class Config:
     # /auth/v1 prefix because the CLI appends /oauth/... paths itself
     STAGING_AUTH_URL = "https://auth.campus.nyjc.dev/auth/v1"
     PRODUCTION_AUTH_URL = "https://auth.campus.nyjc.app/auth/v1"
+    # Audit service base URLs (#54). No /audit/v1 prefix: the resource
+    # root (campus_python.AuditRoot) carries the url_prefix itself, so
+    # these match campus_python's URL resolution exactly.
+    DEFAULT_AUDIT_URL = "https://campusaudit-development.up.railway.app"
+    STAGING_AUDIT_URL = "https://audit.campus.nyjc.dev"
+    PRODUCTION_AUDIT_URL = "https://audit.campus.nyjc.app"
     DEFAULT_AUTO_REFRESH = True
     DEFAULT_REFRESH_THRESHOLD = 300  # 5 minutes
 
@@ -155,6 +161,53 @@ class Config:
     def auth_url(self, value: str) -> None:
         """Set the auth server URL."""
         self.set("auth_url", value)
+
+    @property
+    def audit_url(self) -> str:
+        """
+        Get the audit service base URL (#54).
+
+        Resolution order mirrors campus_python's audit URL resolution
+        (CAMPUS_AUDIT_URL env var, then ENV/CAMPUS_ENV), with the config
+        file's audit_url key taking precedence over the ENV mapping —
+        the same precedence auth_url uses:
+
+        1. CAMPUS_AUDIT_URL environment variable
+        2. audit_url key in the config file
+        3. ENV/CAMPUS_ENV environment variable (ENV wins) mapped to the
+           deployment environment's audit service URL
+        4. Built-in development default
+        """
+        env_audit_url = os.getenv("CAMPUS_AUDIT_URL")
+        if env_audit_url:
+            return env_audit_url
+        config_audit_url = self.get("audit_url")
+        if config_audit_url:
+            return config_audit_url
+        return self._env_audit_url()
+
+    @staticmethod
+    def _env_audit_url() -> str:
+        """Resolve the audit URL from the ENV/CAMPUS_ENV deployment environment."""
+        campus_env = os.environ.get("ENV", os.environ.get("CAMPUS_ENV", "development"))
+        match campus_env:
+            case "development" | "testing":
+                return Config.DEFAULT_AUDIT_URL
+            case "staging":
+                return Config.STAGING_AUDIT_URL
+            case "production":
+                return Config.PRODUCTION_AUDIT_URL
+            case _:
+                raise ValueError(
+                    f"Invalid deployment environment {campus_env!r} in "
+                    "ENV/CAMPUS_ENV; expected development, staging, or "
+                    "production (or set CAMPUS_AUDIT_URL explicitly)"
+                )
+
+    @audit_url.setter
+    def audit_url(self, value: str) -> None:
+        """Set the audit service base URL."""
+        self.set("audit_url", value)
 
     @property
     def auto_refresh(self) -> bool:

@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 import requests
 from campus_python import errors
+from typer.testing import CliRunner
 
 from campus_cli.auth.common import revoke_token
 from campus_cli.auth.login import (
@@ -12,6 +13,8 @@ from campus_cli.auth.login import (
     poll_for_token,
     request_device_code,
 )
+from campus_cli.cli import app
+from campus_cli.credentials import CredentialError
 
 
 def _http_error(error_body):
@@ -334,3 +337,33 @@ def test_login_without_scope_response_records_neither():
 
     creds.set_token_scopes.assert_not_called()
     creds.set_token_user_id.assert_not_called()
+
+
+class TestLogoutAuditKeyNote:
+    """`auth logout` says when a campus.audit key is still stored (#54)."""
+
+    def test_note_names_the_stored_audit_key(self):
+        creds = mock.Mock()
+        creds.get_token.return_value = None
+        creds.get_audit_api_key.return_value = "audit_v1_k"
+        with mock.patch("campus_cli.auth.login.credentials", creds):
+            result = CliRunner().invoke(app, ["auth", "logout"])
+        assert result.exit_code == 0, result.output
+        assert "campus audit logout" in result.output
+
+    def test_no_note_without_a_stored_audit_key(self):
+        creds = mock.Mock()
+        creds.get_token.return_value = None
+        creds.get_audit_api_key.return_value = None
+        with mock.patch("campus_cli.auth.login.credentials", creds):
+            result = CliRunner().invoke(app, ["auth", "logout"])
+        assert result.exit_code == 0, result.output
+        assert "campus audit logout" not in result.output
+
+    def test_unreadable_store_does_not_break_logout(self):
+        creds = mock.Mock()
+        creds.get_token.return_value = None
+        creds.get_audit_api_key.side_effect = CredentialError("locked")
+        with mock.patch("campus_cli.auth.login.credentials", creds):
+            result = CliRunner().invoke(app, ["auth", "logout"])
+        assert result.exit_code == 0, result.output

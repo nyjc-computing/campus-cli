@@ -33,6 +33,22 @@ def _invoke_dry_run(*args):
     return result
 
 
+def _invoke_audit_dry_run(*args):
+    """Invoke an audit dry-run command without touching the audit client.
+
+    Audit snippets carry the API-key preamble (AuditRoot + key bearer)
+    instead of the OAuth one (#54).
+    """
+    with patch("campus_cli.audit.client.get_audit_client") as mock_get:
+        result = runner.invoke(app, [*args, "--dry-run"])
+        mock_get.assert_not_called()
+    assert result.exit_code == 0
+    assert "Dry run" in result.stdout
+    assert "import AuditRoot, CampusRequest" in result.stdout
+    assert "set_bearer_authorization" in result.stdout
+    return result
+
+
 def test_client_new_dry_run():
     """client new --dry-run shows the clients.new() call with arguments."""
     result = _invoke_dry_run(
@@ -215,9 +231,111 @@ def test_vault_list_dry_run():
     assert "campus.auth.vaults['myvault'].keys()" in result.stdout
 
 
+def test_audit_keys_new_dry_run():
+    """audit keys new --dry-run shows the apikeys.new() call (#54)."""
+    result = _invoke_audit_dry_run(
+        "audit", "keys", "new",
+        "--name", "Alice", "--owner", "alice@school.edu",
+        "--scope", "traces:read",
+    )
+
+    assert "campus_audit.apikeys.new(" in result.stdout
+    assert "name='Alice'" in result.stdout
+    assert "owner_id='alice@school.edu'" in result.stdout
+    assert "scopes=['traces:read']" in result.stdout
+
+
+def test_audit_keys_get_dry_run():
+    """audit keys get --dry-run shows indexed resource access."""
+    result = _invoke_audit_dry_run(
+        "audit", "keys", "get", "--key-id", "apikey-abc123"
+    )
+
+    assert "campus_audit.apikeys['apikey-abc123'].get()" in result.stdout
+
+
+def test_audit_keys_revoke_dry_run_skips_confirmation():
+    """audit keys revoke --dry-run shows the revoke call without prompting."""
+    result = _invoke_audit_dry_run(
+        "audit", "keys", "revoke", "--key-id", "apikey-abc123"
+    )
+
+    assert "campus_audit.apikeys['apikey-abc123'].revoke()" in result.stdout
+    assert "Are you sure" not in result.stdout
+
+
+def test_audit_keys_update_dry_run_only_passed_fields():
+    """audit keys update --dry-run shows only the fields being updated."""
+    result = _invoke_audit_dry_run(
+        "audit", "keys", "update",
+        "--key-id", "apikey-abc123", "--scope", "traces:read",
+    )
+
+    assert "campus_audit.apikeys['apikey-abc123'].update(" in result.stdout
+    assert "scopes=['traces:read']" in result.stdout
+    assert "name=" not in result.stdout
+
+    plain = _invoke_audit_dry_run(
+        "audit", "keys", "update",
+        "--key-id", "apikey-abc123", "--name", "N",
+    )
+    assert "name='N'" in plain.stdout
+    assert "scopes=" not in plain.stdout
+
+
+def test_audit_keys_update_requires_a_field():
+    """audit keys update with nothing to change exits before any call."""
+    result = runner.invoke(
+        app, ["audit", "keys", "update", "--key-id", "k"]
+    )
+    assert result.exit_code != 0
+
+
+def test_audit_keys_regenerate_dry_run_skips_confirmation():
+    """audit keys regenerate --dry-run previews the rotation."""
+    result = _invoke_audit_dry_run(
+        "audit", "keys", "regenerate", "--key-id", "apikey-abc123"
+    )
+
+    assert "campus_audit.apikeys['apikey-abc123'].regenerate()" in result.stdout
+    assert "Are you sure" not in result.stdout
+
+
+def test_audit_traces_list_dry_run():
+    """audit traces list --dry-run shows the traces.list() call."""
+    result = _invoke_audit_dry_run("audit", "traces", "list", "--limit", "10")
+
+    assert "campus_audit.traces.list(" in result.stdout
+    assert "limit=10" in result.stdout
+
+
+def test_audit_traces_get_dry_run():
+    """audit traces get --dry-run shows indexed trace access."""
+    result = _invoke_audit_dry_run(
+        "audit", "traces", "get", "--trace-id", "a" * 32
+    )
+
+    assert f"campus_audit.traces[{'a' * 32!r}].get()" in result.stdout
+
+
+def test_audit_traces_search_dry_run():
+    """audit traces search --dry-run passes only the given filters."""
+    result = _invoke_audit_dry_run(
+        "audit", "traces", "search",
+        "--path", "/auth/v1/users/", "--status", "500", "--user", "alice@school.edu",
+    )
+
+    assert "campus_audit.traces.search(" in result.stdout
+    assert "path='/auth/v1/users/'" in result.stdout
+    assert "status=500" in result.stdout
+    assert "user_id='alice@school.edu'" in result.stdout
+
+
 def test_dry_run_flag_documented_in_help():
     """--dry-run appears in help for API-backed command groups."""
-    for group_args in (["client"], ["vault"]):
+    for group_args in (
+        ["client"], ["vault"], ["audit", "keys"], ["audit", "traces"],
+    ):
         result = runner.invoke(app, [*group_args, "list", "--help"])
         assert result.exit_code == 0
         assert "--dry-run" in result.stdout
@@ -263,6 +381,24 @@ def test_dry_run_snippets_are_valid_python():
     ]
     for case in cases:
         result = _invoke_dry_run(*case)
+        code = _extract_snippet(result.stdout)
+        compile(code, f"<dry-run: {' '.join(case)}>", "exec")
+
+
+def test_audit_dry_run_snippets_are_valid_python():
+    """Generated audit snippets compile (#54)."""
+    cases = [
+        ("audit", "keys", "new", "--name", "A",
+         "--owner", "o@school.edu", "--scope", "traces:read"),
+        ("audit", "keys", "get", "--key-id", "apikey-abc123"),
+        ("audit", "keys", "update", "--key-id", "apikey-abc123",
+         "--scope", "traces:read"),
+        ("audit", "traces", "list"),
+        ("audit", "traces", "list", "--limit", "10", "--since", "2026-10-01"),
+        ("audit", "traces", "search", "--path", "/x", "--status", "500"),
+    ]
+    for case in cases:
+        result = _invoke_audit_dry_run(*case)
         code = _extract_snippet(result.stdout)
         compile(code, f"<dry-run: {' '.join(case)}>", "exec")
 
