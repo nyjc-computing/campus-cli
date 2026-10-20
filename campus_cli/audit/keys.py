@@ -3,11 +3,15 @@
 The operator workflow for minting and managing audit API keys, e.g.
 one per student for dev-environment access: `owner_id` is a free-form
 label, conventionally the student's email (organizational only —
-campus.audit is user-blind and self-contained by design), `scopes`
-gate what the key may call (e.g. ["traces:read"]), and key management
-itself requires apikeys:* scopes, held only by the operator key.
-Plaintext key material is shown exactly once, at creation and at
-regeneration (mirroring the server).
+campus.audit is user-blind and self-contained by design), and
+`scopes` gate what the key may call — student keys carry
+["traces:read"]. Managing keys through this API requires apikeys:*
+scopes: the deployment seeds one such operator key from its
+AUDIT_OPERATOR_API_KEY env var, and minting does not validate scopes
+— but apikeys:write is also the web UI's key-management capability
+(campus#929), so hand one out deliberately. Plaintext key material is
+shown exactly once, at creation and at regeneration (mirroring the
+server).
 """
 
 from datetime import datetime, timezone

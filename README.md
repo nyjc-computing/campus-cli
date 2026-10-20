@@ -141,13 +141,18 @@ scopes never self-confer).
 
 ### campus.audit: API-key auth (#54)
 
-The audit service (`/audit/v1`) is a separate, user-blind deployment
-that does **not** accept OAuth tokens: it authenticates with its own
-API keys (`audit_v1_…`) sent as Bearer credentials. `campus audit` is
-the CLI's only command group using this second credential, stored in
-the same credential store as your OAuth tokens and bound to the audit
-URL it was stored for (per `ENV`/`CAMPUS_ENV` or `CAMPUS_AUDIT_URL`,
-like every other endpoint):
+The audit service is a separate, user-blind deployment with two auth
+lanes. Its versioned API (`/audit/v1`) — everything `campus audit`
+talks to — accepts only the service's own API keys (`audit_v1_…`) sent
+as Bearer credentials, never OAuth tokens or campus accounts. The
+service's web UI has its own, separate gate: campus accounts on the
+server's `AUDIT_ADMINS` list sign in as **superadmins** (they may view
+traces *and* manage keys in the browser), and in development
+environments an audit API key can sign in too. None of that issues CLI
+credentials: `campus audit` is the CLI's only command group using a
+second credential, stored in the same credential store as your OAuth
+tokens and bound to the audit URL it was stored for (per
+`ENV`/`CAMPUS_ENV` or `CAMPUS_AUDIT_URL`, like every other endpoint):
 
 ```bash
 # Store a key: the CAMPUS_AUDIT_API_KEY env var, an interactive prompt
@@ -176,10 +181,20 @@ command has one shape: list envelopes keep their `count`
 bodyless action such as `keys revoke` reports `{"id": …, "revoked":
 true}`.
 
+The service gates everything through two capabilities, and a key earns
+them scope by scope: `traces:read` for trace surfaces (the CLI's
+`traces` commands, and the browser trace viewer via key sign-in),
+`apikeys:write` for key management. A key with `apikeys:write` gains
+no trace access, and a key with `traces:read` gains no key
+management; `apikeys:read` alone is an API/CLI privilege that does not
+admit a browser session. Web superadmins hold both capabilities by
+being on the list.
+
 Two roles use the group:
 
-- **The operator** holds the key with `apikeys:*` scopes (the one
-  seeded from the server's `AUDIT_OPERATOR_API_KEY`) and administers
+- **The operator** holds a key carrying `apikeys:read`/`apikeys:write`
+  — the deployment seeds one from the server's `AUDIT_OPERATOR_API_KEY`
+  env var (with every `traces:*` scope besides) — and administers
   everyone else's keys — mint, inspect, update, rotate, revoke:
 
   ```bash
@@ -215,6 +230,12 @@ Two roles use the group:
   local copy of a key — a leaked key is disabled with
   `campus audit keys revoke` (operator) or by letting `--expires-at`
   pass.
+
+  In a development environment the same `traces:read` key also signs
+  into the audit web UI's trace viewer, where the session holds
+  exactly the key's scopes; revoking or re-scoping the key ends the
+  browser session on its next request. That sign-in path does not
+  exist outside development.
 
 ### Dry-run mode
 
