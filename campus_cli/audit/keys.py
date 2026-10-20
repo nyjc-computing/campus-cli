@@ -53,6 +53,15 @@ ScopeOption = typer.Option(
         " (the server requires at least one)"
     ),
 )
+RoleOption = typer.Option(
+    None,
+    "--role",
+    help=(
+        "Named role the key gets, e.g. traces-viewer. The role is a"
+        " bundle of scopes the service owns; --scope and --role are"
+        " mutually exclusive"
+    ),
+)
 
 
 def _print_reveal_key(key_value: str) -> None:
@@ -192,7 +201,15 @@ def keys_list(
 def keys_new(
     name: str = typer.Option(..., "--name", help="Key name, e.g. the student's name"),
     owner: str = OwnerOption,
-    scope: list[str] = ScopeOption,  # noqa: B008
+    scope: Optional[list[str]] = typer.Option(  # noqa: B008
+        None,
+        "--scope",
+        help=(
+            "Scope the key grants, e.g. traces:read; repeat for multiple"
+            " (mutually exclusive with --role)"
+        ),
+    ),
+    role: Optional[str] = RoleOption,
     rate_limit: Optional[int] = typer.Option(
         None, "--rate-limit", help="Requests per minute (optional)"
     ),
@@ -205,16 +222,34 @@ def keys_new(
     """
     Create an audit API key (mint a student key).
 
+    Give the key a privilege: --role <name> for one of the service's
+    named roles (a bundle of scopes it owns), or --scope <scope> for a
+    hand-assembled scope list. The two are mutually exclusive — the
+    server refuses both together, because it leaves it ambiguous which
+    was meant.
+
     The plaintext key is shown exactly once, at creation — the server
     keeps only its hash. Pass it to the student; they store it with
     'campus audit login --api-key'.
     """
+    if role and scope:
+        print_error("Give either --role or --scope, not both.")
+        raise typer.Exit(1)
+    if not role and not scope:
+        print_error(
+            "Give the key a privilege: --role <name> or --scope <scope>."
+        )
+        raise typer.Exit(1)
+
     if dry_run:
         new_kwargs = [
             f"    name={name!r},",
             f"    owner_id={owner!r},",
-            f"    scopes={list(scope)!r},",
         ]
+        if role is not None:
+            new_kwargs.append(f"    role={role!r},")
+        else:
+            new_kwargs.append(f"    scopes={list(scope)!r},")
         if rate_limit is not None:
             new_kwargs.append(f"    rate_limit={rate_limit!r},")
         if expires_at is not None:
@@ -236,7 +271,8 @@ def keys_new(
         record = api.apikeys.new(
             name=name,
             owner_id=owner,
-            scopes=list(scope),
+            scopes=list(scope) if scope else None,
+            role=role,
             rate_limit=rate_limit,
             expires_at=expires_at,
         )
@@ -297,9 +333,10 @@ def keys_update(
         "--scope",
         help=(
             "Replacement scope set; repeat for multiple. Omit to keep"
-            " the current scopes"
+            " the current scopes (mutually exclusive with --role)"
         ),
     ),
+    role: Optional[str] = RoleOption,
     rate_limit: Optional[int] = typer.Option(
         None, "--rate-limit", help="Requests per minute"
     ),
@@ -307,14 +344,21 @@ def keys_update(
     dry_run: bool = dry_run_option(),
 ) -> None:
     """
-    Update an audit API key's name, scopes, or rate limit.
+    Update an audit API key's name, scopes, role, or rate limit.
 
     Only the fields passed are changed. Expiry and revocation are
     immutable — mint a fresh key instead.
+
+    --role and --scope are mutually exclusive: the server refuses both
+    together, because it leaves it ambiguous which was meant.
     """
-    if name is None and scope is None and rate_limit is None:
+    if role and scope:
+        print_error("Give either --role or --scope, not both.")
+        raise typer.Exit(1)
+    if name is None and scope is None and role is None and rate_limit is None:
         print_error(
-            "Nothing to update: pass --name, --scope, or --rate-limit."
+            "Nothing to update: pass --name, --scope, --role, or"
+            " --rate-limit."
         )
         raise typer.Exit(1)
 
@@ -322,7 +366,9 @@ def keys_update(
         update_kwargs = []
         if name is not None:
             update_kwargs.append(f"    name={name!r},")
-        if scope is not None:
+        if role is not None:
+            update_kwargs.append(f"    role={role!r},")
+        elif scope is not None:
             update_kwargs.append(f"    scopes={list(scope)!r},")
         if rate_limit is not None:
             update_kwargs.append(f"    rate_limit={rate_limit!r},")
@@ -343,6 +389,7 @@ def keys_update(
         record = api.apikeys[key_id].update(
             name=name,
             scopes=list(scope) if scope is not None else None,
+            role=role,
             rate_limit=rate_limit,
         )
 

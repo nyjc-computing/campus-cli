@@ -53,7 +53,7 @@ campus grant grant --grantee-type user --grantee-id someone@school.edu \
 # campus.audit: mint a student's trace-reading key (operator, #54)
 CAMPUS_AUDIT_API_KEY=<operator key> campus audit login
 campus audit keys new --name "Alice" --owner alice@school.edu \
-    --scope traces:read --rate-limit 60
+    --role traces-viewer --rate-limit 60
 campus audit keys list --owner alice@school.edu
 
 # …and the queries that key unlocks (from any machine the student logs in on)
@@ -199,13 +199,21 @@ Two roles use the group:
 
   ```bash
   campus audit keys new --name "Alice" --owner alice@school.edu \
-      --scope traces:read --rate-limit 60 --expires-at 2026-12-31T23:59:59Z
+      --role traces-viewer --rate-limit 60 --expires-at 2026-12-31T23:59:59Z
   campus audit keys list --owner alice@school.edu
   campus audit keys get --key-id <id>
-  campus audit keys update --key-id <id> --scope traces:read --rate-limit 120
+  campus audit keys update --key-id <id> --role traces-viewer --rate-limit 120
   campus audit keys regenerate --key-id <id>   # rotation; old value dies
   campus audit keys revoke --key-id <id>       # record kept for audit
   ```
+
+  **Roles vs scopes.** `--role` names one of the service's roles — a
+  bundle of scopes it owns (`traces-viewer`, `traces-searcher`,
+  `traces-producer`, `key-operator`), so the holder gets a reviewed
+  privilege set instead of a hand-assembled one. `--scope` is for
+  anything the roles do not cover. The two are mutually exclusive, and
+  the service owns the catalogue: an unknown role is refused with the
+  names of the roles it does have.
 
   Plaintext key material is shown exactly once, at creation and at
   regeneration (the server keeps only the hash) — pass it to the

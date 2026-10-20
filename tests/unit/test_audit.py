@@ -766,3 +766,93 @@ class TestTracesSearchJourney:
 
         assert result.exit_code == 0, result.output
         assert api.traces.search.call_args.kwargs["journey_id"] is None
+
+
+class TestKeysRole:
+    """`campus audit keys new/update --role` grants a named role (#67).
+
+    The role is the service's own vocabulary (campus#918); the CLI
+    passes the name through and lets the server refuse an unknown one.
+    """
+
+    def _invoke_new(self, args):
+        api = mock.Mock()
+        api.apikeys.new.return_value = {"id": "k1", "api_key": "audit_v1_x"}
+        with (
+            mock.patch("campus_cli.audit.keys.get_audit_client", return_value=api),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            result = CliRunner().invoke(app, ["audit", "keys", "new", *args])
+        return result, api
+
+    def test_role_is_passed_and_no_scopes(self):
+        result, api = self._invoke_new([
+            "--name", "Alice", "--owner", "alice@school.edu",
+            "--role", "traces-viewer",
+        ])
+
+        assert result.exit_code == 0, result.output
+        kwargs = api.apikeys.new.call_args.kwargs
+        assert kwargs["role"] == "traces-viewer"
+        assert kwargs["scopes"] is None
+
+    def test_scopes_still_work(self):
+        result, api = self._invoke_new([
+            "--name", "Alice", "--owner", "alice@school.edu",
+            "--scope", "traces:read",
+        ])
+
+        assert result.exit_code == 0, result.output
+        kwargs = api.apikeys.new.call_args.kwargs
+        assert kwargs["scopes"] == ["traces:read"]
+        assert kwargs["role"] is None
+
+    def test_role_and_scopes_together_are_refused(self):
+        result, api = self._invoke_new([
+            "--name", "Alice", "--owner", "alice@school.edu",
+            "--role", "traces-viewer", "--scope", "traces:read",
+        ])
+
+        assert result.exit_code == 1
+        assert "not both" in result.output
+        api.apikeys.new.assert_not_called()
+
+    def test_neither_role_nor_scopes_is_refused(self):
+        result, api = self._invoke_new([
+            "--name", "Alice", "--owner", "alice@school.edu",
+        ])
+
+        assert result.exit_code == 1
+        assert "--role" in result.output
+        api.apikeys.new.assert_not_called()
+
+    def test_update_accepts_a_role(self):
+        api = mock.MagicMock()
+        api.apikeys.__getitem__.return_value.update.return_value = {"id": "k1"}
+        with (
+            mock.patch("campus_cli.audit.keys.get_audit_client", return_value=api),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            result = CliRunner().invoke(app, [
+                "audit", "keys", "update", "--key-id", "k1",
+                "--role", "traces-searcher",
+            ])
+
+        assert result.exit_code == 0, result.output
+        kwargs = api.apikeys.__getitem__.return_value.update.call_args.kwargs
+        assert kwargs["role"] == "traces-searcher"
+        assert kwargs["scopes"] is None
+
+    def test_update_refuses_role_and_scopes_together(self):
+        api = mock.MagicMock()
+        with (
+            mock.patch("campus_cli.audit.keys.get_audit_client", return_value=api),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            result = CliRunner().invoke(app, [
+                "audit", "keys", "update", "--key-id", "k1",
+                "--role", "traces-viewer", "--scope", "traces:read",
+            ])
+
+        assert result.exit_code == 1
+        assert "not both" in result.output
