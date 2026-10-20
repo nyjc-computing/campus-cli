@@ -176,7 +176,7 @@ flask = "^3.0.0"
 type = "git"
 url = "https://github.com/nyjc-computing/campus-api-python.git"
 reference = "main"
-resolved_reference = "89df17e5774ebd978cb84b103ee8be6642f758bc"
+resolved_reference = "dad044252ec9256cf99e5a0f7d9b29ecf81e88fc"
 
 [[package]]
 name = "campus-suite"

@@ -178,6 +178,9 @@ def traces_search(
     api_key_id: Optional[str] = typer.Option(
         None, "--api-key-id", help="Filter by audit API key ID"
     ),
+    journey: Optional[str] = typer.Option(
+        None, "--journey", help="Filter by login-journey ID"
+    ),
     since: Optional[str] = typer.Option(
         None, "--since", help="ISO 8601 lower bound on trace time"
     ),
@@ -191,11 +194,9 @@ def traces_search(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
-    """
-    Search traces by endpoint, outcome, principal, or time.
+    """Search traces by journey, endpoint, outcome, principal, or time.
 
-    Filters combine (AND). The server's login-journey filter is not
-    exposed here yet — campus-api-python's search() does not carry it.
+    Filters combine (AND).
     """
     if dry_run:
         _dry_run(
@@ -204,6 +205,7 @@ def traces_search(
                 "path": path, "status": status,
                 "user_id": user, "client_id": client,
                 "api_key_id": api_key_id,
+                "journey_id": journey,
                 "since": since, "until": until,
                 "limit": limit, "cursor": cursor,
             }),
@@ -218,6 +220,7 @@ def traces_search(
             user_id=user,
             client_id=client,
             api_key_id=api_key_id,
+            journey_id=journey,
             since=since,
             until=until,
             limit=limit,

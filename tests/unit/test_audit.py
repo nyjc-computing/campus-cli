@@ -736,3 +736,33 @@ class TestAuditJsonShapes:
             result = CliRunner().invoke(app, ["audit", "traces", "list", "--json"])
         assert result.exit_code == 0, result.output
         assert json.loads(result.stdout) == server_response
+
+
+class TestTracesSearchJourney:
+    """traces search forwards --journey as the journey_id kwarg (#63)."""
+
+    def _invoke_search(self, args):
+        api = mock.Mock()
+        api.traces.search.return_value = {"traces": []}
+        with (
+            mock.patch("campus_cli.audit.traces.get_audit_client", return_value=api),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            result = CliRunner().invoke(app, ["audit", "traces", "search", *args])
+        return result, api
+
+    def test_journey_is_forwarded_as_journey_id(self):
+        result, api = self._invoke_search([
+            "--journey", "jrn-orientation-2026", "--path", "/auth/v1/token",
+        ])
+
+        assert result.exit_code == 0, result.output
+        assert api.traces.search.call_args.kwargs["journey_id"] == \
+            "jrn-orientation-2026"
+
+    def test_absent_journey_is_none(self):
+        """Without --journey, journey_id is passed as None like the rest."""
+        result, api = self._invoke_search(["--user", "alice@school.edu"])
+
+        assert result.exit_code == 0, result.output
+        assert api.traces.search.call_args.kwargs["journey_id"] is None
