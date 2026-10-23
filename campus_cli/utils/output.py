@@ -1,6 +1,7 @@
 """Output formatting utilities using Rich."""
 
 import json
+import os
 from typing import Any, Optional
 
 from rich.console import Console
@@ -94,18 +95,42 @@ def print_table(
     console.print(table)
 
 
-def print_json(data: Any, pretty: bool = True) -> None:
+def _agent_mode() -> bool:
     """
-    Print data as formatted JSON.
+    Whether CAMPUS_CLI_AGENT opts out of display-only formatting.
+
+    Agent tools often allocate a pty, so terminal detection alone cannot
+    be trusted to pick raw machine-readable output (#69).
+    """
+    return os.environ.get("CAMPUS_CLI_AGENT", "").strip().lower() not in (
+        "",
+        "0",
+        "false",
+    )
+
+
+def print_json(data: Any, pretty: Optional[bool] = None) -> None:
+    """
+    Print data as JSON.
+
+    Raw output is the default: plain ``json.dumps`` written straight to
+    stdout, byte-exact in every string value and always spec-valid. The
+    Rich highlighted renderable is display-only — it soft-wraps long
+    values at the console width, inserting literal newlines into the
+    data — so it is reserved for interactive terminals; pipes, scripts
+    and CAMPUS_CLI_AGENT consumers always get the raw form (#69).
 
     Args:
         data: The data to print (must be JSON-serializable).
-        pretty: Whether to pretty-print the JSON.
+        pretty: Force the display renderable (True) or raw output
+            (False); by default, pretty only when stdout is a TTY.
     """
+    if pretty is None:
+        pretty = console.is_terminal and not _agent_mode()
     if pretty:
         console.print(JSON(json.dumps(data, indent=2)))
     else:
-        console.print(json.dumps(data))
+        print(json.dumps(data, indent=2))
 
 
 def print_python_api(
