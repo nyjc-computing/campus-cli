@@ -737,6 +737,25 @@ class TestAuditJsonShapes:
         assert result.exit_code == 0, result.output
         assert json.loads(result.stdout) == server_response
 
+    def test_json_values_longer_than_the_console_width_round_trip(self):
+        """--json never soft-wraps values to the console width (#69).
+
+        Rich's display renderable used to insert literal newlines into
+        long string values, corrupting machine-readable output.
+        """
+        long_name = "a" * 110
+        server_response = {
+            "api_keys": [{"id": "k1", "name": long_name}],
+            "count": 1,
+        }
+        api = mock.Mock()
+        api.apikeys.list.return_value = server_response
+        with mock.patch("campus_cli.audit.keys.get_audit_client", return_value=api):
+            result = CliRunner().invoke(app, ["audit", "keys", "list", "--json"])
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == server_response
+        assert "\n" not in json.loads(result.stdout)["api_keys"][0]["name"]
+
 
 class TestTracesSearchJourney:
     """traces search forwards --journey as the journey_id kwarg (#63)."""

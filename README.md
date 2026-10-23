@@ -68,6 +68,15 @@ campus vault list --vault myvault
 campus client new --name "My App" --description "My application" --dry-run
 ```
 
+### Machine-readable output
+
+`--json` always emits raw, spec-valid JSON: string values are
+byte-exact and never soft-wrapped to the terminal width (#69). On an
+interactive terminal the same output is syntax-highlighted for
+reading — its line wrapping is display-only, so pipe through `cat`
+or `jq` (or redirect to a file) for the raw form. Agent tools that
+allocate a pty can force the raw form with `CAMPUS_CLI_AGENT=1`.
+
 ### Token scopes
 
 `campus auth login --scope <scope>` (repeatable: `--scope read
