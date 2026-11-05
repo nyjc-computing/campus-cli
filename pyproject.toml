@@ -14,7 +14,7 @@ python = ">=3.11,<3.15"
 typer = "^0.25.1"
 rich = "^13.9.0"
 keyring = "^25.6.0"
-campus-api-python = {git = "https://github.com/nyjc-computing/campus-api-python.git", branch = "main"}
+campus-api-python = {url = "https://github.com/nyjc-computing/campus-api-python/releases/download/v0.6.0/campus_api_python-0.6.0-py3-none-any.whl"}
 pyperclip = "^1.11.0"
 
 [tool.poetry.scripts]
