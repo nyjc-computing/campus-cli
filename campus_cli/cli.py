@@ -45,6 +45,12 @@ from campus_cli.auth import (  # noqa: E402
     user_app,
     vault_app,
 )
+from campus_cli.resources import (  # noqa: E402
+    assignment_app,
+    circle_app,
+    submission_app,
+    timetable_app,
+)
 
 # Register sub-apps
 app.add_typer(login_app, name="auth", help="Authentication commands")
@@ -53,6 +59,16 @@ app.add_typer(user_app, name="user", help="User management commands")
 app.add_typer(grants_app, name="grant", help="Access-grant store commands")
 app.add_typer(vault_app, name="vault", help="Vault management commands")
 app.add_typer(audit_app, name="audit", help="Campus Audit service commands")
+app.add_typer(
+    assignment_app, name="assignment", help="Assignment commands (campus.api)"
+)
+app.add_typer(
+    submission_app, name="submission", help="Submission commands (campus.api)"
+)
+app.add_typer(
+    timetable_app, name="timetable", help="Timetable commands (campus.api)"
+)
+app.add_typer(circle_app, name="circle", help="Circle commands (campus.api)")
 
 
 def main() -> None:

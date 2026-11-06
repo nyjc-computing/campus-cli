@@ -64,6 +64,17 @@ campus user list
 campus user new --email "new.member@school.edu" --name "New Member"
 campus user activate --user-id "new.member@school.edu"
 
+# Campus API resources — reads (campus-cli#4 Phase A)
+campus assignment list --created-by "teacher@school.edu"
+campus assignment get --assignment-id <id>
+campus submission list          # or: by-assignment --assignment-id <id>
+campus submission by-student --student-id "student@school.edu"
+campus submission get --submission-id <id>
+campus timetable list           # or: current / next
+campus timetable entries --timetable-id <id>
+campus circle list
+campus circle members list --circle-id <id>
+
 # See — and administer — who can do what (#883 grant store)
 campus grant list
 campus grant grant --grantee-type user --grantee-id someone@school.edu \

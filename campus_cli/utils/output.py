@@ -14,7 +14,9 @@ stderr_console = Console(stderr=True)
 
 # Preamble shared by all --dry-run Python snippets: the campus_python
 # equivalent always starts by constructing a device-mode client and
-# authenticating it with a Bearer token.
+# authenticating it with a Bearer token. The api service (campus.api)
+# authenticates the bearer on its own client, distinct from the auth
+# service's — the CLI wrapper sets both (campus-cli#4).
 _PYTHON_API_PREAMBLE = [
     "from campus_python import Campus",
     "",
@@ -22,6 +24,7 @@ _PYTHON_API_PREAMBLE = [
     "",
     "# Set your access token (device flow: see campus.auth.oauth)",
     'campus.auth.client.set_bearer_authorization("<access_token>")',
+    'campus.api.client.set_bearer_authorization("<access_token>")',
     "",
 ]
 
