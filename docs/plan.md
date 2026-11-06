@@ -2,24 +2,29 @@
 
 ## Project Status
 
-**Last Updated:** 2026-09-30
+**Last Updated:** 2026-11-06
 
 ### Completed
 - ✅ Phase 1: Core Infrastructure (CLI entry point, credentials, config, output formatting)
-- ✅ Phase 2: Authentication (OAuth device flow via public `guest` client, logout, token storage, auto-refresh)
+- ✅ Phase 2: Authentication (OAuth device flow via public `guest` client, logout with server-side revocation, token storage with endpoint binding, auto-refresh)
 - ✅ Phase 3: OAuth Client Commands (list, new, get, update, delete, revoke)
 - ✅ Phase 4: Client Access Commands (get, grant, revoke, update)
-- ✅ Phase 5: Vault Commands (list, get, set, delete)
+- ✅ Phase 5: Vault Commands (list, get, set, delete, labels — campus#1055 admin view)
 - ✅ Phase 6: Polish & Packaging
-  - ✅ Error handling (per-command try/except with Rich-formatted errors)
-  - ✅ Help text (Typer docstrings on all commands)
-  - ✅ Packaging as installable CLI tool via Poetry scripts
-  - ✅ Testing: unit, integration, and smoke suites, all passing; CI via `.github/workflows/test.yml`
-- ✅ `client new` options for public clients (`is_public`, `redirect_uris`) — #8, PR #12
-- ✅ `--dry-run` flag on all client and vault commands, showing the equivalent `campus_python` code — #5, PR #13
-
-### In Progress / Pending
-- ⏳ API Resource Commands (timetable, assignments, circles, users) — tracked in #4 (scope below)
+  - ✅ Error handling, help text, non-interactive confirmations (`-y` / `CAMPUS_ASSUME_YES`, #27/#28)
+  - ✅ `--dry-run` parity across all API-backed commands (equivalent `campus_python` snippets)
+  - ✅ Versioned releases: tag-triggered wheel publishing + pipx/pip install from release URLs (#76); PyPI ruled out (direct-URL deps)
+- ✅ User Commands (list, new, get, activate, edit, delete)
+- ✅ Access-Grant Store Commands (#883: list, check, grant, revoke, delete)
+- ✅ campus.audit Commands (#54: login/logout/status, keys lifecycle, trace queries)
+- ✅ campus.api Resource Commands (#4, all three phases; live-verified against dev):
+  - ✅ Phase A reads: assignment/submission/timetable/circle (PR #80, v0.3.0)
+  - ✅ Phase B writes: assignment/circle/timetable/submissions + `campus file` / `campus app` by-slug groups (PR #81, v0.4.0)
+  - ✅ Phase C structured payloads: timetable new, submission new, responses/feedback add (v0.5.0)
+  - ⏳ `campus submission unsubmit` shipped but gated on the campus#1071 server fix (null-only PATCH body rejected as "Empty request body")
+- ✅ Agent skill (`.agents/skills/campus/SKILL.md`, installed at user level)
+- ✅ SDK env bridge: `CampusClient` injects dev topology into the SDK's lazy URL resolution (live api calls need no manual `CAMPUS_*` env)
+- ✅ campus-api-python pinned to versioned release wheels (currently v0.7.0); relock via the `chore(deps)` flow
 
 ---
 
@@ -29,91 +34,59 @@ campus-cli/
 ├── main.py                 # Windows shim workaround for Poetry entry point (do not remove)
 ├── campus_cli/
 │   ├── __init__.py
-│   ├── api.py              # Campus API client wrapper
-│   ├── cli.py              # Main CLI entry point
+│   ├── api.py              # CampusClient wrapper (bearer + device header + SDK env bridge)
+│   ├── cli.py              # Main CLI entry point (sub-app registration)
 │   ├── config.py           # Configuration management
-│   ├── credentials.py      # Credential storage abstraction
-│   ├── auth/
-│   │   ├── __init__.py
-│   │   ├── common.py       # Shared utilities (token refresh, API client, --dry-run option)
-│   │   ├── login.py        # OAuth login flow (login, logout, refresh, status)
-│   │   ├── client.py       # Client management commands
-│   │   └── vault.py        # Vault commands
+│   ├── credentials.py      # Credential storage abstraction (keyring)
+│   ├── auth/               # auth + client + user + grant + vault commands
+│   │   ├── common.py       # Shared utilities (confirm_destructive, dry_run_option, get_api_client)
+│   │   ├── login.py        # OAuth device flow (login, logout, refresh, status)
+│   │   ├── client.py       # OAuth client management (+ access sub-group)
+│   │   ├── user.py         # User management
+│   │   ├── grants.py       # Access-grant store (#883)
+│   │   └── vault.py        # Vault commands (+ labels)
+│   ├── audit/              # campus.audit commands (API-key lane)
+│   │   ├── login.py, client.py, keys.py, traces.py
+│   ├── resources/          # campus.api commands (#4)
+│   │   ├── assignments.py, submissions.py, timetables.py, circles.py
+│   │   └── files.py, hostedapps.py   # by-slug storage / app publishing
 │   └── utils/
-│       ├── __init__.py
 │       └── output.py       # Formatted output (table/json, dry-run Python snippets)
-├── tests/
+├── .agents/skills/campus/SKILL.md   # ZCode agent skill (source of truth)
+├── tests/                  # smoke + unit run in CI; integration runs locally
 ├── docs/
-├── .devcontainer/
-├── scripts/                # Git hook installers (install-hooks.sh/.ps1)
+├── .github/workflows/test.yml       # Tests matrix + tag-triggered release job
 ├── pyproject.toml
 └── README.md
 ```
 
 ## Technology Stack
-- **Language**: Python 3.11 (pinned `>=3.11,<3.12`)
+- **Language**: Python `>=3.11,<3.15` (3.11–3.13 security tier, CI-required; 3.14 bugfix tier, non-blocking)
 - **CLI Framework**: Typer (modern, type-annotated CLI built on Click)
-- **Output Formatting**: Rich for beautiful terminal output
+- **Output Formatting**: Rich for terminal output; raw spec-valid JSON for machines (#69)
 - **Credential Storage**: keyring library with platform backends
-- **API Client**: campus-api-python (git dependency, `main` branch)
+- **API Client**: campus-api-python, pinned to versioned release wheels (direct URL; PyPI not viable — Warehouse rejects direct-URL deps)
+- **Distribution**: GitHub Releases wheels; install via `pipx install <release wheel URL>` (see README)
 
 ## Pending Features (Not Yet Implemented)
 
-### API Resource Commands (#4)
-The following resources are available in `campus-api-python` but not yet exposed in the CLI.
-New commands should follow the existing conventions and ship with `--dry-run`
-parity (shared `dry_run_option()` in `auth/common.py`, `print_python_api()` in
-`utils/output.py`; API-resource snippets will need the `campus.api` bearer line
-in the preamble).
+None on the #4 parity list — the campus.api surface is fully exposed as of v0.5.0.
 
-#### Timetable Commands
-- `campus timetable list` - List all timetables
-- `campus timetable get-current` - Get current timetable ID
-- `campus timetable set-current <id>` - Set current timetable
-- `campus timetable get-next` - Get next timetable ID
-- `campus timetable set-next <id>` - Set next timetable
-- `campus timetable get <id>` - Get timetable metadata
-- `campus timetable entries <id>` - List timetable entries
+Known gate: `campus submission unsubmit` is shipped but the dev server rejects its null-only PATCH body — tracked upstream as campus#1071.
 
-#### Assignment Commands
-- `campus assignment list [--created-by <teacher>]` - List assignments
-- `campus assignment new` - Create new assignment
-- `campus assignment get <id>` - Get assignment details
-- `campus assignment update <id>` - Update assignment
-- `campus assignment delete <id>` - Delete assignment
-- `campus assignment links add <id>` - Add classroom link
-
-#### Circle Commands
-- `campus circle list` - List circles
-- `campus circle new` - Create new circle
-- `campus circle get <id>` - Get circle details
-- `campus circle update <id>` - Update circle
-- `campus circle delete <id>` - Delete circle
-- `campus circle members list <id>` - List circle members
-- `campus circle members add <id> <member>` - Add member
-- `campus circle members remove <id> <member>` - Remove member
-
-#### User Commands
-- `campus user list` - List users
-- `campus user new` - Create new user
-- `campus user get <id>` - Get user details
-- `campus user activate <id>` - Activate user
-- `campus user delete <id>` - Delete user
+Candidate future work (not scoped): a `campus env show` command surfacing resolved endpoints (proposed 2026-10-01, see auth posture review); staging/prod deployments are prerequisites for any production-default flip.
 
 ---
 
 ## API Integration Notes
 
 ### campus-api-python Usage
-The CLI uses the `campus_python` package (from campus-api-python) which provides:
+The CLI uses the `campus_python` package, which provides:
 
-- `Campus` class - Unified client interface
-- `auth.clients` - OAuth client management
-- `auth.vaults` - Vault key-value storage
-- `auth.users` - User management
-- `api.timetables` - Timetable management
-- `api.assignments` - Assignment management
-- `api.circles` - Circle management
+- `Campus` class — unified client (`mode="device"` for the CLI's public-client lane)
+- `auth.clients` / `auth.vaults` / `auth.users` / `auth.grants` — auth service
+- `api.assignments` / `api.submissions` / `api.circles` / `api.timetable` / `api.files` / `api.hostedapps` — api service
+- `audit.apikeys` / `audit.traces` — campus.audit (own API-key lane, `AuditRoot`)
 
 ### Authentication Pattern
 ```python
@@ -126,7 +99,15 @@ api = get_api_client()
 clients = api.auth_clients.list()
 client = api.auth_clients[client_id].get()
 vault_keys = api.auth_vaults[label].keys()
+assignments = api.api_assignments.list(created_by="teacher@school.edu")
 ```
+
+The wrapper (`CampusClient` in `api.py`) sets the bearer on BOTH the auth
+and api clients, presents the stable device id (`X-Campus-Device`), and
+bridges the SDK's env-based URL resolution: the SDK ships no topology, so
+the wrapper injects a bare-origin `CAMPUS_AUTH_URL` (normalizing the
+CLI-facing `/auth/v1` suffix — the same variable serves both consumers)
+and the dev `CAMPUS_API_URL` default. Explicit env vars always win.
 
 ### Error Handling
 - API errors from `campus_python.errors` are propagated
