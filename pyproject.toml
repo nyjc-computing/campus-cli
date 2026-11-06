@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "campus-cli"
-version = "0.3.0"
+version = "0.4.0"
 description = "Campus CLI - Command-line interface for Campus API"
 authors = ["NYJC Computing <nyjc.computing@nyjc.edu.sg>"]
 readme = "README.md"
@@ -14,7 +14,7 @@ python = ">=3.11,<3.15"
 typer = "^0.25.1"
 rich = "^13.9.0"
 keyring = "^25.6.0"
-campus-api-python = {url = "https://github.com/nyjc-computing/campus-api-python/releases/download/v0.6.0/campus_api_python-0.6.0-py3-none-any.whl"}
+campus-api-python = {url = "https://github.com/nyjc-computing/campus-api-python/releases/download/v0.7.0/campus_api_python-0.7.0-py3-none-any.whl"}
 pyperclip = "^1.11.0"
 
 [tool.poetry.scripts]

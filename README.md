@@ -75,6 +75,27 @@ campus timetable entries --timetable-id <id>
 campus circle list
 campus circle members list --circle-id <id>
 
+# Campus API resources — writes (campus-cli#4 Phase B)
+campus assignment new --title "Quiz 1" --description "..."
+campus assignment update --assignment-id <id> --title "Renamed"
+campus assignment delete --assignment-id <id>            # -y skips the prompt
+campus assignment links add --assignment-id <id> \
+    --course-id <classroom-course> --coursework-id <classroom-coursework>
+campus circle new --name "13A2" --tag class
+campus circle members add --circle-id <id> --member-id <user> --access 3
+campus circle members set --circle-id <id> --member-id <user> --access 5
+campus circle members remove --circle-id <id> --member-id <user>
+campus timetable set-current --timetable-id <id>         # deployment-wide!
+campus timetable set-next --timetable-id <id>            # deployment-wide!
+campus timetable metadata update --timetable-id <id> \
+    --start-date 2027-01-01 --end-date 2027-06-01
+campus submission submit --submission-id <id>
+campus submission unsubmit --submission-id <id>
+campus file put --slug my-notes --file notes.txt --content-type text/plain
+campus file get-content --slug my-notes --output notes.txt
+campus app put --slug my-app --file app.html             # publishes HTML app
+campus app get-content --slug my-app
+
 # See — and administer — who can do what (#883 grant store)
 campus grant list
 campus grant grant --grantee-type user --grantee-id someone@school.edu \

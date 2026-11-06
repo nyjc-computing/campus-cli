@@ -8,6 +8,7 @@ from campus_cli.utils.output import (
     print_error,
     print_json,
     print_python_api,
+    print_success,
     print_table,
 )
 
@@ -230,4 +231,112 @@ def submission_get(
         raise
     except Exception as e:
         print_error(f"Failed to get submission '{submission_id}': {e}")
+        raise typer.Exit(1) from e
+
+
+@submission_app.command("update")
+def submission_update(
+    submission_id: str = typer.Option(..., "--submission-id", help="Submission ID"),
+    submitted_at: str | None = typer.Option(
+        None, "--submitted-at", help="New submitted_at timestamp (ISO)"
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """
+    Update a submission's timestamp.
+
+    Bulk responses/feedback edits are structured payloads (Phase C,
+    campus-cli#4). To just clear the submitted flag, use
+    'campus submission unsubmit'.
+    """
+    if not submitted_at:
+        print_error("Give --submitted-at (or use submit/unsubmit).")
+        raise typer.Exit(1)
+
+    if dry_run:
+        print_python_api(
+            "campus submission update",
+            [
+                f"submission = campus.api.submissions[{submission_id!r}]",
+                f"submission.update(submitted_at={submitted_at!r})",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        api.api_submissions[submission_id].update(submitted_at=submitted_at)
+        formatted = _format_submission(
+            api.api_submissions[submission_id].get()
+        )
+
+        if output_json:
+            print_json(formatted)
+        else:
+            print_success(
+                f"Submission '{submission_id}' updated:"
+                f" submitted_at={formatted['submitted_at']}"
+            )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to update submission '{submission_id}': {e}")
+        raise typer.Exit(1) from e
+
+
+@submission_app.command("submit")
+def submission_submit(
+    submission_id: str = typer.Option(..., "--submission-id", help="Submission ID"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """Finalize a submission (server stamps submitted_at)."""
+    if dry_run:
+        print_python_api(
+            "campus submission submit",
+            [
+                f"submission = campus.api.submissions[{submission_id!r}]",
+                "submission.submit()",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        api.api_submissions[submission_id].submit()
+        print_success(f"Submission '{submission_id}' submitted.")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to submit submission '{submission_id}': {e}")
+        raise typer.Exit(1) from e
+
+
+@submission_app.command("unsubmit")
+def submission_unsubmit(
+    submission_id: str = typer.Option(..., "--submission-id", help="Submission ID"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """Clear a submission's submitted_at timestamp."""
+    if dry_run:
+        print_python_api(
+            "campus submission unsubmit",
+            [
+                f"submission = campus.api.submissions[{submission_id!r}]",
+                "submission.unsubmit()",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        api.api_submissions[submission_id].unsubmit()
+        print_success(f"Submission '{submission_id}' unsubmitted.")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to unsubmit submission '{submission_id}': {e}")
         raise typer.Exit(1) from e

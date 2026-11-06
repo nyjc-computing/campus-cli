@@ -7,6 +7,7 @@ spans attribute to this device.
 """
 
 import json
+import os
 from unittest import mock
 
 import pytest
@@ -150,7 +151,9 @@ class TestCampusClientDeviceHeader:
         campus = mock.MagicMock()
         with mock.patch(
             "campus_python.Campus", return_value=campus
-        ), mock.patch("campus_cli.api.config") as config:
+        ), mock.patch("campus_cli.api.config") as config, mock.patch.dict(
+            os.environ, {"CAMPUS_AUTH_URL": "https://auth.example.com/auth/v1"}
+        ):
             config.get_device_id.return_value = "uid-device-cli42"
             client = CampusClient("token-1")
             _ = client.campus  # trigger the lazy Campus construction
@@ -164,3 +167,61 @@ class TestCampusClientDeviceHeader:
         campus.api.client.set_bearer_authorization.assert_called_once_with(
             "token-1"
         )
+
+
+class TestSdkEnvBridge:
+    """CampusClient bridges the SDK's lazy env resolution (#4).
+
+    The SDK ships no deployment topology: campus-common resolves base
+    URLs from CAMPUS_AUTH_URL / CAMPUS_API_URL at first property access
+    and raises without them. The CLI defaults to dev and normalizes the
+    auth URL to the bare origin the SDK expects.
+    """
+
+    def test_auth_url_normalized_to_bare_origin(self):
+        from campus_cli.api import _sdk_auth_origin
+
+        with mock.patch.dict(
+            os.environ,
+            {"CAMPUS_AUTH_URL": "https://auth.example.com/auth/v1/"},
+            clear=False,
+        ):
+            assert (
+                _sdk_auth_origin() == "https://auth.example.com"
+            )
+
+    def test_auth_url_without_suffix_passes_through(self):
+        from campus_cli.api import _sdk_auth_origin
+
+        with mock.patch.dict(
+            os.environ,
+            {"CAMPUS_AUTH_URL": "https://auth.example.com"},
+            clear=False,
+        ):
+            assert _sdk_auth_origin() == "https://auth.example.com"
+
+    def test_campus_property_sets_api_default_without_override(self):
+        from campus_cli.api import DEV_SDK_API_URL, CampusClient
+
+        campus = mock.MagicMock()
+        env = {"CAMPUS_AUTH_URL": "https://auth.example.com/auth/v1"}
+        with mock.patch(
+            "campus_python.Campus", return_value=campus
+        ), mock.patch.dict(os.environ, env, clear=False):
+            os.environ.pop("CAMPUS_API_URL", None)
+            client = CampusClient("token-1")
+            _ = client.campus
+            assert os.environ["CAMPUS_API_URL"] == DEV_SDK_API_URL
+
+        campus2 = mock.MagicMock()
+        with mock.patch(
+            "campus_python.Campus", return_value=campus2
+        ), mock.patch.dict(
+            os.environ,
+            {"CAMPUS_AUTH_URL": "https://auth.example.com/auth/v1",
+             "CAMPUS_API_URL": "https://api.example.com"},
+            clear=False,
+        ):
+            client = CampusClient("token-1")
+            _ = client.campus
+            assert os.environ["CAMPUS_API_URL"] == "https://api.example.com"
