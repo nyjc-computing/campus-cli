@@ -49,7 +49,7 @@ def timetable_list(
         print_python_api(
             "campus timetable list",
             [
-                "timetables = campus.api.timetable.list()",
+                "timetables = campus.api.timetable.list_metadata()",
                 "for t in timetables:",
                 "    print(t.id, t.filename, t.start_date, t.end_date)",
             ],
@@ -58,7 +58,7 @@ def timetable_list(
 
     try:
         api = get_api_client()
-        timetables = api.api_timetables.list()
+        timetables = api.api_timetables.list_metadata()
         formatted = [_format_metadata(t) for t in timetables]
 
         if output_json:
@@ -91,13 +91,13 @@ def timetable_current(
     if dry_run:
         print_python_api(
             "campus timetable current",
-            ["print(campus.api.timetable.get_current())"],
+            ["print(campus.api.timetable.view()['current'])"],
         )
         return
 
     try:
         api = get_api_client()
-        current = api.api_timetables.get_current()
+        current = api.api_timetables.view()["current"]
 
         if output_json:
             print_json({"current": current})
@@ -116,22 +116,33 @@ def timetable_next(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
-    """Show the ID of the next (incoming) timetable."""
+    """Show the pending switch (ID and effective date), if any."""
     if dry_run:
         print_python_api(
             "campus timetable next",
-            ["print(campus.api.timetable.get_next())"],
+            [
+                "state = campus.api.timetable.view()",
+                "print(state['next'], state['effective_from'])",
+            ],
         )
         return
 
     try:
         api = get_api_client()
-        nxt = api.api_timetables.get_next()
+        state = api.api_timetables.view()
 
         if output_json:
-            print_json({"next": nxt})
+            print_json({
+                "next": state["next"],
+                "effective_from": state["effective_from"],
+            })
+        elif state["next"] is None:
+            console.print("[dim]No switch is pending.[/dim]")
         else:
-            console.print(f"[bold]Next timetable:[/bold] {nxt}")
+            console.print(f"[bold]Next timetable:[/bold] {state['next']}")
+            console.print(
+                f"[bold]Effective:[/bold] {state['effective_from']}"
+            )
 
     except typer.Exit:
         raise
@@ -233,69 +244,163 @@ def timetable_entries(
         raise typer.Exit(1) from e
 
 
-@timetable_app.command("set-current")
-def timetable_set_current(
-    timetable_id: str = typer.Option(..., "--timetable-id", help="Timetable ID"),
+@timetable_app.command("patch")
+def timetable_patch(
+    current: str = typer.Option(
+        None, "--current", help="Timetable ID to make current, effective now"
+    ),
+    next_id: str = typer.Option(
+        None, "--next",
+        help="Timetable ID to schedule as the pending switch"
+        " (reschedules any previous pending switch)",
+    ),
+    cancel_next: bool = typer.Option(
+        False, "--cancel-next", help="Cancel the pending switch"
+    ),
+    effective_from: str = typer.Option(
+        None, "--effective-from",
+        help="When the pending switch applies (ISO datetime, or"
+        " YYYY-MM-DD for 07:00 school time); with --next only",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
     dry_run: bool = dry_run_option(),
 ) -> None:
     """
-    Set the currently-active timetable (deployment-wide).
+    Patch exactly one timetable pointer (deployment-wide).
 
-    Everyone reading 'campus timetable current' sees this immediately.
+    --current flips now; --next schedules (or reschedules) the
+    pending switch; --cancel-next cancels it. Scheduled switches
+    apply at their effective_from without any further action.
     """
     if dry_run:
-        print_python_api(
-            "campus timetable set-current",
-            [f"campus.api.timetable.set_current({timetable_id!r})"],
-        )
+        lines = ["api = campus.api.timetable"]
+        if cancel_next:
+            lines.append("state = api.cancel_next()")
+        elif next_id is not None:
+            body = f"next={next_id!r}"
+            if effective_from is not None:
+                body += f", effective_from={effective_from!r}"
+            lines.append(f"state = api.patch({body})")
+        elif current is not None:
+            lines.append(f"state = api.patch(current={current!r})")
+        lines.append("print(state)")
+        print_python_api("campus timetable patch", lines)
         return
 
-    confirm_destructive(
-        f"set timetable '{timetable_id}' as the CURRENT timetable"
-        " (deployment-wide)", confirm
-    )
+    provided = [
+        flag for flag, given in (
+            ("--current", current is not None),
+            ("--next", next_id is not None),
+            ("--cancel-next", cancel_next),
+        ) if given
+    ]
+    if len(provided) != 1:
+        print_error(
+            "Patch exactly one pointer: pass --current <id> or "
+            "--next <id> (or --cancel-next), not combinations."
+        )
+        raise typer.Exit(1)
+    if cancel_next and effective_from is not None:
+        print_error("--effective-from only applies with --next <id>.")
+        raise typer.Exit(1)
+
+    if cancel_next:
+        confirm_destructive("cancel the pending timetable switch", confirm)
+        description = "Cancelled the pending timetable switch"
+    elif next_id is not None:
+        confirm_destructive(
+            f"schedule timetable '{next_id}' as the NEXT switch"
+            " (deployment-wide, applies at its effective date)",
+            confirm,
+        )
+        description = f"Timetable '{next_id}' scheduled as next"
+    else:
+        confirm_destructive(
+            f"make timetable '{current}' the CURRENT timetable"
+            " (deployment-wide, effective now)",
+            confirm,
+        )
+        description = f"Timetable '{current}' is now current"
 
     try:
         api = get_api_client()
-        api.api_timetables.set_current(timetable_id)
-        print_success(f"Timetable '{timetable_id}' is now current.")
+        if cancel_next:
+            state = api.api_timetables.cancel_next()
+        elif next_id is not None:
+            state = api.api_timetables.patch(
+                next=next_id, effective_from=effective_from
+            )
+        else:
+            state = api.api_timetables.patch(current=current)
+
+        if output_json:
+            print_json(state)
+        else:
+            print_success(f"{description}.")
+            print_json(state)
 
     except typer.Exit:
         raise
     except Exception as e:
-        print_error(f"Failed to set the current timetable: {e}")
+        print_error(f"Failed to patch the timetable pointers: {e}")
         raise typer.Exit(1) from e
 
 
-@timetable_app.command("set-next")
-def timetable_set_next(
-    timetable_id: str = typer.Option(..., "--timetable-id", help="Timetable ID"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+@timetable_app.command("me")
+def timetable_me(
+    at: str = typer.Option(
+        None, "--at", help="Resolve the view as of this ISO datetime"
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
-    """Stage the next (incoming) timetable (deployment-wide)."""
+    """
+    Resolve your own timetable view (campus#592): the current leg
+    and the state at the earliest pending change (change_type
+    separates a whole-school switch from a subjcombi change). Entries
+    render via 'campus timetable entries --timetable-id <id>'
+    filtered by lessongroup_id.
+    """
     if dry_run:
-        print_python_api(
-            "campus timetable set-next",
-            [f"campus.api.timetable.set_next({timetable_id!r})"],
-        )
+        lines = [
+            f"view = campus.api.timetable.me(at={at!r})" if at
+            else "view = campus.api.timetable.me()",
+            "print(view['current'], view['next'])",
+        ]
+        print_python_api("campus timetable me", lines)
         return
-
-    confirm_destructive(
-        f"set timetable '{timetable_id}' as the NEXT timetable"
-        " (deployment-wide)", confirm
-    )
 
     try:
         api = get_api_client()
-        api.api_timetables.set_next(timetable_id)
-        print_success(f"Timetable '{timetable_id}' is now staged as next.")
+        view = api.api_timetables.me(at=at) if at else api.api_timetables.me()
+
+        if output_json:
+            print_json(view)
+        else:
+            current = view["current"]
+            console.print(
+                f"[bold]Current:[/bold] {current['timetable_id']}"
+                f" ({current['lessongroup_id'] or 'unmapped'},"
+                f" via {current['source']})"
+            )
+            nxt = view["next"]
+            if nxt is None:
+                console.print("[dim]No change is pending.[/dim]")
+            else:
+                console.print(
+                    f"[bold]Next:[/bold] {nxt['timetable_id']}"
+                    f" ({nxt['lessongroup_id']}, via {nxt['source']})"
+                )
+                console.print(
+                    f"[bold]Effective:[/bold] {nxt['effective_from']}"
+                    f" ({nxt['change_type']} change)"
+                )
 
     except typer.Exit:
         raise
     except Exception as e:
-        print_error(f"Failed to set the next timetable: {e}")
+        print_error(f"Failed to resolve your timetable view: {e}")
         raise typer.Exit(1) from e
 
 

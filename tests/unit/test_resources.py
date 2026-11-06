@@ -234,9 +234,12 @@ def test_submission_dry_run_by_assignment():
 def test_timetable_list_and_current_next():
     with patch("campus_cli.resources.timetables.get_api_client") as mock_get:
         api = MagicMock()
-        api.api_timetables.list.return_value = [_meta()]
-        api.api_timetables.get_current.return_value = "uid-timetable-1"
-        api.api_timetables.get_next.return_value = "uid-timetable-2"
+        api.api_timetables.list_metadata.return_value = [_meta()]
+        api.api_timetables.view.return_value = {
+            "current": "uid-timetable-1",
+            "next": "uid-timetable-2",
+            "effective_from": "2027-05-31T23:00:00+00:00",
+        }
         mock_get.return_value = api
         result = runner.invoke(app, ["timetable", "list", "--json"])
         assert result.exit_code == 0, result.stdout
@@ -246,7 +249,10 @@ def test_timetable_list_and_current_next():
         assert "uid-timetable-1" in result.stdout
         result = runner.invoke(app, ["timetable", "next", "--json"])
         assert result.exit_code == 0, result.stdout
-        assert json.loads(result.stdout) == {"next": "uid-timetable-2"}
+        assert json.loads(result.stdout) == {
+            "next": "uid-timetable-2",
+            "effective_from": "2027-05-31T23:00:00+00:00",
+        }
 
 
 def test_timetable_get_and_entries():
@@ -326,3 +332,56 @@ def test_circle_dry_run_members():
         mock_get.assert_not_called()
     assert result.exit_code == 0, result.stdout
     assert "members.list()" in result.stdout
+
+
+# --- subjcombi ------------------------------------------------------------
+
+def test_subjcombi_set_get_pending():
+    with patch("campus_cli.resources.subjcombi.get_api_client") as mock_get:
+        api = MagicMock()
+        api.api_subjcombi.set.return_value = {
+            "id": "uid-subjcombi-1", "lessongroup_id": "lg1",
+            "effective_from": "2027-05-31T23:00:00+00:00",
+        }
+        api.api_subjcombi["student@campus.test"].get.return_value = {
+            "user_id": "student@campus.test",
+            "lessongroup_id": "lg1",
+            "source": "mapping",
+        }
+        api.api_subjcombi.pending.return_value = [
+            {"user_id": "student@campus.test", "lessongroup_id": "lg1",
+             "effective_from": "2027-05-31T23:00:00+00:00"},
+        ]
+        mock_get.return_value = api
+        result = runner.invoke(app, [
+            "subjcombi", "set", "--user-id", "student@campus.test",
+            "--lessongroup-id", "lg1", "--effective-from", "2027-06-01",
+            "--json", "-y",
+        ])
+        assert result.exit_code == 0, result.stdout
+        api.api_subjcombi.set.assert_called_once_with(
+            "student@campus.test",
+            "lg1",
+            effective_from="2027-06-01",
+            reason=None,
+        )
+        result = runner.invoke(app, [
+            "subjcombi", "get", "--user-id", "student@campus.test", "--json",
+        ])
+        assert result.exit_code == 0, result.stdout
+        assert json.loads(result.stdout)["source"] == "mapping"
+        result = runner.invoke(app, ["subjcombi", "pending", "--json"])
+        assert result.exit_code == 0, result.stdout
+        assert json.loads(result.stdout)[0]["lessongroup_id"] == "lg1"
+
+
+def test_subjcombi_set_requires_confirm():
+    with patch("campus_cli.resources.subjcombi.get_api_client") as mock_get:
+        api = MagicMock()
+        mock_get.return_value = api
+        result = runner.invoke(app, [
+            "subjcombi", "set", "--user-id", "s@campus.test",
+            "--lessongroup-id", "lg1",
+        ])
+    assert result.exit_code == 1
+    api.api_subjcombi.set.assert_not_called()

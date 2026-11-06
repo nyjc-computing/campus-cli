@@ -106,6 +106,11 @@ class CampusClient:
         return self.campus.api.timetable
 
     @property
+    def api_subjcombi(self):
+        """Access the API subjcombi resource (#592 mappings)."""
+        return self.campus.api.subjcombi
+
+    @property
     def api_assignments(self):
         """Access the API assignments resource."""
         return self.campus.api.assignments

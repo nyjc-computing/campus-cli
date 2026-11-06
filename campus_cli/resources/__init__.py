@@ -9,6 +9,7 @@ from .assignments import assignment_app
 from .circles import circle_app
 from .files import file_app
 from .hostedapps import app_app
+from .subjcombi import subjcombi_app
 from .submissions import submission_app
 from .timetables import timetable_app
 
@@ -18,5 +19,6 @@ __all__ = [
     "circle_app",
     "file_app",
     "submission_app",
+    "subjcombi_app",
     "timetable_app",
 ]
