@@ -3,11 +3,16 @@
 import typer
 from rich.console import Console
 
-from campus_cli.auth.common import dry_run_option, get_api_client
+from campus_cli.auth.common import (
+    confirm_destructive,
+    dry_run_option,
+    get_api_client,
+)
 from campus_cli.utils.output import (
     print_error,
     print_json,
     print_python_api,
+    print_success,
     print_table,
 )
 
@@ -222,4 +227,117 @@ def timetable_entries(
         raise
     except Exception as e:
         print_error(f"Failed to list entries for timetable '{timetable_id}': {e}")
+        raise typer.Exit(1) from e
+
+
+@timetable_app.command("set-current")
+def timetable_set_current(
+    timetable_id: str = typer.Option(..., "--timetable-id", help="Timetable ID"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """
+    Set the currently-active timetable (deployment-wide).
+
+    Everyone reading 'campus timetable current' sees this immediately.
+    """
+    if dry_run:
+        print_python_api(
+            "campus timetable set-current",
+            [f"campus.api.timetable.set_current({timetable_id!r})"],
+        )
+        return
+
+    confirm_destructive(
+        f"set timetable '{timetable_id}' as the CURRENT timetable"
+        " (deployment-wide)", confirm
+    )
+
+    try:
+        api = get_api_client()
+        api.api_timetables.set_current(timetable_id)
+        print_success(f"Timetable '{timetable_id}' is now current.")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to set the current timetable: {e}")
+        raise typer.Exit(1) from e
+
+
+@timetable_app.command("set-next")
+def timetable_set_next(
+    timetable_id: str = typer.Option(..., "--timetable-id", help="Timetable ID"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """Stage the next (incoming) timetable (deployment-wide)."""
+    if dry_run:
+        print_python_api(
+            "campus timetable set-next",
+            [f"campus.api.timetable.set_next({timetable_id!r})"],
+        )
+        return
+
+    confirm_destructive(
+        f"set timetable '{timetable_id}' as the NEXT timetable"
+        " (deployment-wide)", confirm
+    )
+
+    try:
+        api = get_api_client()
+        api.api_timetables.set_next(timetable_id)
+        print_success(f"Timetable '{timetable_id}' is now staged as next.")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to set the next timetable: {e}")
+        raise typer.Exit(1) from e
+
+
+metadata_app = typer.Typer(help="Timetable metadata")
+timetable_app.add_typer(metadata_app, name="metadata")
+
+
+@metadata_app.command("update")
+def metadata_update(
+    timetable_id: str = typer.Option(..., "--timetable-id", help="Timetable ID"),
+    start_date: str = typer.Option(..., "--start-date", help="Start date (ISO)"),
+    end_date: str = typer.Option(..., "--end-date", help="End date (ISO)"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """Update a timetable's start and end dates."""
+    if dry_run:
+        print_python_api(
+            "campus timetable metadata update",
+            [
+                "metadata = campus.api.timetable["
+                f"{timetable_id!r}].metadata",
+                f"metadata.update(start_date={start_date!r},"
+                f" end_date={end_date!r})",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        api.api_timetables[timetable_id].metadata.update(
+            start_date=start_date, end_date=end_date
+        )
+        meta = _format_metadata(api.api_timetables[timetable_id].get())
+
+        if output_json:
+            print_json(meta)
+        else:
+            print_success(
+                f"Timetable '{timetable_id}' metadata updated:"
+                f" {meta['start_date']} .. {meta['end_date']}"
+            )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to update timetable '{timetable_id}' metadata: {e}")
         raise typer.Exit(1) from e

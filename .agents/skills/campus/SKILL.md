@@ -51,10 +51,12 @@ for unattended use.
 | `campus audit` | `login`, `logout`, `status` | API-key auth (`--api-key` or `CAMPUS_AUDIT_API_KEY`) |
 | `campus audit keys` | `list`, `new`, `get`, `update`, `revoke`, `regenerate` | mint student trace keys: `--role` or `--scope`, never both |
 | `campus audit traces` | `list`, `get`, `search` | `search` filters: `--path --status --user --client --api-key-id --journey --since --until` |
-| `campus assignment` | `list [--created-by]`, `get --assignment-id` | campus.api reads (#4 Phase A) |
-| `campus submission` | `list [--assignment-id/--student-id/--course-id]`, `by-assignment`, `by-student`, `get --submission-id` | campus.api reads |
-| `campus timetable` | `list`, `current`, `next`, `get --timetable-id`, `entries --timetable-id` | campus.api reads |
-| `campus circle` | `list`, `get --circle-id`, `members list --circle-id` | campus.api reads |
+| `campus assignment` | `list [--created-by]`, `get --assignment-id` | campus.api; writes: `new --title`, `update`, `delete`, `links add` (#4 Phase B) |
+| `campus submission` | `list [--assignment-id/--student-id/--course-id]`, `by-assignment`, `by-student`, `get --submission-id` | campus.api; writes: `update --submitted-at`, `submit`, `unsubmit` |
+| `campus timetable` | `list`, `current`, `next`, `get --timetable-id`, `entries --timetable-id` | campus.api; writes: `set-current`/`set-next` (deployment-wide, prompt) + `metadata update` |
+| `campus circle` | `list`, `get --circle-id`, `members list --circle-id` | campus.api; writes: `new --name --tag`, `update`, `delete`, `members add/set/remove` |
+| `campus file` | `list [--prefix]`, `get-meta --slug`, `get-content --slug [--output]`, `put --slug --file [--content-type] [--name]`, `delete` | content-addressed by-slug storage; slug is the stable address |
+| `campus app` | same shape as `file` | publishes single-file HTML apps; defaults to text/html |
 
 Grant semantics (#883): there is no `grant update` — `grant grant` raises
 (vault bits OR in, management levels only go up), `grant revoke` lowers
@@ -81,9 +83,6 @@ removes the row outright. Downgrading a level = revoke then grant.
 The CLI is a tool for users and agents; auth stays opaque. It will never
 expose session, credential, or connections info, or fetch brokered tokens —
 don't look for commands that do, and don't try to reconstruct them over
-HTTP. Advanced usage imports the SDK directly. campus.api resource WRITES
-(assignment/submission/circle/timetable new, update, delete, submit;
-timetable set-current/set-next; files and hosted-app publishing) are
-tracked in campus-cli#4 Phase B and intentionally have no commands yet —
-reads for assignment/submission/timetable/circle shipped in Phase A; don't
-invent flags for the write half.
+HTTP. Advanced usage imports the SDK directly. What's still absent is
+campus-cli#4 Phase C (structured payloads: timetable new, submission new,
+submission responses/feedback add) — don't invent flags for those.
