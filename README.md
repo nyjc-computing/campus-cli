@@ -4,13 +4,32 @@ Command-line interface for Campus API
 
 ## Installation
 
+Install a versioned release with [pipx](https://pipx.pypa.io) (recommended —
+isolated venv, the `campus` command on your PATH):
+
+```bash
+pipx install https://github.com/nyjc-computing/campus-cli/releases/download/v0.1.0/campus_cli-0.1.0-py3-none-any.whl
+```
+
+or with pip into your Python environment:
+
+```bash
+pip install https://github.com/nyjc-computing/campus-cli/releases/download/v0.1.0/campus_cli-0.1.0-py3-none-any.whl
+```
+
+Releases are tagged `vX.Y.Z`; swap the URL for the version you want. Every
+release wheel carries the pinned `campus-api-python` release it was tested
+against — pip resolves it from GitHub Releases automatically, so no git and
+no source checkout are needed.
+
+### Development
+
 ```bash
 git clone https://github.com/nyjc-computing/campus-cli.git
 cd campus-cli
-pip install .
+poetry install
+poetry run campus version
 ```
-
-This installs the `campus` command system-wide.
 
 ## Usage
 
