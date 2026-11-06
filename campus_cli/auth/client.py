@@ -183,6 +183,24 @@ def client_new(
         help="OAuth redirect URI for the client (repeat for multiple;"
         " typically used with --public)",
     ),
+    allowed_scope: list[str] = typer.Option(  # noqa: B008
+        [],
+        "--allowed-scope",
+        help="Scope this client may be granted on campus tokens (repeat for"
+        " multiple). Fail-closed: an empty allowlist grants nothing",
+    ),
+    upstream_scope: list[str] = typer.Option(  # noqa: B008
+        [],
+        "--upstream-scope",
+        help="Upstream scope as provider=scope (repeat for multiple;"
+        " scopes of the same provider are grouped)",
+    ),
+    token_bridge: bool | None = typer.Option(  # noqa: B008
+        None,
+        "--token-bridge/--no-token-bridge",
+        help="Grant broker token-bridge access (confidential clients only;"
+        " the server rejects it for public clients)",
+    ),
     output_json: bool = typer.Option(
         False, "--json", help="Output as JSON"
     ),
@@ -196,9 +214,17 @@ def client_new(
     returned; use 'campus client revoke' to generate and retrieve it.
     Public clients (--public) have no client secret at all.
 
+    --allowed-scope / --upstream-scope / --token-bridge set the
+    fail-closed privilege fields at registration (the same fields
+    'campus client update' manages post-hoc). Scope caps and the
+    token-bridge flag stay operator/root-only (campus#883 — clients
+    grant rows cap at write).
+
     Authority: operator or super-admin root — client registration is
     not grantable through the access-grant store (campus#883).
     """
+    upstream_scopes = _group_upstream_scopes(list(upstream_scope))
+
     if dry_run:
         new_kwargs = [
             f"name={name!r}",
@@ -208,6 +234,12 @@ def client_new(
             new_kwargs.append("is_public=True")
         if redirect_uri:
             new_kwargs.append(f"redirect_uris={list(redirect_uri)!r}")
+        if allowed_scope:
+            new_kwargs.append(f"allowed_scopes={list(allowed_scope)!r}")
+        if upstream_scope:
+            new_kwargs.append(f"upstream_scopes={upstream_scopes!r}")
+        if token_bridge is not None:
+            new_kwargs.append(f"token_bridge={token_bridge}")
         print_python_api(
             "campus client new",
             [
@@ -226,6 +258,9 @@ def client_new(
             description=description,
             is_public=is_public,
             redirect_uris=list(redirect_uri) or None,
+            allowed_scopes=list(allowed_scope) or None,
+            upstream_scopes=upstream_scopes or None,
+            token_bridge=token_bridge,
         )
 
         result = _format_client(client)

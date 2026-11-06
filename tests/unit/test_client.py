@@ -88,3 +88,101 @@ def test_format_client_defaults_scope_fields_when_none():
     assert result["allowed_scopes"] == []
     assert result["upstream_scopes"] == {}
     assert result["token_bridge"] is False
+
+
+# --- client new option wiring (campus-cli#75) ---
+
+from unittest.mock import MagicMock, patch  # noqa: E402
+
+from typer.testing import CliRunner  # noqa: E402
+
+from campus_cli.cli import app  # noqa: E402
+
+_runner = CliRunner()
+
+
+def _new_client(**overrides):
+    """A created-client model shaped for _format_client()."""
+    fields = {
+        "id": "uid-client-ef56ab78",
+        "name": "Scoped App",
+        "description": "Created by test",
+        "created_at": "2026-11-06T05:00:00+00:00",
+        "permissions": {},
+        "redirect_uris": [],
+        "allowed_scopes": [],
+        "upstream_scopes": {},
+        "token_bridge": False,
+        "is_public": False,
+    }
+    fields.update(overrides)
+    return SimpleNamespace(**fields)
+
+
+def test_client_new_passes_scope_options_to_sdk():
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        api = MagicMock()
+        api.auth_clients.new.return_value = _new_client()
+        mock_get.return_value = api
+        result = _runner.invoke(app, [
+            "client", "new",
+            "--name", "Scoped App", "--description", "Created by test",
+            "--allowed-scope", "openid",
+            "--allowed-scope", "campus.api",
+            "--upstream-scope", "google=https://a/sc1",
+            "--upstream-scope", "google=https://a/sc2",
+            "--upstream-scope", "gsuite=https://a/sc3",
+            "--token-bridge",
+        ])
+    assert result.exit_code == 0, result.stdout
+    kwargs = api.auth_clients.new.call_args.kwargs
+    assert kwargs["allowed_scopes"] == ["openid", "campus.api"]
+    assert kwargs["upstream_scopes"] == {
+        "google": ["https://a/sc1", "https://a/sc2"],
+        "gsuite": ["https://a/sc3"],
+    }
+    assert kwargs["token_bridge"] is True
+
+
+def test_client_new_omits_unset_scope_options():
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        api = MagicMock()
+        api.auth_clients.new.return_value = _new_client()
+        mock_get.return_value = api
+        result = _runner.invoke(app, [
+            "client", "new", "--name", "Plain", "--description", "d",
+        ])
+    assert result.exit_code == 0, result.stdout
+    kwargs = api.auth_clients.new.call_args.kwargs
+    assert kwargs["allowed_scopes"] is None
+    assert kwargs["upstream_scopes"] is None
+    assert kwargs["token_bridge"] is None
+
+
+def test_client_new_invalid_upstream_scope_fails_fast():
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        result = _runner.invoke(app, [
+            "client", "new",
+            "--name", "X", "--description", "d",
+            "--upstream-scope", "bogus",
+        ])
+    assert result.exit_code == 1
+    assert "provider=scope" in result.stderr
+    mock_get.assert_not_called()
+
+
+def test_client_new_dry_run_renders_scope_options():
+    with patch("campus_cli.auth.client.get_api_client") as mock_get:
+        result = _runner.invoke(app, [
+            "client", "new",
+            "--name", "X", "--description", "d",
+            "--allowed-scope", "openid",
+            "--upstream-scope", "google=https://a/sc1",
+            "--no-token-bridge",
+            "--dry-run",
+        ])
+        mock_get.assert_not_called()
+    assert result.exit_code == 0, result.stdout
+    assert "allowed_scopes=['openid']" in result.stdout
+    assert "upstream_scopes={'google': ['https://a/sc1']}" in result.stdout
+    assert "token_bridge=False" in result.stdout
