@@ -67,6 +67,49 @@ def vault_list(
         raise typer.Exit(1) from e
 
 
+@vault_app.command("labels")
+def vault_labels(
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """
+    List vault labels (admin view, campus#1055).
+
+    Enumerates the vaults that exist. The operator, the super-admin
+    root, or designated users holding any vault grant row plus the
+    vaults:read scope may call this; client principals hold per-label
+    access only and cannot enumerate.
+    """
+    if dry_run:
+        print_python_api(
+            "campus vault labels",
+            [
+                "labels = campus.auth.vaults.labels()",
+                "print(labels)",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        labels = api.auth_vaults.labels()
+
+        if output_json:
+            print_json({"labels": labels, "count": len(labels)})
+        else:
+            console.print(f"[bold]Vault labels:[/bold] {len(labels)}\n")
+            if labels:
+                print_table(headers=["Label"], rows=[[label] for label in labels])
+            else:
+                console.print("[dim]No vaults found.[/dim]")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to list vault labels: {e}")
+        raise typer.Exit(1) from e
+
+
 @vault_app.command("get")
 def vault_get(
     vault: str = typer.Option(
