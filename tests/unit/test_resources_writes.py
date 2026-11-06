@@ -202,17 +202,23 @@ def test_circle_members_remove_confirm_gate():
 def test_timetable_set_current_next_and_metadata():
     with patch("campus_cli.resources.timetables.get_api_client") as mock_get:
         api = MagicMock()
+        api.api_timetables.patch.return_value = {
+            "current": "t1", "next": None, "effective_from": None,
+        }
         mock_get.return_value = api
         result = runner.invoke(
-            app, ["timetable", "set-current", "--timetable-id", "t1", "-y"]
+            app, ["timetable", "patch", "--current", "t1", "-y"]
         )
         assert result.exit_code == 0, result.stdout
-        api.api_timetables.set_current.assert_called_once_with("t1")
-        result = runner.invoke(
-            app, ["timetable", "set-next", "--timetable-id", "t2", "-y"]
-        )
+        api.api_timetables.patch.assert_called_once_with(current="t1")
+        result = runner.invoke(app, [
+            "timetable", "patch", "--next", "t2",
+            "--effective-from", "2027-06-01", "-y",
+        ])
         assert result.exit_code == 0, result.stdout
-        api.api_timetables.set_next.assert_called_once_with("t2")
+        api.api_timetables.patch.assert_called_with(
+            next="t2", effective_from="2027-06-01"
+        )
         result = runner.invoke(app, [
             "timetable", "metadata", "update", "--timetable-id", "t1",
             "--start-date", "2027-01-01", "--end-date", "2027-06-01",
@@ -228,10 +234,29 @@ def test_timetable_set_current_confirm_gate():
         api = MagicMock()
         mock_get.return_value = api
         result = runner.invoke(
-            app, ["timetable", "set-current", "--timetable-id", "t1"]
+            app, ["timetable", "patch", "--current", "t1"]
         )
     assert result.exit_code == 1
-    api.api_timetables.set_current.assert_not_called()
+    api.api_timetables.patch.assert_not_called()
+
+
+def test_timetable_cancel_next_and_rejects_combinations():
+    with patch("campus_cli.resources.timetables.get_api_client") as mock_get:
+        api = MagicMock()
+        api.api_timetables.cancel_next.return_value = {
+            "current": "t1", "next": None, "effective_from": None,
+        }
+        mock_get.return_value = api
+        result = runner.invoke(
+            app, ["timetable", "patch", "--cancel-next", "-y"]
+        )
+        assert result.exit_code == 0, result.stdout
+        api.api_timetables.cancel_next.assert_called_once_with()
+        both = runner.invoke(app, [
+            "timetable", "patch", "--current", "t1",
+            "--next", "t2", "-y",
+        ])
+        assert both.exit_code == 1
 
 
 def test_submission_update_submit_unsubmit():

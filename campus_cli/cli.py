@@ -50,6 +50,7 @@ from campus_cli.resources import (  # noqa: E402
     assignment_app,
     circle_app,
     file_app,
+    subjcombi_app,
     submission_app,
     timetable_app,
 )
@@ -69,6 +70,10 @@ app.add_typer(
 )
 app.add_typer(
     timetable_app, name="timetable", help="Timetable commands (campus.api)"
+)
+app.add_typer(
+    subjcombi_app, name="subjcombi",
+    help="Subjcombi mapping commands (campus.api)"
 )
 app.add_typer(circle_app, name="circle", help="Circle commands (campus.api)")
 app.add_typer(
