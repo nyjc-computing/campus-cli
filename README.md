@@ -90,7 +90,17 @@ campus timetable set-next --timetable-id <id>            # deployment-wide!
 campus timetable metadata update --timetable-id <id> \
     --start-date 2027-01-01 --end-date 2027-06-01
 campus submission submit --submission-id <id>
-campus submission unsubmit --submission-id <id>
+campus submission unsubmit --submission-id <id>          # gated on campus#1071
+campus submission new --assignment-id <id> --student-id <user> \
+    --course-id <classroom-course>
+campus submission responses add --submission-id <id> \
+    --question-id q1 --response-text "42"
+campus submission feedback add --submission-id <id> \
+    --question-id q1 --feedback-text "Well done"
+campus timetable new --metadata '{"start_date": "2027-01-01", \
+    "end_date": "2027-06-01", "filename": "2027.json"}' \
+    --data-file lessongroups.json                        # data needs a
+                                                         # 'lessongroups' key
 campus file put --slug my-notes --file notes.txt --content-type text/plain
 campus file get-content --slug my-notes --output notes.txt
 campus app put --slug my-app --file app.html             # publishes HTML app

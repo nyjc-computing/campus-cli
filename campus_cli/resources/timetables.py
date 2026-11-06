@@ -1,4 +1,7 @@
-"""Timetable read commands (campus-cli#4 Phase A)."""
+"""Timetable commands (campus-cli#4 Phases A and C)."""
+
+import json
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -340,4 +343,93 @@ def metadata_update(
         raise
     except Exception as e:
         print_error(f"Failed to update timetable '{timetable_id}' metadata: {e}")
+        raise typer.Exit(1) from e
+
+
+
+@timetable_app.command("new")
+def timetable_new(
+    metadata: str = typer.Option(
+        ..., "--metadata", "-m",
+        help='Timetable metadata as inline JSON, e.g. {"start_date":'
+        ' "2027-01-01", "end_date": "2027-06-01", "filename": "2027.json"}'
+    ),
+    data_file: str = typer.Option(
+        ..., "--data-file", "-d",
+        help="Path to the timetable data JSON (must contain a"
+        " 'lessongroups' key)"
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """
+    Create a timetable from metadata JSON and a data JSON file.
+
+    The data document must carry its lesson groups under the key
+    'lessongroups' (no underscore - the server rejects
+    'lesson_groups' with 400).
+    """
+    try:
+        meta = json.loads(metadata)
+    except json.JSONDecodeError as e:
+        print_error(f"--metadata is not valid JSON: {e}")
+        raise typer.Exit(1) from e
+    if not isinstance(meta, dict):
+        print_error("--metadata must be a JSON object.")
+        raise typer.Exit(1)
+
+    data_path = Path(data_file)
+    if not data_path.is_file():
+        print_error(f"--data-file not found: {data_file}")
+        raise typer.Exit(1)
+    try:
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        print_error(f"--data-file is not valid JSON: {e}")
+        raise typer.Exit(1) from e
+    if not isinstance(data, dict):
+        print_error("--data-file must contain a JSON object.")
+        raise typer.Exit(1)
+    if "lessongroups" not in data:
+        hint = (
+            " ('lesson_groups' found instead - rename it)"
+            if "lesson_groups" in data else ""
+        )
+        print_error(
+            f"--data-file must contain a 'lessongroups' key{hint}."
+        )
+        raise typer.Exit(1)
+
+    if dry_run:
+        print_python_api(
+            "campus timetable new",
+            [
+                "timetable = campus.api.timetable.new(",
+                f"    metadata={meta!r},",
+                f"    data={{'lessongroups':"
+                f" [{len(data['lessongroups'])} groups from"
+                f" {data_file!r}]}},",
+                ")",
+                "print(timetable)",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        created = api.api_timetables.new(metadata=meta, data=data)
+
+        if output_json:
+            print_json(created)
+        else:
+            print_success(
+                f"Timetable created from '{data_file}'"
+                f" ({len(data['lessongroups'])} lessongroup(s))."
+            )
+            print_json(created)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to create timetable: {e}")
         raise typer.Exit(1) from e

@@ -1,4 +1,6 @@
-"""Submission read commands (campus-cli#4 Phase A)."""
+"""Submission commands (campus-cli#4 Phases A and C)."""
+
+import json
 
 import typer
 from rich.console import Console
@@ -14,6 +16,12 @@ from campus_cli.utils.output import (
 
 submission_app = typer.Typer(help="Submission commands (campus.api)")
 console = Console()
+
+responses_app = typer.Typer(help="Submission responses")
+submission_app.add_typer(responses_app, name="responses")
+
+feedback_app = typer.Typer(help="Submission feedback")
+submission_app.add_typer(feedback_app, name="feedback")
 
 
 def _iso(value):
@@ -339,4 +347,159 @@ def submission_unsubmit(
         raise
     except Exception as e:
         print_error(f"Failed to unsubmit submission '{submission_id}': {e}")
+        raise typer.Exit(1) from e
+
+
+@submission_app.command("new")
+def submission_new(
+    assignment_id: str = typer.Option(..., "--assignment-id", help="Assignment ID"),
+    student_id: str = typer.Option(..., "--student-id", help="Student user ID"),
+    course_id: str = typer.Option(
+        ..., "--course-id", help="Google Classroom course ID"
+    ),
+    responses_json: str | None = typer.Option(
+        None, "--responses-json",
+        help='Initial responses as inline JSON, e.g. [{"question_id":'
+        ' "q1", "response_text": "..."}]'
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """Create a submission for (assignment, student)."""
+    responses = None
+    if responses_json is not None:
+        try:
+            responses = json.loads(responses_json)
+        except json.JSONDecodeError as e:
+            print_error(f"--responses-json is not valid JSON: {e}")
+            raise typer.Exit(1) from e
+        if not isinstance(responses, list):
+            print_error("--responses-json must be a JSON array.")
+            raise typer.Exit(1)
+
+    if dry_run:
+        new_kwargs = [
+            f"    assignment_id={assignment_id!r},",
+            f"    student_id={student_id!r},",
+            f"    course_id={course_id!r},",
+        ]
+        if responses is not None:
+            new_kwargs.append(f"    responses={responses!r},")
+        print_python_api(
+            "campus submission new",
+            [
+                "submission = campus.api.submissions.new(",
+                *new_kwargs,
+                ")",
+                "print(submission.id)",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        submission = api.api_submissions.new(
+            assignment_id=assignment_id,
+            student_id=student_id,
+            course_id=course_id,
+            responses=responses,
+        )
+        formatted = _format_submission(submission)
+
+        if output_json:
+            print_json(formatted)
+        else:
+            print_success(f"Submission created: {formatted['id']}")
+            _print_submission(formatted)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to create submission: {e}")
+        raise typer.Exit(1) from e
+
+
+@responses_app.command("add")
+def responses_add(
+    submission_id: str = typer.Option(..., "--submission-id", help="Submission ID"),
+    question_id: str = typer.Option(..., "--question-id", help="Question ID"),
+    response_text: str = typer.Option(
+        ..., "--response-text", help="The student's response text"
+    ),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """Add or update a response to one question (upsert)."""
+    if dry_run:
+        print_python_api(
+            "campus submission responses add",
+            [
+                "responses = campus.api.submissions["
+                f"{submission_id!r}].responses",
+                "responses.add(",
+                f"    question_id={question_id!r},",
+                f"    response_text={response_text!r},",
+                ")",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        api.api_submissions[submission_id].responses.add(
+            question_id=question_id, response_text=response_text
+        )
+        print_success(
+            f"Response to '{question_id}' recorded on submission"
+            f" '{submission_id}'."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(
+            f"Failed to add response to submission '{submission_id}': {e}"
+        )
+        raise typer.Exit(1) from e
+
+
+@feedback_app.command("add")
+def feedback_add(
+    submission_id: str = typer.Option(..., "--submission-id", help="Submission ID"),
+    question_id: str = typer.Option(..., "--question-id", help="Question ID"),
+    feedback_text: str = typer.Option(
+        ..., "--feedback-text", help="The teacher's feedback text"
+    ),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """Add feedback on a response to one question."""
+    if dry_run:
+        print_python_api(
+            "campus submission feedback add",
+            [
+                "feedback = campus.api.submissions["
+                f"{submission_id!r}].feedback",
+                "feedback.add(",
+                f"    question_id={question_id!r},",
+                f"    feedback_text={feedback_text!r},",
+                ")",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        api.api_submissions[submission_id].feedback.add(
+            question_id=question_id, feedback_text=feedback_text
+        )
+        print_success(
+            f"Feedback on '{question_id}' recorded on submission"
+            f" '{submission_id}'."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(
+            f"Failed to add feedback to submission '{submission_id}': {e}"
+        )
         raise typer.Exit(1) from e
