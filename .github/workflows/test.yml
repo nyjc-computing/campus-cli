@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
   pull_request:
     branches:
       - main
@@ -39,3 +41,60 @@ jobs:
 
       - name: Run unit tests
         run: poetry run pytest tests/unit/ -v
+
+  release:
+    name: Release (tag)
+    # Tag pushes only: build the wheel and publish the GitHub release.
+    # The annotated tag message is the release body — cut a release by
+    # bumping pyproject, merging, then `git tag -a vX.Y.Z -m "<notes>"`.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # The annotated tag object itself is needed for the notes;
+          # it is re-fetched explicitly in the release step below
+          # (checkout resolves the tag ref to its target commit).
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Build wheel
+        run: poetry build
+
+      # The install-surface smoke: prove the built wheel (not the src
+      # tree) is installable — pip resolves campus-api-python from the
+      # release wheel URL baked into the wheel metadata, and the
+      # `campus` console script runs.
+      - name: Fresh-venv wheel smoke
+        run: |
+          python -m venv smoke-venv
+          smoke-venv/bin/pip install --quiet dist/campus_cli-*.whl
+          smoke-venv/bin/campus version
+
+      - name: Create GitHub release with wheel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # actions/checkout resolves the tag ref to its target commit,
+          # so %(contents) falls back to the commit message unless the
+          # annotated tag object is re-fetched explicitly. The tag
+          # annotation is the release body.
+          git fetch --force origin \
+            "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}" \
+            --no-recurse-submodules
+          git tag -l --format='%(contents)' "${GITHUB_REF_NAME}" > NOTES.md
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file NOTES.md \
+            dist/campus_cli-*.whl
