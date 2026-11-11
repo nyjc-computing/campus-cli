@@ -38,11 +38,13 @@ def _mock_client(**overrides):
 
 def test_cli_version():
     """Test version command returns correct output."""
+    from campus_cli import __version__
+
     result = runner.invoke(app, ["version"])
 
     assert result.exit_code == 0
     assert "campus-cli" in result.stdout
-    assert "0.1.0" in result.stdout
+    assert __version__ in result.stdout
 
 
 def test_cli_help():
