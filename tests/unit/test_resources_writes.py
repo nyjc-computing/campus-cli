@@ -294,3 +294,34 @@ def test_submission_update_requires_submitted_at():
             app, ["submission", "update", "--submission-id", "s1"]
         )
     assert result.exit_code == 1
+
+
+def test_timetable_delete_confirm_gate():
+    """`campus timetable delete` needs -y (or an interactive yes); the API
+    call is `api_timetables[id].delete()` (#1088)."""
+    with patch("campus_cli.resources.timetables.get_api_client") as mock_get:
+        api = MagicMock()
+        mock_get.return_value = api
+
+        result = runner.invoke(
+            app, ["timetable", "delete", "--timetable-id", "tt-1"]
+        )
+        assert result.exit_code != 0
+        api.api_timetables["tt-1"].delete.assert_not_called()
+
+        result = runner.invoke(
+            app, ["timetable", "delete", "--timetable-id", "tt-1", "-y"]
+        )
+        assert result.exit_code == 0
+        api.api_timetables["tt-1"].delete.assert_called_once_with()
+
+
+def test_timetable_delete_dry_run():
+    with patch("campus_cli.resources.timetables.get_api_client") as mock_get:
+        result = runner.invoke(
+            app,
+            ["timetable", "delete", "--timetable-id", "tt-1", "--dry-run"],
+        )
+    assert result.exit_code == 0
+    assert "api['tt-1'].delete()" in result.output
+    mock_get.assert_not_called()
