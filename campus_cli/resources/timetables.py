@@ -347,6 +347,53 @@ def timetable_patch(
         raise typer.Exit(1) from e
 
 
+@timetable_app.command("delete")
+def timetable_delete(
+    timetable_id: str = typer.Option(..., "--timetable-id", help="Timetable ID"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """
+    Delete a timetable version and all of its rows (deployment-wide,
+    destructive).
+
+    Cascades the version's entries, group members and lessongroup
+    rows, then the version itself. This is the cleanup surface for the
+    label-drift create 409: stale duplicate-label rows are owned by
+    the superseded versions that minted them. The current and next
+    pointer targets are refused by the API — move/cancel the pointer
+    first. Cannot be undone.
+    """
+    if dry_run:
+        print_python_api("campus timetable delete", [
+            "api = campus.api.timetable",
+            f"api[{timetable_id!r}].delete()",
+        ])
+        return
+
+    confirm_destructive(
+        f"delete timetable '{timetable_id}' and all of its entries,"
+        " members and groups (cannot be undone)",
+        confirm,
+    )
+
+    try:
+        api = get_api_client()
+        api.api_timetables[timetable_id].delete()
+
+        if output_json:
+            print_json({"deleted": timetable_id})
+        else:
+            print_success(f"Timetable '{timetable_id}' deleted.")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to delete timetable '{timetable_id}': {e}")
+        raise typer.Exit(1) from e
+
+
 @timetable_app.command("me")
 def timetable_me(
     at: str = typer.Option(
