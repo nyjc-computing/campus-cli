@@ -53,6 +53,7 @@ from campus_cli.resources import (  # noqa: E402
     subjcombi_app,
     submission_app,
     timetable_app,
+    venues_app,
 )
 
 # Register sub-apps
@@ -81,6 +82,9 @@ app.add_typer(
 )
 app.add_typer(
     app_app, name="app", help="Hosted-app publishing commands (campus.api)"
+)
+app.add_typer(
+    venues_app, name="venue", help="Venue commands (campus.api)"
 )
 
 

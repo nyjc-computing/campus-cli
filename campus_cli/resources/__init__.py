@@ -12,6 +12,7 @@ from .hostedapps import app_app
 from .subjcombi import subjcombi_app
 from .submissions import submission_app
 from .timetables import timetable_app
+from .venues import venues_app
 
 __all__ = [
     "app_app",
@@ -21,4 +22,5 @@ __all__ = [
     "submission_app",
     "subjcombi_app",
     "timetable_app",
+    "venues_app",
 ]

@@ -385,3 +385,114 @@ def test_subjcombi_set_requires_confirm():
         ])
     assert result.exit_code == 1
     api.api_subjcombi.set.assert_not_called()
+
+
+# --- venues (campus#1099) ---------------------------------------------------
+
+def _venue(**overrides):
+    record = {
+        "id": "uid-venue-abcd1234",
+        "metadata": {"name": "B1-01", "capacity": 40},
+        "notes": "Projector **broken**.",
+        "created_at": "2026-11-16T00:00:00+00:00",
+        "updated_at": None,
+    }
+    record.update(overrides)
+    return SimpleNamespace(to_resource=lambda: dict(record))
+
+
+def test_venue_create_get_list():
+    with patch("campus_cli.resources.venues.get_api_client") as mock_get:
+        api = MagicMock()
+        api.api_venues.create.return_value = _venue()
+        api.api_venues["uid-venue-abcd1234"].get.return_value = _venue(
+            notes=None
+        )
+        api.api_venues.list.return_value = [_venue()]
+        mock_get.return_value = api
+
+        result = runner.invoke(app, [
+            "venue", "create",
+            "--metadata", '{"name": "B1-01", "capacity": 40}',
+            "--notes", "Projector **broken**.",
+            "--json", "-y",
+        ])
+        assert result.exit_code == 0, result.stdout
+        api.api_venues.create.assert_called_once_with(
+            metadata={"name": "B1-01", "capacity": 40},
+            notes="Projector **broken**.",
+        )
+        assert json.loads(result.stdout)["id"] == "uid-venue-abcd1234"
+
+        result = runner.invoke(app, [
+            "venue", "get", "--venue-id", "uid-venue-abcd1234", "--json",
+        ])
+        assert result.exit_code == 0, result.stdout
+        assert json.loads(result.stdout)["notes"] is None
+
+        result = runner.invoke(app, ["venue", "list", "--json"])
+        assert result.exit_code == 0, result.stdout
+        assert json.loads(result.stdout)[0]["metadata"]["name"] == "B1-01"
+
+
+def test_venue_create_dry_run_prints_python_without_api_call():
+    with patch("campus_cli.resources.venues.get_api_client") as mock_get:
+        result = runner.invoke(app, [
+            "venue", "create", "--metadata", '{"name": "B1-01"}', "--dry-run",
+        ])
+    assert result.exit_code == 0, result.stdout
+    assert "venues.create(" in result.stdout
+    mock_get.assert_not_called()
+
+
+def test_venue_update_clear_notes_sends_clear_flag():
+    with patch("campus_cli.resources.venues.get_api_client") as mock_get:
+        api = MagicMock()
+        api.api_venues["uid-venue-abcd1234"].update.return_value = _venue(
+            notes=None
+        )
+        mock_get.return_value = api
+        result = runner.invoke(app, [
+            "venue", "update", "--venue-id", "uid-venue-abcd1234",
+            "--clear-notes", "--json", "-y",
+        ])
+    assert result.exit_code == 0, result.stdout
+    api.api_venues["uid-venue-abcd1234"].update.assert_called_once_with(
+        metadata=None, notes=None, clear_notes=True,
+    )
+    assert json.loads(result.stdout)["notes"] is None
+
+
+def test_venue_update_without_fields_is_rejected():
+    with patch("campus_cli.resources.venues.get_api_client") as mock_get:
+        api = MagicMock()
+        mock_get.return_value = api
+        result = runner.invoke(app, [
+            "venue", "update", "--venue-id", "uid-venue-abcd1234",
+            "-y",
+        ])
+    assert result.exit_code == 1
+    api.api_venues["uid-venue-abcd1234"].update.assert_not_called()
+
+
+def test_venue_delete_requires_confirm():
+    with patch("campus_cli.resources.venues.get_api_client") as mock_get:
+        api = MagicMock()
+        mock_get.return_value = api
+        result = runner.invoke(app, [
+            "venue", "delete", "--venue-id", "uid-venue-abcd1234",
+        ])
+    assert result.exit_code == 1
+    api.api_venues["uid-venue-abcd1234"].delete.assert_not_called()
+
+
+def test_venue_create_rejects_non_object_metadata():
+    with patch("campus_cli.resources.venues.get_api_client") as mock_get:
+        api = MagicMock()
+        mock_get.return_value = api
+        result = runner.invoke(app, [
+            "venue", "create", "--metadata", '["not", "an", "object"]',
+            "--json", "-y",
+        ])
+    assert result.exit_code == 1
+    api.api_venues.create.assert_not_called()
