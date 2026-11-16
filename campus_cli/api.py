@@ -134,3 +134,8 @@ class CampusClient:
     def api_hostedapps(self):
         """Access the API hosted-apps resource."""
         return self.campus.api.hostedapps
+
+    @property
+    def api_venues(self):
+        """Access the API venues resource (campus#1099 venue CRUD)."""
+        return self.campus.api.venues
