@@ -123,6 +123,14 @@ def _print_key_record(record: dict) -> None:
         extras.append(f"expires {record['expires_at']}")
     if record.get("revoked_at"):
         extras.append(f"revoked {record['revoked_at']}")
+    binds = []
+    if record.get("trace_user_id"):
+        binds.append(f"user={record['trace_user_id']}")
+    if record.get("trace_client_id"):
+        binds.append(f"client={record['trace_client_id']}")
+    if binds:
+        # Scoped key (#944): reads are forced to these match-values
+        extras.append("bind: " + ", ".join(binds))
     if extras:
         console.print(f"  [dim]{'; '.join(extras)}[/dim]")
     console.print()
@@ -216,6 +224,20 @@ def keys_new(
     expires_at: Optional[str] = typer.Option(
         None, "--expires-at", help="ISO 8601 expiry (optional)"
     ),
+    trace_user_id: Optional[str] = typer.Option(
+        None,
+        "--trace-user-id",
+        help=(
+            "Bind trace reads to this user exactly (#944; required for"
+            " read-scoped keys unless the key holds traces:write/"
+            "apikeys:write)"
+        ),
+    ),
+    trace_client_id: Optional[str] = typer.Option(
+        None,
+        "--trace-client-id",
+        help="Bind trace reads to this client exactly (#944)",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
@@ -227,6 +249,13 @@ def keys_new(
     hand-assembled scope list. The two are mutually exclusive — the
     server refuses both together, because it leaves it ambiguous which
     was meant.
+
+    Scoping (#944): a key granting trace reads without traces:write/
+    apikeys:write must be minted with a bind — pass --trace-user-id
+    (usually the student's id) and/or --trace-client-id; the server
+    refuses the mint with 422 otherwise. The bind is an opaque
+    match-value enforced server-side on every read surface and cannot
+    be changed after minting.
 
     The plaintext key is shown exactly once, at creation — the server
     keeps only its hash. Pass it to the student; they store it with
@@ -254,6 +283,10 @@ def keys_new(
             new_kwargs.append(f"    rate_limit={rate_limit!r},")
         if expires_at is not None:
             new_kwargs.append(f"    expires_at={expires_at!r},")
+        if trace_user_id is not None:
+            new_kwargs.append(f"    trace_user_id={trace_user_id!r},")
+        if trace_client_id is not None:
+            new_kwargs.append(f"    trace_client_id={trace_client_id!r},")
         print_python_api(
             "campus audit keys new",
             [
@@ -275,6 +308,8 @@ def keys_new(
             role=role,
             rate_limit=rate_limit,
             expires_at=expires_at,
+            trace_user_id=trace_user_id,
+            trace_client_id=trace_client_id,
         )
 
         if output_json:
