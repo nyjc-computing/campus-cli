@@ -261,6 +261,67 @@ def test_poll_for_token_slow_down_persists_increased_interval():
     assert [c.args[0] for c in mock_sleep.call_args_list] == [5, 10, 15]
 
 
+def _oauth_400_stripped(campus_code):
+    """Build a 400 response in the production shape: campus code, no details.
+
+    Production strips the details block from token errors
+    (campus-common <0.5.1), so the RFC error code is only recoverable
+    from the campus error code.
+    """
+    response = mock.Mock(spec=requests.Response, status_code=400)
+    response.json.return_value = {
+        "error": {
+            "code": campus_code,
+            "message": "Authorization pending",
+            "request_id": None,
+        }
+    }
+    return response
+
+
+def test_poll_for_token_keeps_polling_on_stripped_prod_pending():
+    """A details-free AUTH_AUTHORIZATION_PENDING 400 keeps the loop alive."""
+    responses = [
+        _oauth_400_stripped("AUTH_AUTHORIZATION_PENDING"),
+        _oauth_400_stripped("AUTH_AUTHORIZATION_PENDING"),
+        _oauth_400_stripped("AUTH_AUTHORIZATION_PENDING"),
+        _oauth_400_stripped("AUTH_AUTHORIZATION_PENDING"),
+    ]
+    with (
+        mock.patch("campus_cli.auth.login.requests.post", side_effect=responses),
+        mock.patch("campus_cli.auth.login.time.sleep") as mock_sleep,
+        pytest.raises(DeviceAuthError, match="timed out"),
+    ):
+        poll_for_token("device_code", interval=5, max_attempts=4)
+
+    assert [c.args[0] for c in mock_sleep.call_args_list] == [5, 5, 5, 5]
+
+
+def test_poll_for_token_recovers_token_after_stripped_pending():
+    """The loop reaches success through stripped production pendings."""
+    ok = mock.Mock(spec=requests.Response, status_code=200)
+    ok.json.return_value = {"access_token": "tok", "refresh_token": "ref"}
+    responses = [
+        _oauth_400_stripped("AUTH_AUTHORIZATION_PENDING"),
+        ok,
+    ]
+    with mock.patch("campus_cli.auth.login.requests.post", side_effect=responses):
+        assert poll_for_token("device_code", interval=5, max_attempts=4) == {
+            "access_token": "tok",
+            "refresh_token": "ref",
+        }
+
+
+def test_poll_for_token_stripped_expired_token_raises():
+    """AUTH_EXPIRED_TOKEN without details surfaces the expired-token error."""
+    responses = [_oauth_400_stripped("AUTH_EXPIRED_TOKEN")]
+    with (
+        mock.patch("campus_cli.auth.login.requests.post", side_effect=responses),
+        pytest.raises(DeviceAuthError, match="expired"),
+    ):
+        poll_for_token("device_code", interval=5, max_attempts=4)
+
+
 def test_poll_for_token_clamps_zero_interval():
     """A zero interval from the server is clamped to 1s, not zero-divided."""
     responses = [_oauth_400("authorization_pending")] * 3
