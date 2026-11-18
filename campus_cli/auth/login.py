@@ -239,6 +239,15 @@ def poll_for_token(device_code: str, interval: int, max_attempts: int = 60) -> d
                 if isinstance(error_obj, dict):
                     error_message = error_obj.get("message", "")
                     oauth_error = error_obj.get("details", {}).get("oauth_error", "")
+                    if not oauth_error:
+                        # Production strips details wholesale for security
+                        # (campus-common <0.5.1), leaving only the campus
+                        # code. The code carries the same information
+                        # (AUTH_AUTHORIZATION_PENDING -> authorization_pending),
+                        # so recover it rather than aborting the poll loop.
+                        campus_code = error_obj.get("code", "")
+                        if campus_code.startswith("AUTH_"):
+                            oauth_error = campus_code.removeprefix("AUTH_").lower()
                 else:
                     # Fallback for simple OAuth 2.0 format:
                     # {"error": "authorization_pending"}
