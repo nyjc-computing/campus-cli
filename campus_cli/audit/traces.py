@@ -6,6 +6,7 @@ Trace IDs are 32-char hex, span IDs 16-char hex (OpenTelemetry
 convention).
 """
 
+import re
 from typing import Optional
 
 import typer
@@ -35,15 +36,115 @@ def _status_markup(status: Optional[int]) -> str:
 
 
 def _format_trace_summary(trace: dict) -> str:
-    """Render a trace summary line: method, path, status, timing."""
+    """Render a trace summary line: method, path, status, timing.
+
+    Appends a compact browser/origin marker when the span carries it
+    (campus-cli#93): UA family (e.g. ``Chrome/157``) and response
+    body size from Content-Length. Older spans without the fields
+    render exactly as before.
+    """
     root = trace.get("root_span") or {}
     method = root.get("method", "?")
     path = root.get("path", "?")
     user = root.get("user_id") or root.get("client_id") or "anonymous"
-    return (
+    line = (
         f"{method} {path} → {_status_markup(root.get('status_code'))}"
         f"  {trace.get('duration_ms', '?')} ms,"
         f" {trace.get('span_count', '?')} span(s), user: {user}"
+    )
+    extras = []
+    ua_family = _ua_family(root.get("user_agent"))
+    if ua_family:
+        extras.append(ua_family)
+    length = _content_length(root)
+    if length is not None:
+        extras.append(_human_bytes(length))
+    if extras:
+        line += "  · " + " · ".join(extras)
+    return line
+
+
+# Browser families worth surfacing compactly; Edg is Edge's UA token.
+_UA_FAMILY_RE = re.compile(r"(Chrome|Firefox|Edg|Safari|curl|Python|Wget|git)/(\d+)")
+
+
+def _ua_family(user_agent: Optional[str]) -> Optional[str]:
+    """Compact UA marker: ``Chrome/157`` style, else a truncated string."""
+    if not user_agent:
+        return None
+    match = _UA_FAMILY_RE.search(user_agent)
+    if not match:
+        return user_agent[:20]
+    name = match.group(1)
+    return ("Edge" if name == "Edg" else name) + "/" + match.group(2)
+
+
+def _first_header(headers: Optional[dict], name: str) -> Optional[str]:
+    """Case-insensitive header lookup on a stored headers dict."""
+    if not headers:
+        return None
+    lowered = name.lower()
+    for key, value in headers.items():
+        if isinstance(key, str) and key.lower() == lowered:
+            return value if value else None
+    return None
+
+
+def _content_length(root: dict) -> Optional[int]:
+    """Response body size from the stored Content-Length header."""
+    raw = _first_header(root.get("response_headers"), "Content-Length")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _human_bytes(size: int) -> str:
+    if size < 1024:
+        return f"{size} B"
+    if size < 1024 * 1024:
+        return f"~{size / 1024:.1f} kB"
+    return f"~{size / (1024 * 1024):.1f} MB"
+
+
+def _print_trace_detail(tree: dict) -> None:
+    """Human-readable single-trace detail (campus-cli#93).
+
+    Root-span essentials first — origin (UA/referer) and size were the
+    missing triage signals in the classroom#123 post-mortem — then the
+    span tree's shape; `--json` still prints the raw tree for scripts.
+    """
+    root = tree.get("root_span") or {}
+    console.print(f"[cyan]{tree.get('trace_id', '?')}[/cyan]")
+    console.print(f"  {_format_trace_summary(tree)}")
+    console.print(f"  [dim]{tree.get('started_at', '')}[/dim]")
+    fields = [
+        ("user", root.get("user_id") or root.get("client_id") or "anonymous"),
+        ("client_ip", root.get("client_ip")),
+        ("user_agent", root.get("user_agent")),
+        ("referer", _first_header(root.get("request_headers"), "Referer")),
+        ("response_bytes", _content_length(root)),
+    ]
+    for label, value in fields:
+        if value is not None:
+            console.print(f"  {label}: {value}")
+    children = root.get("children") or []
+    if children:
+        console.print(f"  [dim]{len(children)} child span(s):[/dim]")
+        for child in children:
+            console.print(
+                f"    {_child_line(child)}"
+            )
+
+
+def _child_line(child: dict) -> str:
+    """One line per child span in the detail view."""
+    return (
+        f"{child.get('method', '?')} {child.get('path', '?')} → "
+        f"{_status_markup(child.get('status_code'))}  "
+        f"{child.get('duration_ms', '?')} ms"
     )
 
 
@@ -132,10 +233,12 @@ def traces_list(
 @traces_app.command("get")
 def traces_get(
     trace_id: str = typer.Option(..., "--trace-id", help="32-char hex trace ID"),
+    output_json: bool = typer.Option(False, "--json", help="Raw span tree as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
     """
-    Show a trace's full span tree (as JSON).
+    Show a trace's detail: root-span essentials (origin, UA, size) plus
+    its child spans. Use --json for the raw span tree.
 
     The tree is the trace: the root span with its children nested,
     each span carrying the recorded request/response detail.
@@ -153,7 +256,10 @@ def traces_get(
     try:
         api = get_audit_client()
         tree = api.traces[trace_id].get()
-        print_json(tree)
+        if output_json:
+            print_json(tree)
+        else:
+            _print_trace_detail(tree)
 
     except typer.Exit:
         raise
