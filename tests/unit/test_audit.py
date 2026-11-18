@@ -18,7 +18,12 @@ from campus_cli.audit.client import (
 )
 from campus_cli.audit.keys import _key_status, _parse_timestamp
 from campus_cli.audit.login import _resolve_key_input, verify_api_key
-from campus_cli.audit.traces import _format_trace_summary, _status_markup
+from campus_cli.audit.traces import (
+    _content_length,
+    _format_trace_summary,
+    _status_markup,
+    _ua_family,
+)
 from campus_cli.cli import app
 from campus_cli.config import Config
 from campus_cli.credentials import CredentialError
@@ -328,6 +333,47 @@ class TestTraceFormatting:
             "root_span": {"method": "POST", "path": "/x", "status_code": 401},
         })
         assert "anonymous" in line
+
+    def test_summary_appends_ua_family_and_size(self):
+        line = _format_trace_summary({
+            "trace_id": "a" * 32,
+            "span_count": 1,
+            "duration_ms": 387,
+            "root_span": {
+                "method": "GET",
+                "path": "/assignments/new",
+                "status_code": 200,
+                "user_agent": ("Mozilla/5.0 (Windows NT 10.0) Chrome/157.0.0.0"),
+                "response_headers": {"Content-Type": "text/html",
+                                     "Content-Length": "6951"},
+            },
+        })
+        assert "Chrome/157" in line
+        assert "~6.8 kB" in line
+
+    def test_summary_omits_missing_ua_and_size(self):
+        line = _format_trace_summary({
+            "trace_id": "a" * 32,
+            "span_count": 1,
+            "duration_ms": 5,
+            "root_span": {"method": "GET", "path": "/", "status_code": 200},
+        })
+        assert "·" not in line
+
+    def test_ua_family_variants(self):
+        assert _ua_family("Mozilla/5.0 Edg/157.0.0.0") == "Edge/157"
+        assert _ua_family("curl/8.12.1") == "curl/8"
+        assert _ua_family("some-exotic-agent") == "some-exotic-agent"
+        assert _ua_family(None) is None
+        assert _ua_family("") is None
+
+    def test_content_length_case_insensitive_and_bad_values(self):
+        assert _content_length({"response_headers":
+                                {"content-length": "42"}}) == 42
+        assert _content_length({"response_headers":
+                                {"Content-Length": "oops"}}) is None
+        assert _content_length({"response_headers": {}}) is None
+        assert _content_length({}) is None
 
 
 class TestAuditCredentialStorage:
