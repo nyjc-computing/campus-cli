@@ -209,6 +209,37 @@ section of the campus login-flow doc, and the campus
 (A2 no silent widening, A5 supersession-is-deletion, A8 management
 scopes never self-confer).
 
+### Environment routing
+
+The CLI talks to one auth deployment and one API deployment at a time.
+Resolution order: `CAMPUS_AUTH_URL` / `CAMPUS_API_URL`, then the config
+file, then `ENV`/`CAMPUS_ENV` (`development` by default). The auth URL
+must include the `/auth/v1` suffix.
+
+- **dev (default)**: `https://campus-development.up.railway.app/auth/v1` + `https://campusapi-development.up.railway.app`
+- **prod**: `https://nyjc-campus.up.railway.app/auth/v1` + `https://campusapi.up.railway.app`
+
+For one-off calls against another deployment, prefix the env vars:
+
+```bash
+CAMPUS_AUTH_URL=https://nyjc-campus.up.railway.app/auth/v1 CAMPUS_API_URL=https://campusapi.up.railway.app campus circle list
+```
+
+**One credential slot.** The OS keyring holds a single token pair, so a
+login against a different deployment replaces the previous one outright.
+Each login records the auth endpoint that minted it, and `campus auth
+status` flags the mismatch — switching environments always costs one
+device flow per side, so batch your work per environment instead of
+interleaving.
+
+**Polling note (campus-cli ≥0.7.3):** production strips
+`details.oauth_error` from token-error envelopes — the RFC 8628 error
+code device-flow polling keys on — as part of its production detail
+strip. CLI 0.7.3+ recovers the code from the campus error code
+(`AUTH_AUTHORIZATION_PENDING` → `authorization_pending`) and keeps
+polling; older CLIs abort the flow after a single "Authorization
+pending".
+
 ### campus.audit: API-key auth (#54)
 
 The audit service is a separate, user-blind deployment with two auth
