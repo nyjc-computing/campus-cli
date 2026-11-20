@@ -1,0 +1,4677 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Command-line interface for the Campus school platform — device-flow login, OAuth client/user/grant/vault administration, audit traces, and the campus.api resources (assignments, submissions, timetables, circles, files, hosted apps, venues).">
+      
+      
+      
+      
+        <link rel="prev" href="../../authentication/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+    
+    
+      
+        <title>Commands - Campus CLI</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#command-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Campus CLI" class="md-header__button md-logo" aria-label="Campus CLI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Campus CLI
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Commands
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/nyjc-computing/campus-cli" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    nyjc-computing/campus-cli
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Campus CLI" class="md-nav__button md-logo" aria-label="Campus CLI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Campus CLI
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/nyjc-computing/campus-cli" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    nyjc-computing/campus-cli
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication & scopes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Commands
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#global-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus app">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-app-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-app-get-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app get-content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-app-get-meta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app get-meta
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-app-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-app-put" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app put
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus assignment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment get
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-assignment-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment links
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus assignment links">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-links-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment links add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-audit-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus audit keys">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-regenerate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys regenerate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-revoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys revoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit login
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-logout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit logout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit status
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-audit-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit traces
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus audit traces">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-traces-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit traces get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-traces-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit traces list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-traces-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit traces search
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus auth
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus auth">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-auth-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus auth login
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-auth-logout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus auth logout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-auth-refresh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus auth refresh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-auth-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus auth status
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-circle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus circle">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle list
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-circle-members" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle members
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus circle members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-members-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle members add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-members-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle members list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-members-remove" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle members remove
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-members-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle members set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-client-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client access
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus client access">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-access-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client access get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-access-grant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client access grant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-access-revoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client access revoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-access-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client access update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-revoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client revoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus file">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-file-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-file-get-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file get-content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-file-get-meta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file get-meta
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-file-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-file-put" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file put
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-grant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus grant">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-grant-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-grant-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-grant-grant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant grant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-grant-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-grant-revoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant revoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-subjcombi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus subjcombi">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-subjcombi-cancel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi cancel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-subjcombi-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-subjcombi-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi history
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-subjcombi-pending" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi pending
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-subjcombi-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-submission" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus submission">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-by-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission by-assignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-by-student" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission by-student
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-submission-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission feedback
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus submission feedback">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-feedback-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission feedback add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission new
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-submission-responses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission responses
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus submission responses">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-responses-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission responses add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-submit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission submit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-unsubmit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission unsubmit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-timetable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus timetable">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-current" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable current
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable entries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-me" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable me
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-timetable-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable metadata
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus timetable metadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-metadata-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable metadata update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable next
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-patch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable patch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus user">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-activate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user activate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-edit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user edit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user new
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus vault">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-vault-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-vault-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-vault-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault labels
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-vault-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-vault-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-venue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus venue">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-venue-create" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue create
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-venue-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-venue-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-venue-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-venue-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus version
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#global-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus app">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-app-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-app-get-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app get-content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-app-get-meta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app get-meta
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-app-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-app-put" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus app put
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus assignment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment get
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-assignment-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment links
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus assignment links">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-links-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment links add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-assignment-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus assignment update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-audit-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus audit keys">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-regenerate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys regenerate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-revoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys revoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-keys-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit keys update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit login
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-logout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit logout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit status
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-audit-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit traces
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus audit traces">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-traces-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit traces get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-traces-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit traces list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-audit-traces-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus audit traces search
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus auth
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus auth">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-auth-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus auth login
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-auth-logout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus auth logout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-auth-refresh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus auth refresh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-auth-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus auth status
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-circle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus circle">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle list
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-circle-members" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle members
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus circle members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-members-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle members add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-members-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle members list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-members-remove" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle members remove
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-members-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle members set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-circle-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus circle update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-client-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client access
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus client access">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-access-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client access get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-access-grant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client access grant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-access-revoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client access revoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-access-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client access update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-revoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client revoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-client-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus client update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus file">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-file-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-file-get-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file get-content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-file-get-meta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file get-meta
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-file-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-file-put" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus file put
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-grant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus grant">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-grant-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-grant-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-grant-grant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant grant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-grant-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-grant-revoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus grant revoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-subjcombi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus subjcombi">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-subjcombi-cancel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi cancel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-subjcombi-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-subjcombi-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi history
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-subjcombi-pending" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi pending
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-subjcombi-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus subjcombi set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-submission" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus submission">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-by-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission by-assignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-by-student" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission by-student
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-submission-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission feedback
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus submission feedback">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-feedback-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission feedback add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission new
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-submission-responses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission responses
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus submission responses">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-responses-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission responses add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-submit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission submit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-unsubmit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission unsubmit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-submission-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus submission update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-timetable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus timetable">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-current" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable current
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable entries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-me" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable me
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-timetable-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable metadata
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus timetable metadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-metadata-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable metadata update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable new
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable next
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-timetable-patch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus timetable patch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus user">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-activate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user activate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-edit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user edit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-user-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus user new
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus vault">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-vault-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-vault-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-vault-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault labels
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-vault-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-vault-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus vault set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#campus-venue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="campus venue">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#campus-venue-create" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue create
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-venue-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-venue-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-venue-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-venue-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus venue update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#campus-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        campus version
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="command-reference">Command reference<a class="headerlink" href="#command-reference" title="Permanent link">&para;</a></h1>
+<!-- AUTO-GENERATED by scripts/generate_cli_reference.py — do not edit.
+     Run `python scripts/generate_cli_reference.py` after changing any
+     command surface; CI regenerates this file and fails on drift. -->
+
+<p>Every command ships the same information on your terminal via
+<code>campus &lt;command&gt; --help</code>.</p>
+<h2 id="global-options">Global options<a class="headerlink" href="#global-options" title="Permanent link">&para;</a></h2>
+<p>Campus CLI - Command-line interface for Campus API</p>
+<ul>
+<li><code>--verbose/-v</code> — Enable verbose output.</li>
+</ul>
+<p><code>campus</code> with no arguments prints the command list.</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Commands</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#campus-app"><code>campus app</code></a></td>
+<td>Hosted-app publishing commands (campus.api) (5)</td>
+</tr>
+<tr>
+<td><a href="#campus-assignment"><code>campus assignment</code></a></td>
+<td>Assignment commands (campus.api) (6)</td>
+</tr>
+<tr>
+<td><a href="#campus-audit"><code>campus audit</code></a></td>
+<td>Campus Audit service commands (12)</td>
+</tr>
+<tr>
+<td><a href="#campus-auth"><code>campus auth</code></a></td>
+<td>Authentication commands (4)</td>
+</tr>
+<tr>
+<td><a href="#campus-circle"><code>campus circle</code></a></td>
+<td>Circle commands (campus.api) (9)</td>
+</tr>
+<tr>
+<td><a href="#campus-client"><code>campus client</code></a></td>
+<td>OAuth client management commands (10)</td>
+</tr>
+<tr>
+<td><a href="#campus-file"><code>campus file</code></a></td>
+<td>File storage commands (campus.api) (5)</td>
+</tr>
+<tr>
+<td><a href="#campus-grant"><code>campus grant</code></a></td>
+<td>Access-grant store commands (5)</td>
+</tr>
+<tr>
+<td><a href="#campus-subjcombi"><code>campus subjcombi</code></a></td>
+<td>Subjcombi mapping commands (campus.api) (5)</td>
+</tr>
+<tr>
+<td><a href="#campus-submission"><code>campus submission</code></a></td>
+<td>Submission commands (campus.api) (10)</td>
+</tr>
+<tr>
+<td><a href="#campus-timetable"><code>campus timetable</code></a></td>
+<td>Timetable commands (campus.api) (10)</td>
+</tr>
+<tr>
+<td><a href="#campus-user"><code>campus user</code></a></td>
+<td>User management commands (6)</td>
+</tr>
+<tr>
+<td><a href="#campus-vault"><code>campus vault</code></a></td>
+<td>Vault management commands (5)</td>
+</tr>
+<tr>
+<td><a href="#campus-venue"><code>campus venue</code></a></td>
+<td>Venue commands (campus.api) (5)</td>
+</tr>
+<tr>
+<td><a href="#campus-version"><code>campus version</code></a></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="campus-app"><code>campus app</code><a class="headerlink" href="#campus-app" title="Permanent link">&para;</a></h2>
+<p>Hosted-app publishing commands (campus.api)</p>
+<h3 id="campus-app-delete"><code>campus app delete</code><a class="headerlink" href="#campus-app-delete" title="Permanent link">&para;</a></h3>
+<p>Delete a hosted app by slug.</p>
+<div class="highlight"><pre><span></span><code>campus app delete [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--slug</code>, text, required — App slug.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-app-get-content"><code>campus app get-content</code><a class="headerlink" href="#campus-app-get-content" title="Permanent link">&para;</a></h3>
+<p>Fetch a hosted app's raw HTML (to stdout or --output path).</p>
+<div class="highlight"><pre><span></span><code>campus app get-content [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--slug</code>, text, required — App slug.</li>
+<li><code>--output/-o</code>, path — Write the bytes to this path.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-app-get-meta"><code>campus app get-meta</code><a class="headerlink" href="#campus-app-get-meta" title="Permanent link">&para;</a></h3>
+<p>Show a hosted app's metadata.</p>
+<div class="highlight"><pre><span></span><code>campus app get-meta [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--slug</code>, text, required — App slug.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-app-list"><code>campus app list</code><a class="headerlink" href="#campus-app-list" title="Permanent link">&para;</a></h3>
+<p>List hosted apps (optionally by slug prefix).</p>
+<div class="highlight"><pre><span></span><code>campus app list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--prefix</code>, text — Only slugs starting with this prefix.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-app-put"><code>campus app put</code><a class="headerlink" href="#campus-app-put" title="Permanent link">&para;</a></h3>
+<p>Publish or replace a hosted app by slug (upsert).</p>
+<div class="highlight"><pre><span></span><code>campus app put [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--slug</code>, text, required — App slug (stable address).</li>
+<li><code>--file/-f</code>, path, required — Local single-file HTML app to publish.</li>
+<li><code>--content-type</code>, text — MIME type (defaults to text/html upstream).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-assignment"><code>campus assignment</code><a class="headerlink" href="#campus-assignment" title="Permanent link">&para;</a></h2>
+<p>Assignment commands (campus.api)</p>
+<h3 id="campus-assignment-delete"><code>campus assignment delete</code><a class="headerlink" href="#campus-assignment-delete" title="Permanent link">&para;</a></h3>
+<p>Delete an assignment.</p>
+<div class="highlight"><pre><span></span><code>campus assignment delete [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--assignment-id</code>, text, required — Assignment ID.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-assignment-get"><code>campus assignment get</code><a class="headerlink" href="#campus-assignment-get" title="Permanent link">&para;</a></h3>
+<p>Show one assignment.</p>
+<div class="highlight"><pre><span></span><code>campus assignment get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--assignment-id</code>, text, required — Assignment ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-assignment-links"><code>campus assignment links</code><a class="headerlink" href="#campus-assignment-links" title="Permanent link">&para;</a></h2>
+<p>Assignment Google Classroom links</p>
+<h3 id="campus-assignment-links-add"><code>campus assignment links add</code><a class="headerlink" href="#campus-assignment-links-add" title="Permanent link">&para;</a></h3>
+<p>Attach a Google Classroom course/coursework link to an assignment.</p>
+<div class="highlight"><pre><span></span><code>campus assignment links add [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--assignment-id</code>, text, required — Assignment ID.</li>
+<li><code>--course-id</code>, text, required — Google Classroom course ID.</li>
+<li><code>--coursework-id</code>, text, required — Google Classroom coursework ID.</li>
+<li><code>--attachment-id</code>, text — Classroom attachment ID (optional).</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-assignment-list"><code>campus assignment list</code><a class="headerlink" href="#campus-assignment-list" title="Permanent link">&para;</a></h3>
+<p>List assignments, optionally only one creator's.</p>
+<div class="highlight"><pre><span></span><code>campus assignment list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--created-by</code>, text — Filter by creator.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-assignment-new"><code>campus assignment new</code><a class="headerlink" href="#campus-assignment-new" title="Permanent link">&para;</a></h3>
+<p>Create an assignment. Questions are structured payloads (Phase C, campus-cli#4); attach Google Classroom course/coursework links with 'campus assignment links add'.</p>
+<div class="highlight"><pre><span></span><code>campus assignment new [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--title/-t</code>, text, required — Assignment title.</li>
+<li><code>--description/-d</code>, text — Assignment description.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-assignment-update"><code>campus assignment update</code><a class="headerlink" href="#campus-assignment-update" title="Permanent link">&para;</a></h3>
+<p>Update an assignment's title and/or description.</p>
+<div class="highlight"><pre><span></span><code>campus assignment update [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--assignment-id</code>, text, required — Assignment ID.</li>
+<li><code>--title/-t</code>, text — New title.</li>
+<li><code>--description/-d</code>, text — New description.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-audit"><code>campus audit</code><a class="headerlink" href="#campus-audit" title="Permanent link">&para;</a></h2>
+<p>Campus Audit service commands</p>
+<h2 id="campus-audit-keys"><code>campus audit keys</code><a class="headerlink" href="#campus-audit-keys" title="Permanent link">&para;</a></h2>
+<p>Audit API key lifecycle (operator)</p>
+<h3 id="campus-audit-keys-get"><code>campus audit keys get</code><a class="headerlink" href="#campus-audit-keys-get" title="Permanent link">&para;</a></h3>
+<p>Show one audit API key's record (never its plaintext).</p>
+<div class="highlight"><pre><span></span><code>campus audit keys get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--key-id</code>, text, required — API key ID (from keys list).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-audit-keys-list"><code>campus audit keys list</code><a class="headerlink" href="#campus-audit-keys-list" title="Permanent link">&para;</a></h3>
+<p>List audit API keys, optionally filtered by owner. Requires apikeys:read on the stored key (the operator key).</p>
+<div class="highlight"><pre><span></span><code>campus audit keys list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--owner</code>, text — Filter by owner.</li>
+<li><code>--all</code> — Include revoked and expired keys (default: active only).</li>
+<li><code>--limit</code>, integer — Page size.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-audit-keys-new"><code>campus audit keys new</code><a class="headerlink" href="#campus-audit-keys-new" title="Permanent link">&para;</a></h3>
+<p>Create an audit API key (mint a student key). Give the key a privilege: --role <name> for one of the service's named roles (a bundle of scopes it owns), or --scope <scope> for a hand-assembled scope list. The two are mutually exclusive — the server refuses both together, because it leaves it ambiguous which was meant. Scoping (#944): a key granting trace reads without traces:write/ apikeys:write must be minted with a bind — pass --trace-user-id (usually the student's id) and/or --trace-client-id; the server refuses the mint with 422 otherwise. The bind is an opaque match-value enforced server-side on every read surface and cannot be changed after minting. The plaintext key is shown exactly once, at creation — the server keeps only its hash. Pass it to the student; they store it with 'campus audit login --api-key'.</p>
+<div class="highlight"><pre><span></span><code>campus audit keys new [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--name</code>, text, required — Key name, e.g. the student's name.</li>
+<li><code>--owner</code>, text, required — Owner label, conventionally the student email (organizational only — campus.audit is user-blind).</li>
+<li><code>--scope</code>, text — Scope the key grants, e.g. traces:read; repeat for multiple (mutually exclusive with --role).</li>
+<li><code>--role</code>, text — Named role the key gets, e.g. traces-viewer. The role is a bundle of scopes the service owns; --scope and --role are mutually exclusive.</li>
+<li><code>--rate-limit</code>, integer — Requests per minute (optional).</li>
+<li><code>--expires-at</code>, text — ISO 8601 expiry (optional).</li>
+<li><code>--trace-user-id</code>, text — Bind trace reads to this user exactly (#944; required for read-scoped keys unless the key holds traces:write/apikeys:write).</li>
+<li><code>--trace-client-id</code>, text — Bind trace reads to this client exactly (#944).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-audit-keys-regenerate"><code>campus audit keys regenerate</code><a class="headerlink" href="#campus-audit-keys-regenerate" title="Permanent link">&para;</a></h3>
+<p>Replace an audit API key's plaintext value (rotation). The old value stops working immediately; the new one is shown exactly once here. Scopes, rate limit, and expiry carry over.</p>
+<div class="highlight"><pre><span></span><code>campus audit keys regenerate [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--key-id</code>, text, required — API key ID (from keys list).</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-audit-keys-revoke"><code>campus audit keys revoke</code><a class="headerlink" href="#campus-audit-keys-revoke" title="Permanent link">&para;</a></h3>
+<p>Revoke an audit API key (the record is kept for audit). The key stops authenticating immediately; its record stays listed under --all for the audit trail.</p>
+<div class="highlight"><pre><span></span><code>campus audit keys revoke [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--key-id</code>, text, required — API key ID (from keys list).</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-audit-keys-update"><code>campus audit keys update</code><a class="headerlink" href="#campus-audit-keys-update" title="Permanent link">&para;</a></h3>
+<p>Update an audit API key's name, scopes, role, or rate limit. Only the fields passed are changed. Expiry and revocation are immutable — mint a fresh key instead. --role and --scope are mutually exclusive: the server refuses both together, because it leaves it ambiguous which was meant.</p>
+<div class="highlight"><pre><span></span><code>campus audit keys update [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--key-id</code>, text, required — API key ID (from keys list).</li>
+<li><code>--name</code>, text — New key name.</li>
+<li><code>--scope</code>, text — Replacement scope set; repeat for multiple. Omit to keep the current scopes (mutually exclusive with --role).</li>
+<li><code>--role</code>, text — Named role the key gets, e.g. traces-viewer. The role is a bundle of scopes the service owns; --scope and --role are mutually exclusive.</li>
+<li><code>--rate-limit</code>, integer — Requests per minute.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-audit-login"><code>campus audit login</code><a class="headerlink" href="#campus-audit-login" title="Permanent link">&para;</a></h3>
+<p>Store an API key for the campus.audit service (#54). Unlike OAuth tokens, audit keys never expire server-side into a refresh flow: a revoked or deleted key is cleared by re-running this command with a new one. The key is stored in the shared credential store, bound to the audit URL the CLI currently targets.</p>
+<div class="highlight"><pre><span></span><code>campus audit login [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--api-key</code>, text — The audit API key (audit_v1_...). Falls back to the CAMPUS_AUDIT_API_KEY environment variable, then an interactive prompt..</li>
+<li><code>--skip-verify</code> — Store the key without checking it against the service.</li>
+</ul>
+<h3 id="campus-audit-logout"><code>campus audit logout</code><a class="headerlink" href="#campus-audit-logout" title="Permanent link">&para;</a></h3>
+<p>Clear the stored audit API key (local only). This does not disable the key server-side — audit keys cannot revoke themselves. To invalidate a key, revoke it first: 'campus audit keys revoke --key-id <id>'.</p>
+<div class="highlight"><pre><span></span><code>campus audit logout [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--confirm/-y</code> — Skip confirmation prompt.</li>
+</ul>
+<h3 id="campus-audit-status"><code>campus audit status</code><a class="headerlink" href="#campus-audit-status" title="Permanent link">&para;</a></h3>
+<p>Show the stored audit key's local state (#62). The audit service has no "who am I" endpoint, so this is a purely local view: whether a key is stored, which URL it is bound to, the URL the CLI currently targets (flagging a mismatch the way the commands' guard does), and when the key was stored. No network call is made — unlike 'campus auth status', there is no online check. Exit code: 1 when no key is stored, 0 otherwise (a bound/target mismatch is reported but does not fail the check; every API-backed command refuses on its own until re-login).</p>
+<div class="highlight"><pre><span></span><code>campus audit status [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output status as JSON.</li>
+</ul>
+<h2 id="campus-audit-traces"><code>campus audit traces</code><a class="headerlink" href="#campus-audit-traces" title="Permanent link">&para;</a></h2>
+<p>Trace queries (read-only)</p>
+<h3 id="campus-audit-traces-get"><code>campus audit traces get</code><a class="headerlink" href="#campus-audit-traces-get" title="Permanent link">&para;</a></h3>
+<p>Show a trace's detail: root-span essentials (origin, UA, size) plus its child spans. Use --json for the raw span tree. The tree is the trace: the root span with its children nested, each span carrying the recorded request/response detail.</p>
+<div class="highlight"><pre><span></span><code>campus audit traces get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--trace-id</code>, text, required — 32-char hex trace ID.</li>
+<li><code>--json</code> — Raw span tree as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-audit-traces-list"><code>campus audit traces list</code><a class="headerlink" href="#campus-audit-traces-list" title="Permanent link">&para;</a></h3>
+<p>List recent traces, newest first.</p>
+<div class="highlight"><pre><span></span><code>campus audit traces list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--since</code>, text — ISO 8601 lower bound on trace time.</li>
+<li><code>--until</code>, text — ISO 8601 upper bound on trace time.</li>
+<li><code>--limit</code>, integer — Page size.</li>
+<li><code>--cursor</code>, text — Opaque token from a previous page.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-audit-traces-search"><code>campus audit traces search</code><a class="headerlink" href="#campus-audit-traces-search" title="Permanent link">&para;</a></h3>
+<p>Search traces by journey, endpoint, outcome, principal, or time. Filters combine (AND).</p>
+<div class="highlight"><pre><span></span><code>campus audit traces search [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--path</code>, text — Filter by endpoint path.</li>
+<li><code>--status</code>, integer — Filter by HTTP status code.</li>
+<li><code>--user</code>, text — Filter by user ID.</li>
+<li><code>--client</code>, text — Filter by OAuth client ID.</li>
+<li><code>--api-key-id</code>, text — Filter by audit API key ID.</li>
+<li><code>--journey</code>, text — Filter by login-journey ID.</li>
+<li><code>--since</code>, text — ISO 8601 lower bound on trace time.</li>
+<li><code>--until</code>, text — ISO 8601 upper bound on trace time.</li>
+<li><code>--limit</code>, integer — Page size.</li>
+<li><code>--cursor</code>, text — Opaque token from a previous page.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-auth"><code>campus auth</code><a class="headerlink" href="#campus-auth" title="Permanent link">&para;</a></h2>
+<p>Authentication commands</p>
+<h3 id="campus-auth-login"><code>campus auth login</code><a class="headerlink" href="#campus-auth-login" title="Permanent link">&para;</a></h3>
+<p>Authenticate with Campus API using Device Authorization Flow. This will: 1. Request a device code from the server 2. Display a code for you to enter at the verification URL 3. Poll for the token while you complete authentication in a browser 4. Store the received token in your credential manager The auth endpoint is resolved from the CAMPUS_AUTH_URL environment variable, the config file, or ENV/CAMPUS_ENV (see campus_cli.config).</p>
+<div class="highlight"><pre><span></span><code>campus auth login [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--output-token/-t</code> — Output the access token to stdout.</li>
+<li><code>--scope/-s</code>, text, default: <code>[]</code> — Request a management scope for the token (#865); repeat for multiple (e.g. --scope clients:write). The server rejects scopes outside this client's registered allowlist — an operator must widen it first..</li>
+</ul>
+<h3 id="campus-auth-logout"><code>campus auth logout</code><a class="headerlink" href="#campus-auth-logout" title="Permanent link">&para;</a></h3>
+<p>Log out and clear stored credentials. Removes the stored access and refresh tokens from the credential store, after attempting server-side revocation (RFC 7009). Revocation is best-effort: logout still succeeds when the server is unreachable or deployed without a revocation endpoint. Logging out while not authenticated is a no-op reported as success.</p>
+<div class="highlight"><pre><span></span><code>campus auth logout [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--confirm/-y</code> — Skip confirmation prompt.</li>
+</ul>
+<h3 id="campus-auth-refresh"><code>campus auth refresh</code><a class="headerlink" href="#campus-auth-refresh" title="Permanent link">&para;</a></h3>
+<p>Refresh the access token using the stored refresh token. Manually refresh your access token. This is also done automatically when running commands (if auto_refresh is enabled).</p>
+<div class="highlight"><pre><span></span><code>campus auth refresh [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--output-token/-t</code> — Output the new access token to stdout.</li>
+<li><code>--json</code> — Output status as JSON.</li>
+</ul>
+<h3 id="campus-auth-status"><code>campus auth status</code><a class="headerlink" href="#campus-auth-status" title="Permanent link">&para;</a></h3>
+<p>Show the stored credential's identity and scopes (#45). Prints the auth client id, the endpoint in use (and the endpoint that minted the token), the authenticated principal, the scopes the stored token carries, and token expiry — everything scripts need to answer "what can this token do?" before acting. Unless --offline is given, a lightweight authenticated check also reports whether the token still authenticates (network errors are non-fatal: they are reported without failing the command). Exit code: 1 when not logged in, or when the stored token is rejected by the server; 0 otherwise.</p>
+<div class="highlight"><pre><span></span><code>campus auth status [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output status as JSON.</li>
+<li><code>--offline</code> — Skip the authenticated validity check (no network calls; the check verifies the stored token against GET users/, where FORBIDDEN means valid and UNAUTHORIZED invalid). Exit codes: 0 when a stored token is present and valid — or its check was skipped, unreachable, or inconclusive; 1 when not logged in or the token was rejected by the server..</li>
+</ul>
+<h2 id="campus-circle"><code>campus circle</code><a class="headerlink" href="#campus-circle" title="Permanent link">&para;</a></h2>
+<p>Circle commands (campus.api)</p>
+<h3 id="campus-circle-delete"><code>campus circle delete</code><a class="headerlink" href="#campus-circle-delete" title="Permanent link">&para;</a></h3>
+<p>Delete a circle.</p>
+<div class="highlight"><pre><span></span><code>campus circle delete [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--circle-id</code>, text, required — Circle ID.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-circle-get"><code>campus circle get</code><a class="headerlink" href="#campus-circle-get" title="Permanent link">&para;</a></h3>
+<p>Show one circle.</p>
+<div class="highlight"><pre><span></span><code>campus circle get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--circle-id</code>, text, required — Circle ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-circle-list"><code>campus circle list</code><a class="headerlink" href="#campus-circle-list" title="Permanent link">&para;</a></h3>
+<p>List circles.</p>
+<div class="highlight"><pre><span></span><code>campus circle list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-circle-members"><code>campus circle members</code><a class="headerlink" href="#campus-circle-members" title="Permanent link">&para;</a></h2>
+<p>Circle member reads</p>
+<h3 id="campus-circle-members-add"><code>campus circle members add</code><a class="headerlink" href="#campus-circle-members-add" title="Permanent link">&para;</a></h3>
+<p>Add a member with an access value (errors if already a member).</p>
+<div class="highlight"><pre><span></span><code>campus circle members add [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--circle-id</code>, text, required — Circle ID.</li>
+<li><code>--member-id</code>, text, required — Member (user) ID.</li>
+<li><code>--access</code>, integer, required — Access value.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-circle-members-list"><code>campus circle members list</code><a class="headerlink" href="#campus-circle-members-list" title="Permanent link">&para;</a></h3>
+<p>List a circle's members with their access values.</p>
+<div class="highlight"><pre><span></span><code>campus circle members list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--circle-id</code>, text, required — Circle ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-circle-members-remove"><code>campus circle members remove</code><a class="headerlink" href="#campus-circle-members-remove" title="Permanent link">&para;</a></h3>
+<p>Remove a member from a circle.</p>
+<div class="highlight"><pre><span></span><code>campus circle members remove [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--circle-id</code>, text, required — Circle ID.</li>
+<li><code>--member-id</code>, text, required — Member (user) ID.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-circle-members-set"><code>campus circle members set</code><a class="headerlink" href="#campus-circle-members-set" title="Permanent link">&para;</a></h3>
+<p>Set a member's access value (upsert — no error when unchanged).</p>
+<div class="highlight"><pre><span></span><code>campus circle members set [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--circle-id</code>, text, required — Circle ID.</li>
+<li><code>--member-id</code>, text, required — Member (user) ID.</li>
+<li><code>--access</code>, integer, required — Access value.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-circle-new"><code>campus circle new</code><a class="headerlink" href="#campus-circle-new" title="Permanent link">&para;</a></h3>
+<p>Create a circle (the server rejects colliding names with 409).</p>
+<div class="highlight"><pre><span></span><code>campus circle new [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--name/-n</code>, text, required — Circle name (unique).</li>
+<li><code>--tag</code>, text, required — Circle tag, e.g. 'class', 'project'.</li>
+<li><code>--description/-d</code>, text — Circle description.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-circle-update"><code>campus circle update</code><a class="headerlink" href="#campus-circle-update" title="Permanent link">&para;</a></h3>
+<p>Update a circle's name and/or description.</p>
+<div class="highlight"><pre><span></span><code>campus circle update [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--circle-id</code>, text, required — Circle ID.</li>
+<li><code>--name/-n</code>, text, required — New circle name (the server requires name on every PATCH).</li>
+<li><code>--description/-d</code>, text — New description (unchanged when omitted).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-client"><code>campus client</code><a class="headerlink" href="#campus-client" title="Permanent link">&para;</a></h2>
+<p>OAuth client management commands</p>
+<h2 id="campus-client-access"><code>campus client access</code><a class="headerlink" href="#campus-client-access" title="Permanent link">&para;</a></h2>
+<p>OAuth client access management commands</p>
+<h3 id="campus-client-access-get"><code>campus client access get</code><a class="headerlink" href="#campus-client-access-get" title="Permanent link">&para;</a></h3>
+<p>Get client vault access permissions. Displays the access permissions for a client. If --vault is specified, shows only that vault's permissions. Otherwise, shows all vault permissions.</p>
+<div class="highlight"><pre><span></span><code>campus client access get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--client-id/-i</code>, text, required — Client ID.</li>
+<li><code>--vault/-v</code>, text — Vault label (if not specified, shows all).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-client-access-grant"><code>campus client access grant</code><a class="headerlink" href="#campus-client-access-grant" title="Permanent link">&para;</a></h3>
+<p>Grant vault access to a client. Grants the specified permission level for a vault to the client. Permissions are bitflags: 1=READ, 2=CREATE, 4=UPDATE, 8=DELETE. Combine with bitwise OR: e.g., 3 for READ+CREATE.</p>
+<div class="highlight"><pre><span></span><code>campus client access grant [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--client-id/-i</code>, text, required — Client ID.</li>
+<li><code>--vault/-v</code>, text, required — Vault label.</li>
+<li><code>--permission/-p</code>, integer, required — Permission bitflag (1=READ, 2=CREATE, 4=UPDATE, 8=DELETE).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-client-access-revoke"><code>campus client access revoke</code><a class="headerlink" href="#campus-client-access-revoke" title="Permanent link">&para;</a></h3>
+<p>Revoke vault access from a client. Revokes the specified permission level for a vault from the client. Permissions are bitflags: 1=READ, 2=CREATE, 4=UPDATE, 8=DELETE.</p>
+<div class="highlight"><pre><span></span><code>campus client access revoke [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--client-id/-i</code>, text, required — Client ID.</li>
+<li><code>--vault/-v</code>, text, required — Vault label.</li>
+<li><code>--permission/-p</code>, integer, required — Permission bitflag to revoke.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-client-access-update"><code>campus client access update</code><a class="headerlink" href="#campus-client-access-update" title="Permanent link">&para;</a></h3>
+<p>Update (replace) vault access for a client. Sets the permission level for a vault to the exact value specified. Use 0 to remove all access to the vault. Permissions are bitflags: 1=READ, 2=CREATE, 4=UPDATE, 8=DELETE.</p>
+<div class="highlight"><pre><span></span><code>campus client access update [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--client-id/-i</code>, text, required — Client ID.</li>
+<li><code>--vault/-v</code>, text, required — Vault label.</li>
+<li><code>--permission/-p</code>, integer, required — Permission bitflag to set.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-client-delete"><code>campus client delete</code><a class="headerlink" href="#campus-client-delete" title="Permanent link">&para;</a></h3>
+<p>Delete an OAuth client. Permanently deletes the specified OAuth client. Authority: operator or super-admin root (campus#883).</p>
+<div class="highlight"><pre><span></span><code>campus client delete [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--client-id/-i</code>, text, required — Client ID.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-client-get"><code>campus client get</code><a class="headerlink" href="#campus-client-get" title="Permanent link">&para;</a></h3>
+<p>Get details of an OAuth client. Retrieves and displays information about the specified client. Note: The client secret is NOT displayed.</p>
+<div class="highlight"><pre><span></span><code>campus client get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--client-id/-i</code>, text, required — Client ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-client-list"><code>campus client list</code><a class="headerlink" href="#campus-client-list" title="Permanent link">&para;</a></h3>
+<p>List all OAuth clients. Displays all OAuth clients with their IDs, names, and descriptions.</p>
+<div class="highlight"><pre><span></span><code>campus client list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-client-new"><code>campus client new</code><a class="headerlink" href="#campus-client-new" title="Permanent link">&para;</a></h3>
+<p>Create a new OAuth client. Creates a new OAuth client with the specified name and description. By default the client is confidential: the client secret is NOT returned; use 'campus client revoke' to generate and retrieve it. Public clients (--public) have no client secret at all. --allowed-scope / --upstream-scope / --token-bridge set the fail-closed privilege fields at registration (the same fields 'campus client update' manages post-hoc). Scope caps and the token-bridge flag stay operator/root-only (campus#883 — clients grant rows cap at write). Authority: operator or super-admin root — client registration is not grantable through the access-grant store (campus#883).</p>
+<div class="highlight"><pre><span></span><code>campus client new [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--name/-n</code>, text, required — Client name.</li>
+<li><code>--description/-d</code>, text, required — Client description.</li>
+<li><code>--public</code> — Create a public client (no client secret, per RFC 6749 §2.1).</li>
+<li><code>--redirect-uri</code>, text, default: <code>[]</code> — OAuth redirect URI for the client (repeat for multiple; typically used with --public).</li>
+<li><code>--allowed-scope</code>, text, default: <code>[]</code> — Scope this client may be granted on campus tokens (repeat for multiple). Fail-closed: an empty allowlist grants nothing.</li>
+<li><code>--upstream-scope</code>, text, default: <code>[]</code> — Upstream scope as provider=scope (repeat for multiple; scopes of the same provider are grouped).</li>
+<li><code>--token-bridge/--no-token-bridge</code> — Grant broker token-bridge access (confidential clients only; the server rejects it for public clients).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-client-revoke"><code>campus client revoke</code><a class="headerlink" href="#campus-client-revoke" title="Permanent link">&para;</a></h3>
+<p>Generate a new client secret. Revokes the current client secret and generates a new one. The new secret will be displayed (this is the only way to retrieve it). Use this when first creating a client or when you need to rotate the secret. Authority: the client itself (own secret), or the operator / super-admin root (campus#883).</p>
+<div class="highlight"><pre><span></span><code>campus client revoke [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--client-id/-i</code>, text, required — Client ID.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-client-update"><code>campus client update</code><a class="headerlink" href="#campus-client-update" title="Permanent link">&para;</a></h3>
+<p>Update an OAuth client. Updates the name, description, redirect URIs, scope allowlists and/or token-bridge access of an existing client. List-valued options (--redirect-uri, --allowed-scope, --upstream-scope) REPLACE the whole stored value: the API layer full-replaces each provided field, so re-pass every entry the client must keep. Fields you omit are left untouched. Authority: your own client's profile fields are self-service; other clients need clients:write authority (grant row plus scope); the scope caps and token-bridge flag stay operator/root-only (campus#883 — clients grant rows cap at write).</p>
+<div class="highlight"><pre><span></span><code>campus client update [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--client-id/-i</code>, text, required — Client ID.</li>
+<li><code>--name/-n</code>, text — New client name.</li>
+<li><code>--description/-d</code>, text — New client description.</li>
+<li><code>--redirect-uri</code>, text, default: <code>[]</code> — OAuth redirect URI (repeat for multiple; REPLACES the existing list, so re-pass the full list when adding one).</li>
+<li><code>--allowed-scope</code>, text, default: <code>[]</code> — Scope this client may be granted on campus tokens (repeat for multiple; REPLACES the whole allowlist, so re-pass every scope the client must keep). Fail-closed: an empty allowlist grants nothing.</li>
+<li><code>--clear-allowed-scopes</code> — Empty the scope allowlist (fail-closed: grants nothing).</li>
+<li><code>--upstream-scope</code>, text, default: <code>[]</code> — Upstream scope as provider=scope (repeat for multiple; scopes of the same provider are grouped; REPLACES the whole upstream scope map, so re-pass every provider=scope pair the client must keep).</li>
+<li><code>--token-bridge/--no-token-bridge</code> — Grant/revoke broker token-bridge access (confidential clients only; the server rejects it for public clients).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-file"><code>campus file</code><a class="headerlink" href="#campus-file" title="Permanent link">&para;</a></h2>
+<p>File storage commands (campus.api)</p>
+<h3 id="campus-file-delete"><code>campus file delete</code><a class="headerlink" href="#campus-file-delete" title="Permanent link">&para;</a></h3>
+<p>Delete a file record by slug.</p>
+<div class="highlight"><pre><span></span><code>campus file delete [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--slug</code>, text, required — File slug.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-file-get-content"><code>campus file get-content</code><a class="headerlink" href="#campus-file-get-content" title="Permanent link">&para;</a></h3>
+<p>Fetch a file's raw content (to stdout or --output path).</p>
+<div class="highlight"><pre><span></span><code>campus file get-content [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--slug</code>, text, required — File slug.</li>
+<li><code>--output/-o</code>, path — Write the bytes to this path.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-file-get-meta"><code>campus file get-meta</code><a class="headerlink" href="#campus-file-get-meta" title="Permanent link">&para;</a></h3>
+<p>Show a file record's metadata.</p>
+<div class="highlight"><pre><span></span><code>campus file get-meta [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--slug</code>, text, required — File slug.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-file-list"><code>campus file list</code><a class="headerlink" href="#campus-file-list" title="Permanent link">&para;</a></h3>
+<p>List file records (optionally by slug prefix).</p>
+<div class="highlight"><pre><span></span><code>campus file list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--prefix</code>, text — Only slugs starting with this prefix.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-file-put"><code>campus file put</code><a class="headerlink" href="#campus-file-put" title="Permanent link">&para;</a></h3>
+<p>Create or replace a file's content by slug (upsert).</p>
+<div class="highlight"><pre><span></span><code>campus file put [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--slug</code>, text, required — File slug (stable address).</li>
+<li><code>--file/-f</code>, path, required — Local file whose bytes to upload.</li>
+<li><code>--content-type</code>, text — MIME type (defaults upstream to application/octet-stream).</li>
+<li><code>--name</code>, text — Display name (stored on new records).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-grant"><code>campus grant</code><a class="headerlink" href="#campus-grant" title="Permanent link">&para;</a></h2>
+<p>Access-grant store commands</p>
+<h3 id="campus-grant-check"><code>campus grant check</code><a class="headerlink" href="#campus-grant-check" title="Permanent link">&para;</a></h3>
+<p>Check whether a grant row covers a permission. Requires operator or same-vocabulary admin authority.</p>
+<div class="highlight"><pre><span></span><code>campus grant check [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--grantee-type/-t</code>, text, required — Grantee principal type: user or client.</li>
+<li><code>--grantee-id/-g</code>, text, required — User email or client ID.</li>
+<li><code>--resource-type/-r</code>, text, required — Vocabulary: users, clients, vault (per-label), sessions, credentials, timetable, migrations.</li>
+<li><code>--resource-id</code>, text — Instance for per-label resources (vault label; migrations: auth|api|audit).</li>
+<li><code>--level</code>, text — Management level to test.</li>
+<li><code>--bits</code>, integer — Vault bitflag mask to test.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-grant-delete"><code>campus grant delete</code><a class="headerlink" href="#campus-grant-delete" title="Permanent link">&para;</a></h3>
+<p>Delete a grant row outright. Prefer 'campus grant revoke' for partial revocation: this removes the whole row.</p>
+<div class="highlight"><pre><span></span><code>campus grant delete [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--grant-id</code>, text, required — Grant row ID (from list).</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-grant-grant"><code>campus grant grant</code><a class="headerlink" href="#campus-grant-grant" title="Permanent link">&para;</a></h3>
+<p>Grant access (create a row, or raise an existing one). Management levels never downgrade: revoke first to lower a level. Anti-escalation: no principal may administer its own grants, and vocabulary-level clients:admin rows are rejected (operator-equivalent — authority over client registration stays with the operator and the root).</p>
+<div class="highlight"><pre><span></span><code>campus grant grant [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--grantee-type/-t</code>, text, required — Grantee principal type: user or client.</li>
+<li><code>--grantee-id/-g</code>, text, required — User email or client ID.</li>
+<li><code>--resource-type/-r</code>, text, required — Vocabulary: users, clients, vault (per-label), sessions, credentials, timetable, migrations.</li>
+<li><code>--resource-id</code>, text — Instance for per-label resources (vault label; migrations: auth|api|audit).</li>
+<li><code>--level</code>, text — Management level: read/mod/write/admin.</li>
+<li><code>--bits</code>, integer — Vault bitflag mask (1=READ, 2=CREATE, 4=UPDATE, 8=DELETE; sum to combine). Vault bits OR into the existing mask.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-grant-list"><code>campus grant list</code><a class="headerlink" href="#campus-grant-list" title="Permanent link">&para;</a></h3>
+<p>List access-grant rows — the "who can administer what" matrix. Without filters this is operator/root-only; user principals may list the single vocabulary they administer. Filter to keep the answer small.</p>
+<div class="highlight"><pre><span></span><code>campus grant list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--grantee-type/-t</code>, text — Grantee principal type: user or client.</li>
+<li><code>--grantee-id/-g</code>, text — User email or client ID.</li>
+<li><code>--resource-type/-r</code>, text — Vocabulary: users, clients, vault (per-label), sessions, credentials, timetable, migrations.</li>
+<li><code>--resource-id</code>, text — Instance for per-label resources (vault label).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-grant-revoke"><code>campus grant revoke</code><a class="headerlink" href="#campus-grant-revoke" title="Permanent link">&para;</a></h3>
+<p>Revoke access (clear vault bits, delete covered levels). Vault rows delete at zero bits; a revoked level's row is deleted when the held level covers it. The remaining row (or null) is printed.</p>
+<div class="highlight"><pre><span></span><code>campus grant revoke [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--grantee-type/-t</code>, text, required — Grantee principal type: user or client.</li>
+<li><code>--grantee-id/-g</code>, text, required — User email or client ID.</li>
+<li><code>--resource-type/-r</code>, text, required — Vocabulary: users, clients, vault (per-label), sessions, credentials, timetable, migrations.</li>
+<li><code>--resource-id</code>, text — Instance for per-label resources (vault label; migrations: auth|api|audit).</li>
+<li><code>--level</code>, text — Management level to revoke.</li>
+<li><code>--bits</code>, integer — Vault bitflags to clear.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-subjcombi"><code>campus subjcombi</code><a class="headerlink" href="#campus-subjcombi" title="Permanent link">&para;</a></h2>
+<p>Subjcombi mapping commands (campus.api)</p>
+<h3 id="campus-subjcombi-cancel"><code>campus subjcombi cancel</code><a class="headerlink" href="#campus-subjcombi-cancel" title="Permanent link">&para;</a></h3>
+<p>Cancel a pending scheduled mapping (409 once it is effective).</p>
+<div class="highlight"><pre><span></span><code>campus subjcombi cancel [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--record-id</code>, text, required — The subjcombi record to cancel.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-subjcombi-get"><code>campus subjcombi get</code><a class="headerlink" href="#campus-subjcombi-get" title="Permanent link">&para;</a></h3>
+<p>Show the user's effective mapping (mapping, roster, or unmapped).</p>
+<div class="highlight"><pre><span></span><code>campus subjcombi get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--user-id</code>, text, required — The user's campus account email.</li>
+<li><code>--at</code>, text — Resolve the mapping as of this datetime.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-subjcombi-history"><code>campus subjcombi history</code><a class="headerlink" href="#campus-subjcombi-history" title="Permanent link">&para;</a></h3>
+<p>Show the user's full mutation trail (newest first).</p>
+<div class="highlight"><pre><span></span><code>campus subjcombi history [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--user-id</code>, text, required — The user's campus account email.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-subjcombi-pending"><code>campus subjcombi pending</code><a class="headerlink" href="#campus-subjcombi-pending" title="Permanent link">&para;</a></h3>
+<p>List scheduled mappings not yet effective (soonest first).</p>
+<div class="highlight"><pre><span></span><code>campus subjcombi pending [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-subjcombi-set"><code>campus subjcombi set</code><a class="headerlink" href="#campus-subjcombi-set" title="Permanent link">&para;</a></h3>
+<p>Set the user's mapping (appends a trail record).</p>
+<div class="highlight"><pre><span></span><code>campus subjcombi set [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--user-id</code>, text, required — The user's campus account email.</li>
+<li><code>--lessongroup-id</code>, text, required — The lessongroup to map to.</li>
+<li><code>--effective-from</code>, text — When it applies (ISO datetime, or YYYY-MM-DD for 07:00 school time); absent = immediate.</li>
+<li><code>--reason</code>, text — Optional change note for the trail.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-submission"><code>campus submission</code><a class="headerlink" href="#campus-submission" title="Permanent link">&para;</a></h2>
+<p>Submission commands (campus.api)</p>
+<h3 id="campus-submission-by-assignment"><code>campus submission by-assignment</code><a class="headerlink" href="#campus-submission-by-assignment" title="Permanent link">&para;</a></h3>
+<p>List submissions for one assignment.</p>
+<div class="highlight"><pre><span></span><code>campus submission by-assignment [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--assignment-id</code>, text, required — Assignment ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-submission-by-student"><code>campus submission by-student</code><a class="headerlink" href="#campus-submission-by-student" title="Permanent link">&para;</a></h3>
+<p>List submissions by one student.</p>
+<div class="highlight"><pre><span></span><code>campus submission by-student [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--student-id</code>, text, required — Student ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-submission-feedback"><code>campus submission feedback</code><a class="headerlink" href="#campus-submission-feedback" title="Permanent link">&para;</a></h2>
+<p>Submission feedback</p>
+<h3 id="campus-submission-feedback-add"><code>campus submission feedback add</code><a class="headerlink" href="#campus-submission-feedback-add" title="Permanent link">&para;</a></h3>
+<p>Add feedback on a response to one question.</p>
+<div class="highlight"><pre><span></span><code>campus submission feedback add [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--submission-id</code>, text, required — Submission ID.</li>
+<li><code>--question-id</code>, text, required — Question ID.</li>
+<li><code>--feedback-text</code>, text, required — The teacher's feedback text.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-submission-get"><code>campus submission get</code><a class="headerlink" href="#campus-submission-get" title="Permanent link">&para;</a></h3>
+<p>Show one submission (responses and feedback included via --json).</p>
+<div class="highlight"><pre><span></span><code>campus submission get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--submission-id</code>, text, required — Submission ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-submission-list"><code>campus submission list</code><a class="headerlink" href="#campus-submission-list" title="Permanent link">&para;</a></h3>
+<p>List submissions, optionally filtered. <code>by-assignment</code> / <code>by-student</code> are sugar for the single-filter forms.</p>
+<div class="highlight"><pre><span></span><code>campus submission list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--assignment-id</code>, text — Filter by assignment.</li>
+<li><code>--student-id</code>, text — Filter by student.</li>
+<li><code>--course-id</code>, text — Filter by Google Classroom course.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-submission-new"><code>campus submission new</code><a class="headerlink" href="#campus-submission-new" title="Permanent link">&para;</a></h3>
+<p>Create a submission for (assignment, student).</p>
+<div class="highlight"><pre><span></span><code>campus submission new [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--assignment-id</code>, text, required — Assignment ID.</li>
+<li><code>--student-id</code>, text, required — Student user ID.</li>
+<li><code>--course-id</code>, text, required — Google Classroom course ID.</li>
+<li><code>--responses-json</code>, text — Initial responses as inline JSON, e.g. [{"question_id": "q1", "response_text": "..."}].</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-submission-responses"><code>campus submission responses</code><a class="headerlink" href="#campus-submission-responses" title="Permanent link">&para;</a></h2>
+<p>Submission responses</p>
+<h3 id="campus-submission-responses-add"><code>campus submission responses add</code><a class="headerlink" href="#campus-submission-responses-add" title="Permanent link">&para;</a></h3>
+<p>Add or update a response to one question (upsert).</p>
+<div class="highlight"><pre><span></span><code>campus submission responses add [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--submission-id</code>, text, required — Submission ID.</li>
+<li><code>--question-id</code>, text, required — Question ID.</li>
+<li><code>--response-text</code>, text, required — The student's response text.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-submission-submit"><code>campus submission submit</code><a class="headerlink" href="#campus-submission-submit" title="Permanent link">&para;</a></h3>
+<p>Finalize a submission (server stamps submitted_at).</p>
+<div class="highlight"><pre><span></span><code>campus submission submit [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--submission-id</code>, text, required — Submission ID.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-submission-unsubmit"><code>campus submission unsubmit</code><a class="headerlink" href="#campus-submission-unsubmit" title="Permanent link">&para;</a></h3>
+<p>Clear a submission's submitted_at timestamp.</p>
+<div class="highlight"><pre><span></span><code>campus submission unsubmit [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--submission-id</code>, text, required — Submission ID.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-submission-update"><code>campus submission update</code><a class="headerlink" href="#campus-submission-update" title="Permanent link">&para;</a></h3>
+<p>Update a submission's timestamp. Bulk responses/feedback edits are structured payloads (Phase C, campus-cli#4). To just clear the submitted flag, use 'campus submission unsubmit'.</p>
+<div class="highlight"><pre><span></span><code>campus submission update [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--submission-id</code>, text, required — Submission ID.</li>
+<li><code>--submitted-at</code>, text — New submitted_at timestamp (ISO).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-timetable"><code>campus timetable</code><a class="headerlink" href="#campus-timetable" title="Permanent link">&para;</a></h2>
+<p>Timetable commands (campus.api)</p>
+<h3 id="campus-timetable-current"><code>campus timetable current</code><a class="headerlink" href="#campus-timetable-current" title="Permanent link">&para;</a></h3>
+<p>Show the ID of the currently-active timetable.</p>
+<div class="highlight"><pre><span></span><code>campus timetable current [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-timetable-delete"><code>campus timetable delete</code><a class="headerlink" href="#campus-timetable-delete" title="Permanent link">&para;</a></h3>
+<p>Delete a timetable version and all of its rows (deployment-wide, destructive). Cascades the version's entries, group members and lessongroup rows, then the version itself. This is the cleanup surface for the label-drift create 409: stale duplicate-label rows are owned by the superseded versions that minted them. The current and next pointer targets are refused by the API — move/cancel the pointer first. Cannot be undone.</p>
+<div class="highlight"><pre><span></span><code>campus timetable delete [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--timetable-id</code>, text, required — Timetable ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-timetable-entries"><code>campus timetable entries</code><a class="headerlink" href="#campus-timetable-entries" title="Permanent link">&para;</a></h3>
+<p>List one timetable's entries (weekly lesson slots).</p>
+<div class="highlight"><pre><span></span><code>campus timetable entries [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--timetable-id</code>, text, required — Timetable ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-timetable-get"><code>campus timetable get</code><a class="headerlink" href="#campus-timetable-get" title="Permanent link">&para;</a></h3>
+<p>Show one timetable (metadata plus its entries).</p>
+<div class="highlight"><pre><span></span><code>campus timetable get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--timetable-id</code>, text, required — Timetable ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-timetable-list"><code>campus timetable list</code><a class="headerlink" href="#campus-timetable-list" title="Permanent link">&para;</a></h3>
+<p>List timetables (metadata records).</p>
+<div class="highlight"><pre><span></span><code>campus timetable list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-timetable-me"><code>campus timetable me</code><a class="headerlink" href="#campus-timetable-me" title="Permanent link">&para;</a></h3>
+<p>Resolve your own timetable view (campus#592): the current leg and the state at the earliest pending change (change_type separates a whole-school switch from a subjcombi change). Entries render via 'campus timetable entries --timetable-id <id>' filtered by lessongroup_id.</p>
+<div class="highlight"><pre><span></span><code>campus timetable me [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--at</code>, text — Resolve the view as of this ISO datetime.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-timetable-metadata"><code>campus timetable metadata</code><a class="headerlink" href="#campus-timetable-metadata" title="Permanent link">&para;</a></h2>
+<p>Timetable metadata</p>
+<h3 id="campus-timetable-metadata-update"><code>campus timetable metadata update</code><a class="headerlink" href="#campus-timetable-metadata-update" title="Permanent link">&para;</a></h3>
+<p>Update a timetable's start and end dates.</p>
+<div class="highlight"><pre><span></span><code>campus timetable metadata update [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--timetable-id</code>, text, required — Timetable ID.</li>
+<li><code>--start-date</code>, text, required — Start date (ISO).</li>
+<li><code>--end-date</code>, text, required — End date (ISO).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-timetable-new"><code>campus timetable new</code><a class="headerlink" href="#campus-timetable-new" title="Permanent link">&para;</a></h3>
+<p>Create a timetable from metadata JSON and a data JSON file. The data document must carry its lesson groups under the key 'lessongroups' (no underscore - the server rejects 'lesson_groups' with 400).</p>
+<div class="highlight"><pre><span></span><code>campus timetable new [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--metadata/-m</code>, text, required — Timetable metadata as inline JSON, e.g. {"start_date": "2027-01-01", "end_date": "2027-06-01", "filename": "2027.json"}.</li>
+<li><code>--data-file/-d</code>, text, required — Path to the timetable data JSON (must contain a 'lessongroups' key).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-timetable-next"><code>campus timetable next</code><a class="headerlink" href="#campus-timetable-next" title="Permanent link">&para;</a></h3>
+<p>Show the pending switch (ID and effective date), if any.</p>
+<div class="highlight"><pre><span></span><code>campus timetable next [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-timetable-patch"><code>campus timetable patch</code><a class="headerlink" href="#campus-timetable-patch" title="Permanent link">&para;</a></h3>
+<p>Patch exactly one timetable pointer (deployment-wide). --current flips now; --next schedules (or reschedules) the pending switch; --cancel-next cancels it. Scheduled switches apply at their effective_from without any further action.</p>
+<div class="highlight"><pre><span></span><code>campus timetable patch [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--current</code>, text — Timetable ID to make current, effective now.</li>
+<li><code>--next</code>, text — Timetable ID to schedule as the pending switch (reschedules any previous pending switch).</li>
+<li><code>--cancel-next</code> — Cancel the pending switch.</li>
+<li><code>--effective-from</code>, text — When the pending switch applies (ISO datetime, or YYYY-MM-DD for 07:00 school time); with --next only.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-user"><code>campus user</code><a class="headerlink" href="#campus-user" title="Permanent link">&para;</a></h2>
+<p>User management commands</p>
+<h3 id="campus-user-activate"><code>campus user activate</code><a class="headerlink" href="#campus-user-activate" title="Permanent link">&para;</a></h3>
+<p>Activate a Campus user. Requires users:mod authority or higher: a users:mod grant row AND the matching scope on your token (see <code>campus grant list</code>; the super-admin root needs neither).</p>
+<div class="highlight"><pre><span></span><code>campus user activate [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--user-id/-u</code>, text, required — User ID (email).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-user-delete"><code>campus user delete</code><a class="headerlink" href="#campus-user-delete" title="Permanent link">&para;</a></h3>
+<p>Delete a Campus user. Permanently deletes the user record. Requires users:admin authority: a users:admin grant row AND the users:admin scope on your token (see <code>campus grant list</code>; the super-admin root needs neither).</p>
+<div class="highlight"><pre><span></span><code>campus user delete [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--user-id/-u</code>, text, required — User ID (email).</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-user-edit"><code>campus user edit</code><a class="headerlink" href="#campus-user-edit" title="Permanent link">&para;</a></h3>
+<p>Rename a Campus user. Requires users:write authority: a users:write grant row AND the users:write scope on your token (see <code>campus grant list</code>; the super-admin root needs neither). Name is the only editable field: a user's ID IS its email, so identity fields stay fixed.</p>
+<div class="highlight"><pre><span></span><code>campus user edit [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--user-id/-u</code>, text, required — User ID (email).</li>
+<li><code>--name/-n</code>, text, required — New display name.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-user-get"><code>campus user get</code><a class="headerlink" href="#campus-user-get" title="Permanent link">&para;</a></h3>
+<p>Get details of a Campus user. Requires users:read authority: a users:read grant row AND the users:read scope on your token (see <code>campus grant list</code>; the super-admin root needs neither).</p>
+<div class="highlight"><pre><span></span><code>campus user get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--user-id/-u</code>, text, required — User ID (email).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-user-list"><code>campus user list</code><a class="headerlink" href="#campus-user-list" title="Permanent link">&para;</a></h3>
+<p>List all Campus users. Requires users:read authority: a users:read grant row AND the users:read scope on your token (see <code>campus grant list</code>; the super-admin root needs neither).</p>
+<div class="highlight"><pre><span></span><code>campus user list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-user-new"><code>campus user new</code><a class="headerlink" href="#campus-user-new" title="Permanent link">&para;</a></h3>
+<p>Create a new Campus user. Requires users:write authority: a users:write grant row AND the users:write scope on your token (see <code>campus grant list</code>; the super-admin root needs neither). The user starts inactive; activate them with 'campus user activate'.</p>
+<div class="highlight"><pre><span></span><code>campus user new [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--email/-e</code>, text, required — User email (also the user ID).</li>
+<li><code>--name/-n</code>, text, required — User display name.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-vault"><code>campus vault</code><a class="headerlink" href="#campus-vault" title="Permanent link">&para;</a></h2>
+<p>Vault management commands</p>
+<h3 id="campus-vault-delete"><code>campus vault delete</code><a class="headerlink" href="#campus-vault-delete" title="Permanent link">&para;</a></h3>
+<p>Delete a key from a vault. Removes the specified key from the vault.</p>
+<div class="highlight"><pre><span></span><code>campus vault delete [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--vault/-v</code>, text, required — Vault label.</li>
+<li><code>--key/-k</code>, text, required — Key to delete.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-vault-get"><code>campus vault get</code><a class="headerlink" href="#campus-vault-get" title="Permanent link">&para;</a></h3>
+<p>Get vault contents. Retrieves the entire vault or a specific key-value pair. If --key is not specified, returns all entries in the vault.</p>
+<div class="highlight"><pre><span></span><code>campus vault get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--vault/-v</code>, text, required — Vault label.</li>
+<li><code>--key/-k</code>, text — Specific key to retrieve.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-vault-labels"><code>campus vault labels</code><a class="headerlink" href="#campus-vault-labels" title="Permanent link">&para;</a></h3>
+<p>List vault labels (admin view, campus#1055). Enumerates the vaults that exist. The operator, the super-admin root, or designated users holding any vault grant row plus the vaults:read scope may call this; client principals hold per-label access only and cannot enumerate.</p>
+<div class="highlight"><pre><span></span><code>campus vault labels [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-vault-list"><code>campus vault list</code><a class="headerlink" href="#campus-vault-list" title="Permanent link">&para;</a></h3>
+<p>List all entries in a vault. Displays all keys stored in the specified vault.</p>
+<div class="highlight"><pre><span></span><code>campus vault list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--vault/-v</code>, text, required — Vault label.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-vault-set"><code>campus vault set</code><a class="headerlink" href="#campus-vault-set" title="Permanent link">&para;</a></h3>
+<p>Set a key-value pair in a vault. Stores or updates the specified key with the given value in the vault.</p>
+<div class="highlight"><pre><span></span><code>campus vault set [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--vault/-v</code>, text, required — Vault label.</li>
+<li><code>--key/-k</code>, text, required — Key to set.</li>
+<li><code>--value</code>, text, required — Value to set.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h2 id="campus-venue"><code>campus venue</code><a class="headerlink" href="#campus-venue" title="Permanent link">&para;</a></h2>
+<p>Venue commands (campus.api)</p>
+<h3 id="campus-venue-create"><code>campus venue create</code><a class="headerlink" href="#campus-venue-create" title="Permanent link">&para;</a></h3>
+<p>Create a venue (venues.admin).</p>
+<div class="highlight"><pre><span></span><code>campus venue create [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--metadata</code>, text — Initial metadata as a JSON object string (e.g. '{"name": "B1-01"}').</li>
+<li><code>--notes</code>, text — Freeform markdown notes.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-venue-delete"><code>campus venue delete</code><a class="headerlink" href="#campus-venue-delete" title="Permanent link">&para;</a></h3>
+<p>Delete a venue (venues.admin).</p>
+<div class="highlight"><pre><span></span><code>campus venue delete [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--venue-id</code>, text, required — The venue ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-venue-get"><code>campus venue get</code><a class="headerlink" href="#campus-venue-get" title="Permanent link">&para;</a></h3>
+<p>Show a venue.</p>
+<div class="highlight"><pre><span></span><code>campus venue get [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--venue-id</code>, text, required — The venue ID.</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-venue-list"><code>campus venue list</code><a class="headerlink" href="#campus-venue-list" title="Permanent link">&para;</a></h3>
+<p>List all venues, oldest first.</p>
+<div class="highlight"><pre><span></span><code>campus venue list [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-venue-update"><code>campus venue update</code><a class="headerlink" href="#campus-venue-update" title="Permanent link">&para;</a></h3>
+<p>Patch a venue; given fields replace, absent fields stay (venues.admin).</p>
+<div class="highlight"><pre><span></span><code>campus venue update [OPTIONS]
+</code></pre></div>
+<p>Arguments/options:</p>
+<ul>
+<li><code>--venue-id</code>, text, required — The venue ID.</li>
+<li><code>--metadata</code>, text — Replacement metadata as a JSON object string (replaces the whole dict; merge is your job).</li>
+<li><code>--notes</code>, text — Replacement markdown notes.</li>
+<li><code>--clear-notes</code> — Clear the notes (sends notes: null; --notes is ignored).</li>
+<li><code>--json</code> — Output as JSON.</li>
+<li><code>--confirm/-y</code> — Skip confirmation.</li>
+<li><code>--dry-run</code> — Show the equivalent Python API code without calling the API.</li>
+</ul>
+<h3 id="campus-version"><code>campus version</code><a class="headerlink" href="#campus-version" title="Permanent link">&para;</a></h3>
+<p>Show the version information.</p>
+<div class="highlight"><pre><span></span><code>campus version
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.sections", "navigation.top", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>
