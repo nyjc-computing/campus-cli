@@ -865,8 +865,8 @@ Arguments/options:
 
 - `--grantee-type/-t`, text, required — Grantee principal type: user or client.
 - `--grantee-id/-g`, text, required — User email or client ID.
-- `--resource-type/-r`, text, required — Vocabulary: users, clients, or vault (per-label).
-- `--resource-id`, text — Instance for per-label resources (vault label).
+- `--resource-type/-r`, text, required — Vocabulary: users, clients, vault (per-label), sessions, credentials, timetable, migrations.
+- `--resource-id`, text — Instance for per-label resources (vault label; migrations: auth|api|audit).
 - `--level`, text — Management level to test.
 - `--bits`, integer — Vault bitflag mask to test.
 - `--json` — Output as JSON.
@@ -898,8 +898,8 @@ Arguments/options:
 
 - `--grantee-type/-t`, text, required — Grantee principal type: user or client.
 - `--grantee-id/-g`, text, required — User email or client ID.
-- `--resource-type/-r`, text, required — Vocabulary: users, clients, or vault (per-label).
-- `--resource-id`, text — Instance for per-label resources (vault label).
+- `--resource-type/-r`, text, required — Vocabulary: users, clients, vault (per-label), sessions, credentials, timetable, migrations.
+- `--resource-id`, text — Instance for per-label resources (vault label; migrations: auth|api|audit).
 - `--level`, text — Management level: read/mod/write/admin.
 - `--bits`, integer — Vault bitflag mask (1=READ, 2=CREATE, 4=UPDATE, 8=DELETE; sum to combine). Vault bits OR into the existing mask.
 - `--json` — Output as JSON.
@@ -917,7 +917,7 @@ Arguments/options:
 
 - `--grantee-type/-t`, text — Grantee principal type: user or client.
 - `--grantee-id/-g`, text — User email or client ID.
-- `--resource-type/-r`, text — Vocabulary: users, clients, or vault (per-label).
+- `--resource-type/-r`, text — Vocabulary: users, clients, vault (per-label), sessions, credentials, timetable, migrations.
 - `--resource-id`, text — Instance for per-label resources (vault label).
 - `--json` — Output as JSON.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
@@ -934,8 +934,8 @@ Arguments/options:
 
 - `--grantee-type/-t`, text, required — Grantee principal type: user or client.
 - `--grantee-id/-g`, text, required — User email or client ID.
-- `--resource-type/-r`, text, required — Vocabulary: users, clients, or vault (per-label).
-- `--resource-id`, text — Instance for per-label resources (vault label).
+- `--resource-type/-r`, text, required — Vocabulary: users, clients, vault (per-label), sessions, credentials, timetable, migrations.
+- `--resource-id`, text — Instance for per-label resources (vault label; migrations: auth|api|audit).
 - `--level`, text — Management level to revoke.
 - `--bits`, integer — Vault bitflags to clear.
 - `--json` — Output as JSON.
