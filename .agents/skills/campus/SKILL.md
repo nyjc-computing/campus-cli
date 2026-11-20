@@ -73,10 +73,15 @@ removes the row outright. Downgrading a level = revoke then grant.
   acting.
 - Destructive commands (delete/revoke) confirm interactively; in scripts
   pass `-y`/`--confirm` or `CAMPUS_ASSUME_YES=1`.
-- **Environment routing**: the dev deployment is the default target.
-  Override per-call with `CAMPUS_AUTH_URL` (must include the `/auth/v1`
-  suffix) and `CAMPUS_API_URL`; `ENV`/`CAMPUS_ENV` also steer both CLI auth
-  and the SDK. There is no staging/prod auth deployment yet.
+- **Environment routing**: production is the default target (gateway
+  `https://nyjc-campus.up.railway.app`); `ENV=development` (or
+  `CAMPUS_ENV=development`) falls back to the dev gateway. Per-service
+  resolution: `CAMPUS_<SERVICE>_URL` > `<SERVICE>_URL` > config file
+  (`auth_url`/`audit_url`) > `CAMPUS_BASE_URL`/`BASE_URL` (a gateway origin
+  standing in for any missing service URL; auth gets the `/auth/v1` suffix
+  appended) > per-deployment default. Override per-call with
+  `CAMPUS_AUTH_URL` (must include the `/auth/v1` suffix) and
+  `CAMPUS_API_URL`. The staging environment is retired.
 
 ## Non-goals (design principle)
 

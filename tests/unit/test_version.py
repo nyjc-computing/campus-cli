@@ -5,10 +5,9 @@ campus_cli.__version__, so a wheel built from main reported a stale
 version — the skew this test pins shut.
 """
 
+import tomllib
 import unittest
 from pathlib import Path
-
-import tomllib
 
 from campus_cli import __version__
 

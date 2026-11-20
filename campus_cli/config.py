@@ -5,6 +5,7 @@ import os
 import uuid
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 
 class ConfigError(Exception):
@@ -23,20 +24,67 @@ PUBLIC_OAUTH_CLIENT_ID = "guest"
 DEVICE_ID_CONFIG_KEY = "device_id"
 
 
+# --- Deployment routing -----------------------------------------------------
+#
+# Campus is deployment-agnostic (campus-common #52): the environment is the
+# source of truth, and one gateway origin may front every service. The CLI
+# targets production by default now that prod is rolled out; a host process
+# opts into development by setting ENV=development (ENV wins over CAMPUS_ENV),
+# which every project repository's .env does for local/dev work.
+#
+# Resolution per service (mirrors campus.common.services.resolve_base_url,
+# plus the CLI's config-file tier):
+#   1. CAMPUS_<SERVICE>_URL          primary override
+#   2. <SERVICE>_URL                 bare alias (dedicated hosts)
+#   3. config file key               auth_url / audit_url (CLI-local tier)
+#   4. CAMPUS_BASE_URL, then BASE_URL   gateway origin standing in for any
+#      missing service URL; the service's route prefix is appended
+#   5. per-deployment gateway default (+route prefix)
+#
+# Values for override/base variables must be bare origins
+# (scheme://host[:port], no path or trailing slash) — same contract as
+# campus-common; a malformed value raises ValueError naming the variable.
+
+ENVIRONMENT_VARS = ("ENV", "CAMPUS_ENV")  # first entry wins
+BASE_URL_VARS = ("CAMPUS_BASE_URL", "BASE_URL")
+
+# Gateway origins per deployment. Prod is the suffix-less Railway fleet; the
+# gateway is nyjc-campus (the clean campus.up name was globally claimed).
+DEPLOYMENT_BASE_URLS = {
+    "production": "https://nyjc-campus.up.railway.app",
+    "development": "https://campus-development.up.railway.app",
+}
+DEVELOPMENT_ALIASES = ("development", "testing")
+
+# Route prefix appended to a gateway base URL per service. auth is special:
+# the CLI's own auth layer appends /oauth/... paths itself, so it needs the
+# /auth/v1 prefix baked in. The api and audit clients (SDK resource roots)
+# append their /api/v1, /audit/v1 prefixes, so they take the bare origin —
+# which routes through the gateway unchanged and addresses a dedicated
+# service host directly.
+ROUTE_PREFIXES = {
+    "auth": "/auth/v1",
+    "api": "",
+    "audit": "",
+}
+
+# Per-service overrides: primary CAMPUS_-prefixed form, then bare alias.
+SERVICE_URL_VARS = {
+    "auth": ("CAMPUS_AUTH_URL", "AUTH_URL"),
+    "api": ("CAMPUS_API_URL", "API_URL"),
+    "audit": ("CAMPUS_AUDIT_URL", "AUDIT_URL"),
+}
+
+# CLI-local config file tier (auth/audit only; api has no config key).
+CONFIG_FILE_KEYS = {
+    "auth": "auth_url",
+    "audit": "audit_url",
+}
+
+
 class Config:
     """Configuration manager for Campus CLI."""
 
-    DEFAULT_AUTH_URL = "https://campusauth-development.up.railway.app/auth/v1"
-    # Unlike campus_python's staging/production defaults, these carry the
-    # /auth/v1 prefix because the CLI appends /oauth/... paths itself
-    STAGING_AUTH_URL = "https://auth.campus.nyjc.dev/auth/v1"
-    PRODUCTION_AUTH_URL = "https://auth.campus.nyjc.app/auth/v1"
-    # Audit service base URLs (#54). No /audit/v1 prefix: the resource
-    # root (campus_python.AuditRoot) carries the url_prefix itself, so
-    # these match campus_python's URL resolution exactly.
-    DEFAULT_AUDIT_URL = "https://campusaudit-development.up.railway.app"
-    STAGING_AUDIT_URL = "https://audit.campus.nyjc.dev"
-    PRODUCTION_AUDIT_URL = "https://audit.campus.nyjc.app"
     DEFAULT_AUTO_REFRESH = True
     DEFAULT_REFRESH_THRESHOLD = 300  # 5 minutes
 
@@ -119,43 +167,90 @@ class Config:
         self._config[key] = value
         self._save()
 
+    @staticmethod
+    def campus_env() -> str:
+        """Deployment environment: ENV wins over CAMPUS_ENV; default production.
+
+        Lowercased so ``ENV=Development`` behaves like ``development``.
+        """
+        for var in ENVIRONMENT_VARS:
+            value = os.getenv(var)
+            if value:
+                return value.strip().lower()
+        return "production"
+
+    @staticmethod
+    def _valid_origin(varname: str, value: str) -> str:
+        """Validate ``value`` as a bare origin, naming ``varname`` on error.
+
+        Mirrors campus.common.services: error messages name the variable
+        without echoing its value, so a mis-pasted secret stays out of logs.
+        """
+        parse_result = urlparse(value)
+        if not parse_result.scheme or not parse_result.netloc:
+            raise ValueError(
+                f"{varname} must be a full origin (scheme://host[:port])"
+            )
+        if any((
+                parse_result.path,
+                parse_result.params,
+                parse_result.query,
+                parse_result.fragment,
+        )):
+            raise ValueError(
+                f"{varname} must be a bare origin with no path or trailing slash"
+            )
+        return f"{parse_result.scheme}://{parse_result.netloc}"
+
+    @classmethod
+    def _gateway_base_url(cls) -> str:
+        """Gateway origin standing in for missing service URLs.
+
+        CAMPUS_BASE_URL, then BASE_URL; falls back to the deployment's
+        built-in gateway default.
+        """
+        for var in BASE_URL_VARS:
+            value = os.getenv(var)
+            if value:
+                return cls._valid_origin(var, value)
+        env = cls.campus_env()
+        if env in DEVELOPMENT_ALIASES:
+            return DEPLOYMENT_BASE_URLS["development"]
+        if env in DEPLOYMENT_BASE_URLS:
+            return DEPLOYMENT_BASE_URLS[env]
+        raise ValueError(
+            f"Invalid deployment environment {env!r} in ENV/CAMPUS_ENV; "
+            "expected development or production (staging was retired — set "
+            "CAMPUS_BASE_URL or a per-service URL explicitly)"
+        )
+
+    def _resolve_service_url(self, service: str) -> str:
+        """Resolve a service URL with BASE_URL as the stand-in tier."""
+        for var in SERVICE_URL_VARS[service]:
+            value = os.getenv(var)
+            if value:
+                return value
+        config_key = CONFIG_FILE_KEYS.get(service)
+        if config_key:
+            value = self.get(config_key)
+            if value:
+                return value
+        return self._gateway_base_url() + ROUTE_PREFIXES[service]
+
     @property
     def auth_url(self) -> str:
         """
-        Get the auth server URL.
+        Get the auth server URL (with the /auth/v1 prefix the CLI's own
+        auth layer expects).
 
-        Resolution order (mirrors campus_python's base URL resolution):
-        1. CAMPUS_AUTH_URL environment variable
+        Resolution order:
+        1. CAMPUS_AUTH_URL, then AUTH_URL
         2. auth_url key in the config file
-        3. ENV/CAMPUS_ENV environment variable (ENV wins) mapped to the
-           deployment environment's auth service URL
-        4. Built-in development default
+        3. CAMPUS_BASE_URL, then BASE_URL (+/auth/v1)
+        4. Deployment gateway default (+/auth/v1); production unless
+           ENV/CAMPUS_ENV=development
         """
-        env_auth_url = os.getenv("CAMPUS_AUTH_URL")
-        if env_auth_url:
-            return env_auth_url
-        config_auth_url = self.get("auth_url")
-        if config_auth_url:
-            return config_auth_url
-        return self._env_auth_url()
-
-    @staticmethod
-    def _env_auth_url() -> str:
-        """Resolve the auth URL from the ENV/CAMPUS_ENV deployment environment."""
-        campus_env = os.environ.get("ENV", os.environ.get("CAMPUS_ENV", "development"))
-        match campus_env:
-            case "development" | "testing":
-                return Config.DEFAULT_AUTH_URL
-            case "staging":
-                return Config.STAGING_AUTH_URL
-            case "production":
-                return Config.PRODUCTION_AUTH_URL
-            case _:
-                raise ValueError(
-                    f"Invalid deployment environment {campus_env!r} in "
-                    "ENV/CAMPUS_ENV; expected development, staging, or "
-                    "production (or set CAMPUS_AUTH_URL explicitly)"
-                )
+        return self._resolve_service_url("auth")
 
     @auth_url.setter
     def auth_url(self, value: str) -> None:
@@ -163,46 +258,29 @@ class Config:
         self.set("auth_url", value)
 
     @property
+    def api_url(self) -> str:
+        """
+        Get the campus.api base URL (bare origin; the SDK appends its own
+        /api/v1 prefixes). Same resolution order as auth_url minus the
+        config-file tier.
+        """
+        return self._resolve_service_url("api")
+
+    @property
     def audit_url(self) -> str:
         """
-        Get the audit service base URL (#54).
+        Get the audit service base URL (#54; bare origin — the SDK's
+        AuditRoot carries the /audit/v1 prefix itself).
 
-        Resolution order mirrors campus_python's audit URL resolution
-        (CAMPUS_AUDIT_URL env var, then ENV/CAMPUS_ENV), with the config
-        file's audit_url key taking precedence over the ENV mapping —
-        the same precedence auth_url uses:
-
-        1. CAMPUS_AUDIT_URL environment variable
+        Resolution order mirrors auth_url minus the config-file detail
+        (audit_url key included):
+        1. CAMPUS_AUDIT_URL, then AUDIT_URL
         2. audit_url key in the config file
-        3. ENV/CAMPUS_ENV environment variable (ENV wins) mapped to the
-           deployment environment's audit service URL
-        4. Built-in development default
+        3. CAMPUS_BASE_URL, then BASE_URL
+        4. Deployment gateway default; production unless
+           ENV/CAMPUS_ENV=development
         """
-        env_audit_url = os.getenv("CAMPUS_AUDIT_URL")
-        if env_audit_url:
-            return env_audit_url
-        config_audit_url = self.get("audit_url")
-        if config_audit_url:
-            return config_audit_url
-        return self._env_audit_url()
-
-    @staticmethod
-    def _env_audit_url() -> str:
-        """Resolve the audit URL from the ENV/CAMPUS_ENV deployment environment."""
-        campus_env = os.environ.get("ENV", os.environ.get("CAMPUS_ENV", "development"))
-        match campus_env:
-            case "development" | "testing":
-                return Config.DEFAULT_AUDIT_URL
-            case "staging":
-                return Config.STAGING_AUDIT_URL
-            case "production":
-                return Config.PRODUCTION_AUDIT_URL
-            case _:
-                raise ValueError(
-                    f"Invalid deployment environment {campus_env!r} in "
-                    "ENV/CAMPUS_ENV; expected development, staging, or "
-                    "production (or set CAMPUS_AUDIT_URL explicitly)"
-                )
+        return self._resolve_service_url("audit")
 
     @audit_url.setter
     def audit_url(self, value: str) -> None:

@@ -211,13 +211,33 @@ scopes never self-confer).
 
 ### Environment routing
 
-The CLI talks to one auth deployment and one API deployment at a time.
-Resolution order: `CAMPUS_AUTH_URL` / `CAMPUS_API_URL`, then the config
-file, then `ENV`/`CAMPUS_ENV` (`development` by default). The auth URL
-must include the `/auth/v1` suffix.
+The CLI targets **production** by default (gateway
+`https://nyjc-campus.up.railway.app`); it talks to one auth deployment and
+one API deployment at a time. Set `ENV=development` (or
+`CAMPUS_ENV=development`; ENV wins, `testing` aliases development) to fall
+back to the dev gateway (`https://campus-development.up.railway.app`).
+The `staging` environment is retired; selecting it raises an error.
 
-- **dev (default)**: `https://campus-development.up.railway.app/auth/v1` + `https://campusapi-development.up.railway.app`
-- **prod**: `https://nyjc-campus.up.railway.app/auth/v1` + `https://campusapi.up.railway.app`
+Each service URL resolves independently, following the campus-common
+`resolve_base_url` contract:
+
+1. `CAMPUS_<SERVICE>_URL` (e.g. `CAMPUS_AUTH_URL`) — primary override. The
+   CLI's auth layer expects this to carry the `/auth/v1` suffix; the api
+   and audit clients take bare origins (they append `/api/v1`, `/audit/v1`
+   themselves).
+2. `<SERVICE>_URL` — bare alias (`AUTH_URL`, `API_URL`, `AUDIT_URL`).
+3. The config file's `auth_url` / `audit_url` keys (CLI-local tier).
+4. `CAMPUS_BASE_URL`, then `BASE_URL` — one gateway origin standing in for
+   any missing service URL; the CLI appends the `/auth/v1` prefix for
+   auth, and the api/audit clients route through the gateway unchanged.
+5. The deployment's built-in gateway default.
+
+- **prod (default)**: `https://nyjc-campus.up.railway.app/auth/v1` + `https://campusapi.up.railway.app`
+- **dev**: `https://campus-development.up.railway.app/auth/v1` + `https://campusapi-development.up.railway.app`
+
+Override and base values must be bare origins (`scheme://host[:port]`, no
+path or trailing slash); a malformed value raises `ValueError` naming the
+variable. For one-off calls against another deployment, prefix the env vars:
 
 For one-off calls against another deployment, prefix the env vars:
 
