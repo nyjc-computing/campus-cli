@@ -98,6 +98,19 @@ def _validate_level_bits(level: str | None, bits: int | None) -> None:
         raise typer.Exit(1)
 
 
+# Grant-store resource vocabularies live server-side (campus.auth);
+# this list mirrors the live set for help text (#95). Keep in lockstep
+# with the server — the CLI does not validate resource types client-side.
+_RESOURCE_VOCABULARIES = (
+    "users",
+    "clients",
+    "vault (per-label)",
+    "sessions",
+    "credentials",
+    "timetable",
+    "migrations",
+)
+
 GranteeType = typer.Option(
     ..., "--grantee-type", "-t", help="Grantee principal type: user or client"
 )
@@ -106,10 +119,13 @@ ResourceType = typer.Option(
     ...,
     "--resource-type",
     "-r",
-    help="Vocabulary: users, clients, or vault (per-label)",
+    help="Vocabulary: " + ", ".join(_RESOURCE_VOCABULARIES),
 )
 ResourceId = typer.Option(
-    "", "--resource-id", help="Instance for per-label resources (vault label)"
+    "",
+    "--resource-id",
+    help="Instance for per-label resources (vault label;"
+    " migrations: auth|api|audit)",
 )
 
 
@@ -125,7 +141,7 @@ def grants_list(
         None,
         "--resource-type",
         "-r",
-        help="Vocabulary: users, clients, or vault (per-label)",
+        help="Vocabulary: " + ", ".join(_RESOURCE_VOCABULARIES),
     ),
     resource_id: str | None = typer.Option(
         None, "--resource-id", help="Instance for per-label resources (vault label)"
