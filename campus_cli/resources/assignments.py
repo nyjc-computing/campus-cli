@@ -28,6 +28,21 @@ def _iso(value):
     return value.isoformat() if hasattr(value, "isoformat") else value
 
 
+def _jsonable(value) -> list:
+    """Flatten model objects (Question, ClassroomLink) to plain dicts.
+
+    The SDK parses assignment questions/classroom_links into model
+    objects, which json.dumps rejects (campus-cli#98). Mirrors
+    Assignment.to_resource()'s asdict serialization; raw dicts from
+    non-model responses pass through unchanged.
+    """
+    from dataclasses import asdict, is_dataclass
+    return [
+        asdict(item) if is_dataclass(item) else item
+        for item in value or []
+    ]
+
+
 def _format_assignment(assignment) -> dict:
     """Project an Assignment model into display/JSON fields."""
     return {
@@ -37,8 +52,8 @@ def _format_assignment(assignment) -> dict:
         "created_by": assignment.created_by,
         "created_at": _iso(assignment.created_at),
         "updated_at": _iso(assignment.updated_at),
-        "questions": assignment.questions or [],
-        "classroom_links": assignment.classroom_links or [],
+        "questions": _jsonable(assignment.questions),
+        "classroom_links": _jsonable(assignment.classroom_links),
     }
 
 

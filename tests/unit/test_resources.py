@@ -496,3 +496,44 @@ def test_venue_create_rejects_non_object_metadata():
         ])
     assert result.exit_code == 1
     api.api_venues.create.assert_not_called()
+
+
+# --- assignment --json with model objects (campus-cli#98) ------------------
+
+def test_assignment_get_json_serializes_question_models():
+    """--json renders SDK-parsed Question/ClassroomLink models (#98).
+
+    The SDK returns Assignment.questions as Question dataclasses;
+    json.dumps rejects them unless the formatter flattens to dicts.
+    """
+    from dataclasses import asdict
+
+    from campus.model.classroom import Question
+
+    questions = [
+        Question(id="q1", prompt="context", question="Explain.", type="document",
+                 data={"template": "x"}),
+        Question(id="q2", prompt="", question="Pick one.", type="multiple-choice",
+                 data={"options": ["a", "b"]}),
+    ]
+    with patch("campus_cli.resources.assignments.get_api_client") as mock_get:
+        api = MagicMock()
+        api.api_assignments["uid-assignment-1"].get.return_value = _assignment(
+            questions=questions
+        )
+        mock_get.return_value = api
+        result = runner.invoke(
+            app, ["assignment", "get", "--assignment-id", "uid-assignment-1",
+                  "--json"]
+        )
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["questions"] == [asdict(q) for q in questions]
+
+
+def test_assignment_json_helper_passes_dicts_through():
+    """Raw-dict questions (non-model responses) are not double-wrapped."""
+    from campus_cli.resources.assignments import _jsonable
+    questions = [{"id": "q1", "type": "free-response"}]
+    assert _jsonable(questions) == questions
+    assert _jsonable(None) == []
