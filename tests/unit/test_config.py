@@ -3,8 +3,6 @@
 These tests test individual functions and classes in the config module.
 """
 
-import os
-
 import pytest
 
 from campus_cli.config import Config
@@ -56,85 +54,145 @@ def test_config_refresh_threshold_property(temp_config):
     assert temp_config.refresh_threshold == 600
 
 
-def test_config_auth_url_from_env():
-    """Test that auth_url respects environment variable."""
-    original_auth_url = os.environ.get("CAMPUS_AUTH_URL")
-    try:
-        os.environ["CAMPUS_AUTH_URL"] = "https://env-auth.example.com"
-        config = Config()
-        assert config.auth_url == "https://env-auth.example.com"
-    finally:
-        if original_auth_url:
-            os.environ["CAMPUS_AUTH_URL"] = original_auth_url
-        else:
-            os.environ.pop("CAMPUS_AUTH_URL", None)
+URL_ENV_VARS = ("ENV", "CAMPUS_ENV", "CAMPUS_AUTH_URL", "AUTH_URL",
+                "CAMPUS_API_URL", "API_URL", "CAMPUS_AUDIT_URL", "AUDIT_URL",
+                "CAMPUS_BASE_URL", "BASE_URL")
+
+PROD_GATEWAY = "https://nyjc-campus.up.railway.app"
+DEV_GATEWAY = "https://campus-development.up.railway.app"
 
 
-def test_config_auth_url_defaults_to_development(monkeypatch, tmp_path):
-    """With nothing set, auth_url resolves to the built-in development default."""
-    for var in ("CAMPUS_AUTH_URL", "ENV", "CAMPUS_ENV"):
+@pytest.fixture
+def clean_url_env(monkeypatch):
+    """Scrub every URL-affecting variable for deterministic resolution."""
+    for var in URL_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
-    config = Config(config_path=tmp_path / "config.json")
-    assert config.auth_url == Config.DEFAULT_AUTH_URL
 
 
-def test_config_auth_url_follows_env(monkeypatch, tmp_path):
-    """Each ENV value maps to its deployment environment's auth URL."""
-    expected = {
-        "development": Config.DEFAULT_AUTH_URL,
-        "testing": Config.DEFAULT_AUTH_URL,
-        "staging": Config.STAGING_AUTH_URL,
-        "production": Config.PRODUCTION_AUTH_URL,
-    }
-    for value, url in expected.items():
-        monkeypatch.setenv("ENV", value)
-        config = Config(config_path=tmp_path / f"{value}.json")
-        assert config.auth_url == url
-
-
-def test_config_auth_url_env_wins_over_campus_env(monkeypatch, tmp_path):
-    """ENV takes precedence over CAMPUS_ENV, mirroring campus_python."""
-    monkeypatch.delenv("CAMPUS_AUTH_URL", raising=False)
-    monkeypatch.setenv("ENV", "staging")
-    monkeypatch.setenv("CAMPUS_ENV", "production")
-    config = Config(config_path=tmp_path / "config.json")
-    assert config.auth_url == Config.STAGING_AUTH_URL
-
-
-def test_config_auth_url_falls_back_to_campus_env(monkeypatch, tmp_path):
-    """CAMPUS_ENV is honored when ENV is unset."""
-    monkeypatch.delenv("CAMPUS_AUTH_URL", raising=False)
-    monkeypatch.delenv("ENV", raising=False)
-    monkeypatch.setenv("CAMPUS_ENV", "production")
-    config = Config(config_path=tmp_path / "config.json")
-    assert config.auth_url == Config.PRODUCTION_AUTH_URL
-
-
-def test_config_auth_url_explicit_env_var_wins_over_deploy_env(monkeypatch, tmp_path):
-    """CAMPUS_AUTH_URL overrides ENV/CAMPUS_ENV routing."""
+def test_config_auth_url_from_env(monkeypatch):
+    """CAMPUS_AUTH_URL is honored verbatim."""
     monkeypatch.setenv("CAMPUS_AUTH_URL", "https://env-auth.example.com")
-    monkeypatch.setenv("ENV", "production")
-    config = Config(config_path=tmp_path / "config.json")
+    config = Config()
     assert config.auth_url == "https://env-auth.example.com"
 
 
-def test_config_auth_url_config_file_wins_over_deploy_env(monkeypatch, tmp_path):
-    """The config file's auth_url overrides ENV/CAMPUS_ENV routing."""
-    monkeypatch.delenv("CAMPUS_AUTH_URL", raising=False)
-    monkeypatch.setenv("ENV", "production")
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_urls_default_to_production(tmp_path):
+    """With nothing set, every service targets the production gateway.
+
+    The auth URL carries the /auth/v1 prefix (the CLI's auth layer appends
+    /oauth/... paths itself); api and audit take the bare origin (their
+    SDK resource roots append the /v1 prefixes).
+    """
+    config = Config(config_path=tmp_path / "config.json")
+    assert config.auth_url == PROD_GATEWAY + "/auth/v1"
+    assert config.api_url == PROD_GATEWAY
+    assert config.audit_url == PROD_GATEWAY
+
+
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_urls_follow_development_env(monkeypatch, tmp_path):
+    """ENV=development falls back to the dev gateway for every service."""
+    for env_value in ("ENV", "CAMPUS_ENV"):
+        for value in ("development", "testing", "Development"):
+            monkeypatch.setenv(env_value, value)
+            config = Config(config_path=tmp_path / "config.json")
+            assert config.auth_url == DEV_GATEWAY + "/auth/v1"
+            assert config.api_url == DEV_GATEWAY
+            monkeypatch.delenv(env_value)
+
+
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_env_wins_over_campus_env(monkeypatch, tmp_path):
+    """ENV takes precedence over CAMPUS_ENV, mirroring campus_python."""
+    monkeypatch.setenv("ENV", "development")
+    monkeypatch.setenv("CAMPUS_ENV", "production")
+    config = Config(config_path=tmp_path / "config.json")
+    assert config.auth_url == DEV_GATEWAY + "/auth/v1"
+
+
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_staging_is_retired(monkeypatch, tmp_path):
+    """staging environments no longer resolve; the error names the way out."""
+    monkeypatch.setenv("ENV", "staging")
+    config = Config(config_path=tmp_path / "config.json")
+    with pytest.raises(ValueError, match="retired"):
+        _ = config.auth_url
+
+
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_invalid_env_raises(monkeypatch, tmp_path):
+    """An unrecognized ENV value is an error, like campus_python."""
+    monkeypatch.setenv("ENV", "nonsense")
+    config = Config(config_path=tmp_path / "config.json")
+    with pytest.raises(ValueError, match="Invalid deployment environment"):
+        _ = config.auth_url
+
+
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_service_vars_win_over_base_url(monkeypatch, tmp_path):
+    """Per-service overrides beat BASE_URL and are used verbatim."""
+    monkeypatch.setenv("BASE_URL", "https://gateway.example.com")
+    monkeypatch.setenv("CAMPUS_AUTH_URL", "https://auth.example.com/oauth")
+    monkeypatch.setenv("API_URL", "https://api.example.com")
+    monkeypatch.setenv("AUDIT_URL", "https://audit.example.com")
+    config = Config(config_path=tmp_path / "config.json")
+    assert config.auth_url == "https://auth.example.com/oauth"
+    assert config.api_url == "https://api.example.com"
+    assert config.audit_url == "https://audit.example.com"
+
+
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_base_url_stand_in(monkeypatch, tmp_path):
+    """BASE_URL fronts every service; auth gets the /auth/v1 prefix."""
+    monkeypatch.setenv("BASE_URL", "https://gateway.example.com")
+    config = Config(config_path=tmp_path / "config.json")
+    assert config.auth_url == "https://gateway.example.com/auth/v1"
+    assert config.api_url == "https://gateway.example.com"
+    assert config.audit_url == "https://gateway.example.com"
+
+
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_campus_base_url_wins_over_bare_alias(monkeypatch, tmp_path):
+    """CAMPUS_BASE_URL is the primary form of the gateway stand-in."""
+    monkeypatch.setenv("CAMPUS_BASE_URL", "https://campus-gw.example.com")
+    monkeypatch.setenv("BASE_URL", "https://gw.example.com")
+    config = Config(config_path=tmp_path / "config.json")
+    assert config.auth_url == "https://campus-gw.example.com/auth/v1"
+
+
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_base_url_beats_deployment_default(monkeypatch, tmp_path):
+    """A gateway origin set via BASE_URL overrides the built-in default."""
+    monkeypatch.setenv("BASE_URL", "https://gateway.example.com")
+    config = Config(config_path=tmp_path / "config.json")
+    assert config.api_url == "https://gateway.example.com"
+
+
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_file_key_beats_base_url(monkeypatch, tmp_path):
+    """The config file's auth_url overrides the BASE_URL stand-in."""
+    monkeypatch.setenv("BASE_URL", "https://gateway.example.com")
     config_path = tmp_path / "config.json"
     Config(config_path=config_path).set("auth_url", "https://config-auth.example.com")
     config = Config(config_path=config_path)
     assert config.auth_url == "https://config-auth.example.com"
 
 
-def test_config_auth_url_invalid_env_raises(monkeypatch, tmp_path):
-    """An unrecognized ENV value is an error, like campus_python."""
-    monkeypatch.delenv("CAMPUS_AUTH_URL", raising=False)
-    monkeypatch.setenv("ENV", "nonsense")
+@pytest.mark.parametrize("bad_value", [
+    "gateway.example.com",                # no scheme
+    "https://gateway.example.com/path",   # path
+    "https://gateway.example.com/",       # trailing slash
+])
+@pytest.mark.usefixtures("clean_url_env")
+def test_config_malformed_base_url_raises(monkeypatch, tmp_path, bad_value):
+    """A non-bare-origin BASE_URL raises ValueError naming the variable."""
+    monkeypatch.setenv("BASE_URL", bad_value)
     config = Config(config_path=tmp_path / "config.json")
-    with pytest.raises(ValueError, match="Invalid deployment environment"):
+    with pytest.raises(ValueError, match="BASE_URL"):
         _ = config.auth_url
+
+
 
 
 def test_config_persistence(tmp_path):

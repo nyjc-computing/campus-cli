@@ -76,40 +76,66 @@ class TestApiErrorMessage:
 
 
 class TestResolveAuditUrl:
-    """audit URL resolution mirrors campus_python's precedence."""
+    """audit URL resolution: BASE_URL stands in for a missing service URL."""
+
+    PROD_GATEWAY = "https://nyjc-campus.up.railway.app"
+    DEV_GATEWAY = "https://campus-development.up.railway.app"
 
     @pytest.fixture
     def config(self, tmp_path, monkeypatch):
         """A Config isolated from the developer's real config file."""
-        monkeypatch.delenv("CAMPUS_AUDIT_URL", raising=False)
-        monkeypatch.delenv("ENV", raising=False)
-        monkeypatch.delenv("CAMPUS_ENV", raising=False)
+        for var in ("CAMPUS_AUDIT_URL", "AUDIT_URL", "ENV", "CAMPUS_ENV",
+                    "CAMPUS_BASE_URL", "BASE_URL"):
+            monkeypatch.delenv(var, raising=False)
         return Config(config_path=tmp_path / "config.json")
 
-    def test_development_default(self, config):
-        assert config.audit_url == Config.DEFAULT_AUDIT_URL
+    def test_production_default(self, config):
+        assert config.audit_url == self.PROD_GATEWAY
 
-    def test_staging_env_mapping(self, config, monkeypatch):
-        monkeypatch.setenv("ENV", "staging")
-        assert config.audit_url == Config.STAGING_AUDIT_URL
+    def test_development_env_falls_back(self, config, monkeypatch):
+        monkeypatch.setenv("ENV", "development")
+        assert config.audit_url == self.DEV_GATEWAY
 
-    def test_production_env_mapping(self, config, monkeypatch):
-        monkeypatch.setenv("ENV", "production")
-        assert config.audit_url == Config.PRODUCTION_AUDIT_URL
+    def test_campus_env_development_falls_back(self, config, monkeypatch):
+        monkeypatch.setenv("CAMPUS_ENV", "development")
+        assert config.audit_url == self.DEV_GATEWAY
 
     def test_testing_maps_to_development(self, config, monkeypatch):
         monkeypatch.setenv("CAMPUS_ENV", "testing")
-        assert config.audit_url == Config.DEFAULT_AUDIT_URL
+        assert config.audit_url == self.DEV_GATEWAY
+
+    def test_staging_is_retired(self, config, monkeypatch):
+        monkeypatch.setenv("ENV", "staging")
+        with pytest.raises(ValueError, match="retired"):
+            _ = config.audit_url
+
+    def test_base_url_stand_in(self, config, monkeypatch):
+        monkeypatch.setenv("BASE_URL", "https://gateway.example.com")
+        assert config.audit_url == "https://gateway.example.com"
+
+    def test_campus_base_url_wins_over_bare_alias(self, config, monkeypatch):
+        monkeypatch.setenv("CAMPUS_BASE_URL", "https://campus-gw.example.com")
+        monkeypatch.setenv("BASE_URL", "https://gw.example.com")
+        assert config.audit_url == "https://campus-gw.example.com"
 
     def test_explicit_env_var_wins(self, config, monkeypatch):
         monkeypatch.setenv("ENV", "production")
         monkeypatch.setenv("CAMPUS_AUDIT_URL", AUDIT_URL)
         assert config.audit_url == AUDIT_URL
 
-    def test_config_file_key_beats_env_mapping(self, config, monkeypatch):
-        monkeypatch.setenv("ENV", "production")
+    def test_bare_alias_wins(self, config, monkeypatch):
+        monkeypatch.setenv("AUDIT_URL", AUDIT_URL)
+        assert config.audit_url == AUDIT_URL
+
+    def test_config_file_key_beats_base_url(self, config, monkeypatch):
+        monkeypatch.setenv("BASE_URL", "https://gateway.example.com")
         config.audit_url = AUDIT_URL
         assert config.audit_url == AUDIT_URL
+
+    def test_malformed_base_url_raises(self, config, monkeypatch):
+        monkeypatch.setenv("BASE_URL", "gateway.example.com")
+        with pytest.raises(ValueError, match="BASE_URL"):
+            _ = config.audit_url
 
     def test_invalid_env_exits_cleanly(self, config, monkeypatch):
         monkeypatch.setenv("ENV", "qa")

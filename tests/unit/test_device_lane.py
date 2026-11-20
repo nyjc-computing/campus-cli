@@ -155,6 +155,7 @@ class TestCampusClientDeviceHeader:
             os.environ, {"CAMPUS_AUTH_URL": "https://auth.example.com/auth/v1"}
         ):
             config.get_device_id.return_value = "uid-device-cli42"
+            config.api_url = "https://api.example.com"
             client = CampusClient("token-1")
             _ = client.campus  # trigger the lazy Campus construction
 
@@ -200,18 +201,24 @@ class TestSdkEnvBridge:
         ):
             assert _sdk_auth_origin() == "https://auth.example.com"
 
-    def test_campus_property_sets_api_default_without_override(self):
-        from campus_cli.api import DEV_SDK_API_URL, CampusClient
+    def test_campus_property_sets_api_url_from_config_chain(self):
+        """Without any API/BASE URL set, the bridge injects the CLI-resolved
+        deployment default (production gateway)."""
+        from campus_cli.api import CampusClient
 
         campus = mock.MagicMock()
         env = {"CAMPUS_AUTH_URL": "https://auth.example.com/auth/v1"}
         with mock.patch(
             "campus_python.Campus", return_value=campus
         ), mock.patch.dict(os.environ, env, clear=False):
-            os.environ.pop("CAMPUS_API_URL", None)
+            for var in ("CAMPUS_API_URL", "API_URL", "CAMPUS_BASE_URL",
+                        "BASE_URL", "ENV", "CAMPUS_ENV"):
+                os.environ.pop(var, None)
             client = CampusClient("token-1")
             _ = client.campus
-            assert os.environ["CAMPUS_API_URL"] == DEV_SDK_API_URL
+            assert os.environ["CAMPUS_API_URL"] == (
+                "https://nyjc-campus.up.railway.app"
+            )
 
         campus2 = mock.MagicMock()
         with mock.patch(
