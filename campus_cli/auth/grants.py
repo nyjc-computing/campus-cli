@@ -115,10 +115,21 @@ ResourceId = typer.Option(
 
 @grants_app.command("list")
 def grants_list(
-    grantee_type: str | None = typer.Option(None, "--grantee-type", "-t"),
-    grantee_id: str | None = typer.Option(None, "--grantee-id", "-g"),
-    resource_type: str | None = typer.Option(None, "--resource-type", "-r"),
-    resource_id: str | None = typer.Option(None, "--resource-id"),
+    grantee_type: str | None = typer.Option(
+        None, "--grantee-type", "-t", help="Grantee principal type: user or client"
+    ),
+    grantee_id: str | None = typer.Option(
+        None, "--grantee-id", "-g", help="User email or client ID"
+    ),
+    resource_type: str | None = typer.Option(
+        None,
+        "--resource-type",
+        "-r",
+        help="Vocabulary: users, clients, or vault (per-label)",
+    ),
+    resource_id: str | None = typer.Option(
+        None, "--resource-id", help="Instance for per-label resources (vault label)"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
