@@ -24,6 +24,14 @@ campus = "campus_cli.cli:app"
 pytest = "^8.3.0"
 ruff = "^0.9.0"
 
+[tool.poetry.group.docs.dependencies]
+# Same docs stack as campus-api-python (mkdocs-material). The command
+# reference is NOT hand-written: it is generated from the Typer app by
+# scripts/generate_cli_reference.py (committed + CI drift gate) — the
+# committed-openapi + drift-test pattern the suite uses for its HTTP
+# specs, applied to CLI help.
+mkdocs-material = "^9.8.0"
+
 [[tool.poetry.packages]]
 include = "campus_cli"
 
@@ -39,8 +47,14 @@ exclude = [
 ]
 
 [tool.ruff]
-lint.select = ['E', 'W', 'F', 'I', 'B', 'C4', 'ARG', 'SIM']
-lint.ignore = ['W291', 'W292', 'W293']
+# target-version keeps stdlib classification correct (tomllib is
+# stdlib on 3.11+; without it ruff defaults to py39 and wants a
+# separate import block for it).
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ['E', 'W', 'F', 'I', 'B', 'C4', 'ARG', 'SIM']
+ignore = ['W291', 'W292', 'W293']
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

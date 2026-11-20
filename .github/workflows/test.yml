@@ -42,6 +42,55 @@ jobs:
       - name: Run unit tests
         run: poetry run pytest tests/unit/ -v
 
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    # gh-deploy pushes the gh-pages branch — main pushes only. PRs get
+    # the strict build + drift gates as a docs-rot check without
+    # needing the write permission (same shape as the SDK's docs job).
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: 'poetry'
+
+      - name: Install dependencies (incl. docs group)
+        run: poetry install --with docs
+
+      # The command reference is generated from the Typer app, so CLI
+      # help and docs cannot drift: a command change without a
+      # regenerated reference fails here.
+      - name: Regenerate command reference
+        run: poetry run python scripts/generate_cli_reference.py
+
+      - name: Regenerate version stamp
+        run: poetry run python scripts/sync_docs_version.py
+
+      # Every version bump must ship with up-to-date docs: the stamp
+      # is derived from pyproject.toml, so bumping the version without
+      # regenerating fails here before anything merges.
+      - name: Fail on stale docs artifacts
+        run: git diff --exit-code -- docs/
+
+      - name: Build documentation (strict)
+        run: poetry run mkdocs build --strict
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          poetry run mkdocs gh-deploy --force --strict
+
   release:
     name: Release (tag)
     # Tag pushes only: build the wheel and publish the GitHub release.
