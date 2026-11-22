@@ -2,5 +2,5 @@
      Run `python scripts/sync_docs_version.py` after a version bump;
      CI regenerates this file and fails on drift. -->
 
-**Current release: [v0.8.1](https://github.com/nyjc-computing/campus-cli/releases/tag/v0.8.1)**
+**Current release: [v0.8.2](https://github.com/nyjc-computing/campus-cli/releases/tag/v0.8.2)**
 · install the wheel from the [releases page](https://github.com/nyjc-computing/campus-cli/releases).
