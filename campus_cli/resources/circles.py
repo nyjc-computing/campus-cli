@@ -400,3 +400,156 @@ def members_remove(
     except Exception as e:
         print_error(f"Failed to remove member from circle '{circle_id}': {e}")
         raise typer.Exit(1) from e
+
+
+def _resolve_circle_id(api, circle: str) -> str:
+    """Resolve a circle name or ID to its ID (membership reads, #1202).
+
+    Role circles are named (dotted, e.g. "timetable.admin") and names
+    are unique (best-effort), so an exact-name match wins; anything
+    else is assumed to address a circle by ID and is used verbatim
+    (the probe itself 409s if the ID addresses nothing).
+    """
+    matches = [c for c in api.api_circles.list() if c.name == circle]
+    return str(matches[0].id) if matches else circle
+
+
+def _format_resolution(resolution: dict) -> str:
+    """Render a resolution dict as a human-readable detail suffix.
+
+    e.g. "access 15, direct" or "access 15, via staff › teachers".
+    """
+    parts = [f"access {resolution['access_value']}"]
+    if resolution.get("via"):
+        parts.append("via " + " › ".join(resolution["via"]))
+    elif resolution.get("direct"):
+        parts.append("direct")
+    else:  # Defensive: the server always sends direct or via.
+        parts.append("indirect")
+    return ", ".join(parts)
+
+
+@members_app.command("check")
+def members_check(
+    circle_id: str = typer.Option(
+        ..., "--circle-id", help="Circle name (e.g. timetable.admin) or ID"
+    ),
+    member_id: str = typer.Option(..., "--member-id", help="Member (user) ID"),
+    direct: bool = typer.Option(
+        False,
+        "--direct",
+        help="Probe the direct members dict only (not the gate's semantics)",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """Check whether a member belongs to a circle.
+
+    Membership resolves transitively through member group circles by
+    default — the same question campus.api's enforcement gate answers,
+    through the same shared resolver (campus#1202), so this command
+    agrees with the API's 403 wall by construction. Pass --direct for
+    the circle's direct members dict only.
+    """
+    if dry_run:
+        resolve_arg = (
+            "transitive=True" if not direct else "transitive=False"
+        )
+        print_python_api(
+            "campus circle members check",
+            [
+                "resolution = campus.api.circles["
+                f"{circle_id!r}].members.resolve(",
+                f"    {member_id!r},",
+                f"    {resolve_arg},",
+                ")",
+                "print(resolution)",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        resolved_id = _resolve_circle_id(api, circle_id)
+        resolution = api.api_circles[resolved_id].members.resolve(
+            member_id, transitive=not direct
+        )
+
+        if output_json:
+            print_json({
+                "circle": circle_id,
+                "member": member_id,
+                "direct_only": direct,
+                "resolution": resolution,
+            })
+        elif resolution is None:
+            mode = "directly" if direct else "directly or via a group"
+            console.print(
+                f"{member_id} → {circle_id}: "
+                f"[red]not a member[/red] ({mode})"
+            )
+        else:
+            console.print(
+                f"{member_id} → {circle_id}: [green]member[/green] "
+                f"({_format_resolution(resolution)})"
+            )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(
+            f"Failed to check membership in circle '{circle_id}': {e}"
+        )
+        raise typer.Exit(1) from e
+
+
+@circle_app.command("roles")
+def circle_roles(
+    user_id: str = typer.Option(
+        ...,
+        "--user-id",
+        help="User ID (email account, naming their user circle)",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """List the role circles a user holds, resolved transitively.
+
+    The inverted membership check (campus#1202): every role circle
+    (tag "role", e.g. the seeded "<resource>.admin" circles) the user
+    is reachable from — including through member group circles —
+    sorted by role circle name. The query the 11-22 prod ops run
+    previously had to hand-roll by diffing members dicts.
+    """
+    if dry_run:
+        print_python_api(
+            "campus circle roles",
+            [
+                f"roles = campus.api.users.roles({user_id!r})",
+                "for role in roles['roles']:",
+                "    print(role['name'], role['access_value'], role['via'])",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        body = api.api_users.roles(user_id)
+        roles = body.get("roles", [])
+
+        if output_json:
+            print_json(body)
+        elif not roles:
+            console.print(f"{user_id}: [yellow]no roles[/yellow]")
+        else:
+            console.print(f"[bold]{user_id}:[/bold]")
+            for role in roles:
+                console.print(
+                    f"  {role['name']} ({_format_resolution(role)})"
+                )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to list roles for '{user_id}': {e}")
+        raise typer.Exit(1) from e

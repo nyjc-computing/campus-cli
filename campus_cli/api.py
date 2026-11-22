@@ -121,6 +121,11 @@ class CampusClient:
         return self.campus.api.circles
 
     @property
+    def api_users(self):
+        """Access the API users resource (membership queries)."""
+        return self.campus.api.users
+
+    @property
     def api_submissions(self):
         """Access the API submissions resource."""
         return self.campus.api.submissions
