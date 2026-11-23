@@ -22,7 +22,7 @@ Campus CLI - Command-line interface for Campus API
 | [`campus assignment`](#campus-assignment) | Assignment commands (campus.api) (6) |
 | [`campus audit`](#campus-audit) | Campus Audit service commands (12) |
 | [`campus auth`](#campus-auth) | Authentication commands (4) |
-| [`campus circle`](#campus-circle) | Circle commands (campus.api) (9) |
+| [`campus circle`](#campus-circle) | Circle commands (campus.api) (11) |
 | [`campus client`](#campus-client) | OAuth client management commands (10) |
 | [`campus file`](#campus-file) | File storage commands (campus.api) (5) |
 | [`campus grant`](#campus-grant) | Access-grant store commands (5) |
@@ -528,6 +528,22 @@ Arguments/options:
 - `--access`, integer, required — Access value.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
 
+### `campus circle members check`
+
+Check whether a member belongs to a circle. Membership resolves transitively through member group circles by default — the same question campus.api's enforcement gate answers, through the same shared resolver (campus#1202), so this command agrees with the API's 403 wall by construction. Pass --direct for the circle's direct members dict only.
+
+```
+campus circle members check [OPTIONS]
+```
+
+Arguments/options:
+
+- `--circle-id`, text, required — Circle name (e.g. timetable.admin) or ID.
+- `--member-id`, text, required — Member (user) ID.
+- `--direct` — Probe the direct members dict only (not the gate's semantics).
+- `--json` — Output as JSON.
+- `--dry-run` — Show the equivalent Python API code without calling the API.
+
 ### `campus circle members list`
 
 List a circle's members with their access values.
@@ -585,6 +601,20 @@ Arguments/options:
 - `--name/-n`, text, required — Circle name (unique).
 - `--tag`, text, required — Circle tag, e.g. 'class', 'project'.
 - `--description/-d`, text — Circle description.
+- `--json` — Output as JSON.
+- `--dry-run` — Show the equivalent Python API code without calling the API.
+
+### `campus circle roles`
+
+List the role circles a user holds, resolved transitively. The inverted membership check (campus#1202): every role circle (tag "role", e.g. the seeded "<resource>.admin" circles) the user is reachable from — including through member group circles — sorted by role circle name. The query the 11-22 prod ops run previously had to hand-roll by diffing members dicts.
+
+```
+campus circle roles [OPTIONS]
+```
+
+Arguments/options:
+
+- `--user-id`, text, required — User ID (email account, naming their user circle).
 - `--json` — Output as JSON.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
 

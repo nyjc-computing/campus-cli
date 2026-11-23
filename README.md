@@ -79,6 +79,10 @@ campus timetable list           # or: current / next
 campus timetable entries --timetable-id <id>
 campus circle list
 campus circle members list --circle-id <id>
+campus circle members check --circle-id timetable.admin --member-id "t@school.edu"
+campus circle roles --user-id "teacher@school.edu"
+campus circle members check --circle-id timetable.admin --member-id "t@school.edu"
+campus circle roles --user-id "teacher@school.edu"
 
 # Campus API resources — writes (campus-cli#4 Phase B)
 campus assignment new --title "Quiz 1" --description "..."
