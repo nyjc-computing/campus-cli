@@ -28,7 +28,7 @@ Campus CLI - Command-line interface for Campus API
 | [`campus grant`](#campus-grant) | Access-grant store commands (5) |
 | [`campus subjcombi`](#campus-subjcombi) | Subjcombi mapping commands (campus.api) (5) |
 | [`campus submission`](#campus-submission) | Submission commands (campus.api) (10) |
-| [`campus timetable`](#campus-timetable) | Timetable commands (campus.api) (10) |
+| [`campus timetable`](#campus-timetable) | Timetable commands (campus.api) (9) |
 | [`campus user`](#campus-user) | User management commands (6) |
 | [`campus vault`](#campus-vault) | Vault management commands (5) |
 | [`campus venue`](#campus-venue) | Venue commands (campus.api) (5) |
@@ -1227,7 +1227,7 @@ Arguments/options:
 
 ### `campus timetable delete`
 
-Delete a timetable version and all of its rows (deployment-wide, destructive). Cascades the version's entries, group members and lessongroup rows, then the version itself. This is the cleanup surface for the label-drift create 409: stale duplicate-label rows are owned by the superseded versions that minted them. The current and next pointer targets are refused by the API — move/cancel the pointer first. Cannot be undone.
+Delete a timetable version and all of its rows (deployment-wide, destructive). Cascades the version's entries, group members and lessongroup rows, then the version itself. This is the cleanup surface for the label-drift create 409: stale duplicate-label rows are owned by the superseded versions that minted them. The derived current and next versions (validity windows covering today / starting next, campus#1222) are refused by the API — adjust the windows first. Cannot be undone.
 
 ```
 campus timetable delete [OPTIONS]
@@ -1342,12 +1342,6 @@ Arguments/options:
 
 - `--json` — Output as JSON.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
-
-### `campus timetable patch` (retired)
-
-Removed in campus#1222: the pointer PATCH is retired — `current`/`next`
-derive from the versions' validity windows. To change what runs, update
-a version's window with `campus timetable metadata update`.
 
 ## `campus user`
 
