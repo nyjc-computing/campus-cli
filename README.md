@@ -94,8 +94,7 @@ campus circle new --name "13A2" --tag class
 campus circle members add --circle-id <id> --member-id <user> --access 3
 campus circle members set --circle-id <id> --member-id <user> --access 5
 campus circle members remove --circle-id <id> --member-id <user>
-campus timetable set-current --timetable-id <id>         # deployment-wide!
-campus timetable set-next --timetable-id <id>            # deployment-wide!
+# pointer setters retired (campus#1222): current/next derive from validity windows
 campus timetable metadata update --timetable-id <id> \
     --start-date 2027-01-01 --end-date 2027-06-01
 campus submission submit --submission-id <id>

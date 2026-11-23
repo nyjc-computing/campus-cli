@@ -244,109 +244,6 @@ def timetable_entries(
         raise typer.Exit(1) from e
 
 
-@timetable_app.command("patch")
-def timetable_patch(
-    current: str = typer.Option(
-        None, "--current", help="Timetable ID to make current, effective now"
-    ),
-    next_id: str = typer.Option(
-        None, "--next",
-        help="Timetable ID to schedule as the pending switch"
-        " (reschedules any previous pending switch)",
-    ),
-    cancel_next: bool = typer.Option(
-        False, "--cancel-next", help="Cancel the pending switch"
-    ),
-    effective_from: str = typer.Option(
-        None, "--effective-from",
-        help="When the pending switch applies (ISO datetime, or"
-        " YYYY-MM-DD for 07:00 school time); with --next only",
-    ),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
-    dry_run: bool = dry_run_option(),
-) -> None:
-    """
-    Patch exactly one timetable pointer (deployment-wide).
-
-    --current flips now; --next schedules (or reschedules) the
-    pending switch; --cancel-next cancels it. Scheduled switches
-    apply at their effective_from without any further action.
-    """
-    if dry_run:
-        lines = ["api = campus.api.timetable"]
-        if cancel_next:
-            lines.append("state = api.cancel_next()")
-        elif next_id is not None:
-            body = f"next={next_id!r}"
-            if effective_from is not None:
-                body += f", effective_from={effective_from!r}"
-            lines.append(f"state = api.patch({body})")
-        elif current is not None:
-            lines.append(f"state = api.patch(current={current!r})")
-        lines.append("print(state)")
-        print_python_api("campus timetable patch", lines)
-        return
-
-    provided = [
-        flag for flag, given in (
-            ("--current", current is not None),
-            ("--next", next_id is not None),
-            ("--cancel-next", cancel_next),
-        ) if given
-    ]
-    if len(provided) != 1:
-        print_error(
-            "Patch exactly one pointer: pass --current <id> or "
-            "--next <id> (or --cancel-next), not combinations."
-        )
-        raise typer.Exit(1)
-    if cancel_next and effective_from is not None:
-        print_error("--effective-from only applies with --next <id>.")
-        raise typer.Exit(1)
-
-    if cancel_next:
-        confirm_destructive("cancel the pending timetable switch", confirm)
-        description = "Cancelled the pending timetable switch"
-    elif next_id is not None:
-        confirm_destructive(
-            f"schedule timetable '{next_id}' as the NEXT switch"
-            " (deployment-wide, applies at its effective date)",
-            confirm,
-        )
-        description = f"Timetable '{next_id}' scheduled as next"
-    else:
-        confirm_destructive(
-            f"make timetable '{current}' the CURRENT timetable"
-            " (deployment-wide, effective now)",
-            confirm,
-        )
-        description = f"Timetable '{current}' is now current"
-
-    try:
-        api = get_api_client()
-        if cancel_next:
-            state = api.api_timetables.cancel_next()
-        elif next_id is not None:
-            state = api.api_timetables.patch(
-                next=next_id, effective_from=effective_from
-            )
-        else:
-            state = api.api_timetables.patch(current=current)
-
-        if output_json:
-            print_json(state)
-        else:
-            print_success(f"{description}.")
-            print_json(state)
-
-    except typer.Exit:
-        raise
-    except Exception as e:
-        print_error(f"Failed to patch the timetable pointers: {e}")
-        raise typer.Exit(1) from e
-
-
 @timetable_app.command("delete")
 def timetable_delete(
     timetable_id: str = typer.Option(..., "--timetable-id", help="Timetable ID"),
@@ -361,9 +258,10 @@ def timetable_delete(
     Cascades the version's entries, group members and lessongroup
     rows, then the version itself. This is the cleanup surface for the
     label-drift create 409: stale duplicate-label rows are owned by
-    the superseded versions that minted them. The current and next
-    pointer targets are refused by the API — move/cancel the pointer
-    first. Cannot be undone.
+    the superseded versions that minted them. The derived current and
+    next versions (validity windows covering today / starting next,
+    campus#1222) are refused by the API — adjust the windows first.
+    Cannot be undone.
     """
     if dry_run:
         print_python_api("campus timetable delete", [
