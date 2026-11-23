@@ -35,7 +35,7 @@ class _FakeApi:
         self._circles = circles
         self._members = members
         self.api_users = type("Users", (), {})()
-        self.api_users.roles = lambda user_id: roles_body
+        self.api_users.roles = lambda _user_id: roles_body
 
         class Circles:
             def list(self_inner):
@@ -136,7 +136,8 @@ class TestMembersCheckCommand:
         assert result.exit_code == 0
         assert "not a member" in result.output
 
-    def test_json_output_carries_resolution(self, members):
+    @pytest.mark.usefixtures("members")
+    def test_json_output_carries_resolution(self):
         result = runner.invoke(
             circle_app,
             ["members", "check", "--circle-id", "c1",
@@ -179,19 +180,21 @@ class TestRolesCommand:
         )
         return roles_body
 
-    def test_lists_roles(self, roles_body):
+    @pytest.mark.usefixtures("roles_body")
+    def test_lists_roles(self):
         result = runner.invoke(circle_app, ["roles", "--user-id", "t@c"])
         assert result.exit_code == 0
         assert "timetable.admin" in result.output
         assert "via staff" in result.output
 
-    def test_empty_roles_is_not_an_error(self, roles_body, monkeypatch):
+    def test_empty_roles_is_not_an_error(self, roles_body):
         roles_body["roles"] = []
         result = runner.invoke(circle_app, ["roles", "--user-id", "t@c"])
         assert result.exit_code == 0
         assert "no roles" in result.output
 
-    def test_json_output(self, roles_body):
+    @pytest.mark.usefixtures("roles_body")
+    def test_json_output(self):
         result = runner.invoke(
             circle_app, ["roles", "--user-id", "t@c", "--json"]
         )
