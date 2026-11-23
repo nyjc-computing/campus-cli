@@ -53,7 +53,7 @@ for unattended use.
 | `campus audit traces` | `list`, `get`, `search` | `search` filters: `--path --status --user --client --api-key-id --journey --since --until` |
 | `campus assignment` | `list [--created-by]`, `get --assignment-id` | campus.api; writes: `new --title`, `update`, `delete`, `links add` (#4 Phase B) |
 | `campus submission` | `list [--assignment-id/--student-id/--course-id]`, `by-assignment`, `by-student`, `get --submission-id` | campus.api; writes: `new`, `update --submitted-at`, `submit`, `unsubmit` (gated on campus#1071), `responses add`, `feedback add` |
-| `campus timetable` | `list`, `current`, `next`, `get --timetable-id`, `entries --timetable-id` | campus.api; writes: `new --metadata --data-file` (data key is `lessongroups`), `set-current`/`set-next` (deployment-wide, prompt) + `metadata update` |
+| `campus timetable` | `list`, `current`, `next`, `get --timetable-id`, `entries --timetable-id` | campus.api; writes: `new --metadata --data-file` (data key is `lessongroups`) + `metadata update` (the pointer setters are retired — campus#1222 derives current/next from validity windows) |
 | `campus circle` | `list`, `get --circle-id`, `members list --circle-id` | campus.api; writes: `new --name --tag`, `update`, `delete`, `members add/set/remove` |
 | `campus file` | `list [--prefix]`, `get-meta --slug`, `get-content --slug [--output]`, `put --slug --file [--content-type] [--name]`, `delete` | content-addressed by-slug storage; slug is the stable address |
 | `campus app` | same shape as `file` | publishes single-file HTML apps; defaults to text/html |

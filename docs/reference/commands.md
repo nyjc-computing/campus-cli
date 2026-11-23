@@ -1313,23 +1313,11 @@ Arguments/options:
 - `--json` — Output as JSON.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
 
-### `campus timetable patch`
+### `campus timetable patch` (retired)
 
-Patch exactly one timetable pointer (deployment-wide). --current flips now; --next schedules (or reschedules) the pending switch; --cancel-next cancels it. Scheduled switches apply at their effective_from without any further action.
-
-```
-campus timetable patch [OPTIONS]
-```
-
-Arguments/options:
-
-- `--current`, text — Timetable ID to make current, effective now.
-- `--next`, text — Timetable ID to schedule as the pending switch (reschedules any previous pending switch).
-- `--cancel-next` — Cancel the pending switch.
-- `--effective-from`, text — When the pending switch applies (ISO datetime, or YYYY-MM-DD for 07:00 school time); with --next only.
-- `--json` — Output as JSON.
-- `--confirm/-y` — Skip confirmation.
-- `--dry-run` — Show the equivalent Python API code without calling the API.
+Removed in campus#1222: the pointer PATCH is retired — `current`/`next`
+derive from the versions' validity windows. To change what runs, update
+a version's window with `campus timetable metadata update`.
 
 ## `campus user`
 
