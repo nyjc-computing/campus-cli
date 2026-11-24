@@ -9,23 +9,29 @@ Like the OAuth tokens, the stored key is bound to the service URL it
 was stored against and rejected on a target mismatch.
 """
 
+from typing import NoReturn
+
 import typer
 
 from campus_cli.config import config
 from campus_cli.credentials import CredentialError, credentials
-from campus_cli.utils.output import print_error
+from campus_cli.utils.output import print_error, print_error_json
 
 # Key material of the campus.audit service is minted with this prefix;
 # anything else is almost certainly a token or a paste error.
 AUDIT_KEY_PREFIX = "audit_v1_"
 
 
-def resolve_audit_url() -> str:
+def resolve_audit_url(*, as_json: bool = False) -> str:
     """Resolve the audit service base URL the CLI currently targets.
 
     Exits with a clean, actionable error when ENV/CAMPUS_ENV is invalid,
     instead of letting config.audit_url's ValueError escape as a
     traceback from whichever command touched it first.
+
+    Args:
+        as_json: Emit the failure as a flat error envelope on stdout
+            instead of a human sentence on stderr (--json callers).
 
     Returns:
         The targeted audit service base URL (no /audit/v1 prefix; the
@@ -34,11 +40,10 @@ def resolve_audit_url() -> str:
     try:
         return config.audit_url
     except ValueError as e:
-        print_error(str(e))
-        raise typer.Exit(1) from e
+        fail_command(str(e), as_json=as_json, cause=e)
 
 
-def _stored_audit_key_url() -> str | None:
+def _stored_audit_key_url(*, as_json: bool = False) -> str | None:
     """Read the audit URL the stored key was bound to.
 
     Raises:
@@ -49,8 +54,11 @@ def _stored_audit_key_url() -> str | None:
     try:
         return credentials.get_audit_key_url()
     except CredentialError as e:
-        print_error(f"Failed to read the stored audit API key: {e}")
-        raise typer.Exit(1) from e
+        fail_command(
+            f"Failed to read the stored audit API key: {e}",
+            as_json=as_json,
+            cause=e,
+        )
 
 
 def audit_endpoint_mismatch() -> tuple[str, str] | None:
@@ -88,9 +96,13 @@ def mismatch_message(stored: str | None, current: str | None) -> str | None:
     )
 
 
-def ensure_audit_endpoint_match() -> None:
+def ensure_audit_endpoint_match(*, as_json: bool = False) -> None:
     """
     Fail fast if the stored audit key targets a different service URL.
+
+    Args:
+        as_json: Emit the failure as a flat error envelope on stdout
+            instead of a human sentence on stderr (--json callers).
 
     Raises:
         typer.Exit: If the stored key's audit URL differs from the one
@@ -100,13 +112,16 @@ def ensure_audit_endpoint_match() -> None:
     if mismatch is None:
         return
     stored, current = mismatch
-    print_error(mismatch_message(stored, current))
-    raise typer.Exit(1)
+    fail_command(mismatch_message(stored, current), as_json=as_json)
 
 
-def get_audit_client():
+def get_audit_client(*, as_json: bool = False):
     """
     Get an authenticated campus.audit client (#54).
+
+    Args:
+        as_json: Emit guard failures as flat error envelopes on stdout
+            instead of human sentences on stderr (--json callers).
 
     Returns:
         A campus_python AuditRoot authenticating with the stored key.
@@ -117,28 +132,35 @@ def get_audit_client():
     try:
         api_key = credentials.get_audit_api_key()
     except CredentialError as e:
-        print_error(f"Failed to read the stored audit API key: {e}")
-        raise typer.Exit(1) from e
-    if not api_key:
-        print_error(
-            "Not authenticated with campus.audit. Run 'campus audit login'"
-            " (--api-key, or set CAMPUS_AUDIT_API_KEY) first."
+        fail_command(
+            f"Failed to read the stored audit API key: {e}",
+            as_json=as_json,
+            cause=e,
         )
-        raise typer.Exit(1)
+    if not api_key:
+        fail_command(
+            "Not authenticated with campus.audit. Run 'campus audit login'"
+            " (--api-key, or set CAMPUS_AUDIT_API_KEY) first.",
+            as_json=as_json,
+        )
 
-    ensure_audit_endpoint_match()
+    ensure_audit_endpoint_match(as_json=as_json)
 
     try:
         from campus_python import AuditRoot, CampusRequest
 
         client = CampusRequest(
-            base_url=resolve_audit_url(), timeout=30, mode="device"
+            base_url=resolve_audit_url(as_json=as_json),
+            timeout=30,
+            mode="device",
         )
         client.set_bearer_authorization(api_key)
         return AuditRoot(json_client=client)
     except ImportError:
-        print_error("campus-api-python library not available.")
-        raise typer.Exit(1) from None
+        fail_command(
+            "campus-api-python library not available.",
+            as_json=as_json,
+        )
 
 
 def _render_field_errors(e: Exception) -> str:
@@ -211,12 +233,74 @@ def api_error_message(e: Exception) -> str:
     return api_error_details(e)[1]
 
 
-def fail_api(action: str, e: Exception) -> None:
+def api_error_code(e: Exception) -> str | None:
+    """Best-effort machine error code from a failed audit API call.
+
+    campus_python's APIError carries the server envelope's error code
+    ("NOT_FOUND", "VALIDATION_FAILED", ...); raw transport failures
+    unpack the Campus body's error.code. CLI-side failures (guards,
+    argument validation) have no code — callers emit null rather than
+    inventing a vocabulary the service doesn't speak.
+    """
+    code = getattr(e, "error", None)
+    if isinstance(code, str) and code:
+        return code
+    response = getattr(e, "response", None)
+    try:
+        error_obj = response.json().get("error", "")
+    except (ValueError, AttributeError):
+        return None
+    if isinstance(error_obj, dict) and error_obj.get("code"):
+        return str(error_obj["code"])
+    return None
+
+
+def fail_command(
+    message: str,
+    *,
+    as_json: bool = False,
+    code: str | None = None,
+    status: int | None = None,
+    cause: Exception | None = None,
+) -> NoReturn:
+    """Report a failed audit command and exit 1.
+
+    The one exit point for CLI-side failures (guards, argument
+    validation) and the JSON-mode twin of print_error: with as_json the
+    message ships as the campus flat error envelope on stdout —
+    ``{"error", "error_description", "status"}``, the same shape the
+    service speaks — so a --json caller parses one stream regardless of
+    outcome, and the non-zero exit still separates success from
+    failure.
+
+    Args:
+        message: Human-readable failure description.
+        as_json: Emit the flat error envelope on stdout instead of the
+            sentence on stderr (--json callers).
+        code: Machine error code (server's, when known; None for
+            CLI-side failures).
+        status: HTTP status (None for CLI-side failures).
+        cause: The triggering exception, chained for tracebacks.
+    """
+    if as_json:
+        print_error_json({
+            "error": code,
+            "error_description": message,
+            "status": status,
+        })
+    else:
+        print_error(message)
+    raise typer.Exit(1) from cause
+
+
+def fail_api(action: str, e: Exception, *, as_json: bool = False) -> None:
     """Report a failed audit API call and exit 1.
 
     Appends the standing remedy for the two rejections the operator can
     act on without reading the docs: a rejected key (re-login) and a
-    scope shortfall (mint or widen the key).
+    scope shortfall (mint or widen the key). With as_json the failure
+    ships as the flat error envelope (see fail_command) carrying the
+    server's error code and the HTTP status.
     """
     status, message = api_error_details(e)
     hint = ""
@@ -232,5 +316,10 @@ def fail_api(action: str, e: Exception) -> None:
     detail = message.strip()
     if detail and not detail.endswith((".", "!", "?")):
         detail += "."
-    print_error(f"Failed to {action}: {detail}{hint}")
-    raise typer.Exit(1) from e
+    fail_command(
+        f"Failed to {action}: {detail}{hint}",
+        as_json=as_json,
+        code=api_error_code(e),
+        status=status,
+        cause=e,
+    )

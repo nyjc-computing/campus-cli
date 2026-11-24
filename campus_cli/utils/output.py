@@ -64,6 +64,22 @@ def print_error(message: str) -> None:
     stderr_console.print(f"[red bold]✗[/red bold] {message}")
 
 
+def print_error_json(data: Any) -> None:
+    """
+    Print an error payload as raw JSON on stdout, for --json callers.
+
+    The companion to print_error for commands running in --json mode:
+    failures become parseable envelopes on the data channel instead of
+    human sentences on stderr, with the process still exiting non-zero.
+    Always raw (never the Rich display renderable) — a --json caller
+    parsing stdout must not depend on whether it allocated a tty (#69).
+
+    Args:
+        data: The error envelope (must be JSON-serializable).
+    """
+    print(json.dumps(data, indent=2))
+
+
 def print_warning(message: str) -> None:
     """
     Print a warning message.

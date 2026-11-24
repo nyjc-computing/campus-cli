@@ -12,6 +12,11 @@ AUDIT_OPERATOR_API_KEY env var, and minting does not validate scopes
 (campus#929), so hand one out deliberately. Plaintext key material is
 shown exactly once, at creation and at regeneration (mirroring the
 server).
+
+With --json, failures ship the campus flat error envelope
+({"error", "error_description", "status"}) on stdout with exit 1
+instead of a sentence on stderr; the envelope's code and status are
+null for CLI-side failures (guards, argument validation).
 """
 
 from datetime import datetime, timezone
@@ -20,14 +25,13 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from campus_cli.audit.client import fail_api, get_audit_client
+from campus_cli.audit.client import fail_api, fail_command, get_audit_client
 from campus_cli.auth.common import (
     confirm_destructive,
     dry_run_option,
 )
 from campus_cli.utils.output import (
     AUDIT_PYTHON_API_PREAMBLE,
-    print_error,
     print_json,
     print_python_api,
     print_success,
@@ -180,7 +184,7 @@ def keys_list(
         return
 
     try:
-        api = get_audit_client()
+        api = get_audit_client(as_json=output_json)
         result = api.apikeys.list(
             owner_id=owner, active_only=not include_inactive, limit=limit
         )
@@ -202,7 +206,7 @@ def keys_list(
     except typer.Exit:
         raise
     except Exception as e:
-        fail_api("list API keys", e)
+        fail_api("list API keys", e, as_json=output_json)
 
 
 @keys_app.command("new")
@@ -262,13 +266,15 @@ def keys_new(
     'campus audit login --api-key'.
     """
     if role and scope:
-        print_error("Give either --role or --scope, not both.")
-        raise typer.Exit(1)
-    if not role and not scope:
-        print_error(
-            "Give the key a privilege: --role <name> or --scope <scope>."
+        fail_command(
+            "Give either --role or --scope, not both.",
+            as_json=output_json,
         )
-        raise typer.Exit(1)
+    if not role and not scope:
+        fail_command(
+            "Give the key a privilege: --role <name> or --scope <scope>.",
+            as_json=output_json,
+        )
 
     if dry_run:
         new_kwargs = [
@@ -300,7 +306,7 @@ def keys_new(
         return
 
     try:
-        api = get_audit_client()
+        api = get_audit_client(as_json=output_json)
         record = api.apikeys.new(
             name=name,
             owner_id=owner,
@@ -326,7 +332,7 @@ def keys_new(
     except typer.Exit:
         raise
     except Exception as e:
-        fail_api("create API key", e)
+        fail_api("create API key", e, as_json=output_json)
 
 
 @keys_app.command("get")
@@ -345,7 +351,7 @@ def keys_get(
         return
 
     try:
-        api = get_audit_client()
+        api = get_audit_client(as_json=output_json)
         record = api.apikeys[key_id].get()
 
         if output_json:
@@ -356,7 +362,7 @@ def keys_get(
     except typer.Exit:
         raise
     except Exception as e:
-        fail_api(f"get API key '{key_id}'", e)
+        fail_api(f"get API key '{key_id}'", e, as_json=output_json)
 
 
 @keys_app.command("update")
@@ -388,14 +394,16 @@ def keys_update(
     together, because it leaves it ambiguous which was meant.
     """
     if role and scope:
-        print_error("Give either --role or --scope, not both.")
-        raise typer.Exit(1)
-    if name is None and scope is None and role is None and rate_limit is None:
-        print_error(
-            "Nothing to update: pass --name, --scope, --role, or"
-            " --rate-limit."
+        fail_command(
+            "Give either --role or --scope, not both.",
+            as_json=output_json,
         )
-        raise typer.Exit(1)
+    if name is None and scope is None and role is None and rate_limit is None:
+        fail_command(
+            "Nothing to update: pass --name, --scope, --role, or"
+            " --rate-limit.",
+            as_json=output_json,
+        )
 
     if dry_run:
         update_kwargs = []
@@ -420,7 +428,7 @@ def keys_update(
         return
 
     try:
-        api = get_audit_client()
+        api = get_audit_client(as_json=output_json)
         record = api.apikeys[key_id].update(
             name=name,
             scopes=list(scope) if scope is not None else None,
@@ -437,7 +445,7 @@ def keys_update(
     except typer.Exit:
         raise
     except Exception as e:
-        fail_api(f"update API key '{key_id}'", e)
+        fail_api(f"update API key '{key_id}'", e, as_json=output_json)
 
 
 @keys_app.command("revoke")
@@ -464,7 +472,7 @@ def keys_revoke(
     confirm_destructive(f"revoke audit API key '{key_id}'", confirm)
 
     try:
-        api = get_audit_client()
+        api = get_audit_client(as_json=output_json)
         api.apikeys[key_id].revoke()
         if output_json:
             print_json({"id": key_id, "revoked": True})
@@ -476,7 +484,7 @@ def keys_revoke(
     except typer.Exit:
         raise
     except Exception as e:
-        fail_api(f"revoke API key '{key_id}'", e)
+        fail_api(f"revoke API key '{key_id}'", e, as_json=output_json)
 
 
 @keys_app.command("regenerate")
@@ -510,7 +518,7 @@ def keys_regenerate(
     )
 
     try:
-        api = get_audit_client()
+        api = get_audit_client(as_json=output_json)
         key_value = api.apikeys[key_id].regenerate()
 
         if output_json:
@@ -525,4 +533,4 @@ def keys_regenerate(
     except typer.Exit:
         raise
     except Exception as e:
-        fail_api(f"regenerate API key '{key_id}'", e)
+        fail_api(f"regenerate API key '{key_id}'", e, as_json=output_json)

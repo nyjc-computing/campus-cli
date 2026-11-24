@@ -10,9 +10,11 @@ from campus_python import errors
 from typer.testing import CliRunner
 
 from campus_cli.audit.client import (
+    api_error_code,
     api_error_details,
     audit_endpoint_mismatch,
     fail_api,
+    fail_command,
     get_audit_client,
     resolve_audit_url,
 )
@@ -520,6 +522,88 @@ class TestFailApiMessage:
             errors.APIError(status_code=401, error_description="Invalid API key")
         )
         assert "Re-run 'campus audit login'" in message
+
+
+class TestApiErrorCode:
+    """api_error_code surfaces the SDK's mapped code, else None."""
+
+    def test_subclass_carries_the_mapped_code(self):
+        error = errors.AccessDeniedError(error_description="nope")
+        assert api_error_code(error) == "access_denied"
+
+    def test_plain_exception_has_no_code(self):
+        assert api_error_code(ValueError("boom")) is None
+
+    def test_base_apierror_has_no_code(self):
+        # The base class never assigns .error; only the status-mapped
+        # subclasses carry a code.
+        error = errors.APIError(status_code=403, error_description="nope")
+        assert api_error_code(error) is None
+
+    def test_raw_http_error_unpacks_the_body_code(self):
+        error = _http_error(
+            422, {"error": {"code": "BIND_REQUIRED", "message": "bind it"}}
+        )
+        assert api_error_code(error) == "BIND_REQUIRED"
+
+
+class TestFailApiJsonEnvelope:
+    """--json failures ship the flat error envelope, not a sentence.
+
+    The campus flat shape — error / error_description / status — is the
+    same vocabulary the service speaks; CLI-side failures (guards,
+    argument validation) have no code or status, so those fields are
+    null rather than invented. Text mode is unchanged: sentence on
+    stderr, exit 1.
+    """
+
+    def test_envelope_carries_code_status_and_remedy(self):
+        error = errors.AccessDeniedError(
+            error_description="Missing required scope: traces:read"
+        )
+        with (
+            mock.patch(
+                "campus_cli.audit.client.print_error_json"
+            ) as mock_print,
+            pytest.raises(typer.Exit),
+        ):
+            fail_api("search traces", error, as_json=True)
+        envelope = mock_print.call_args[0][0]
+        assert envelope["error"] == "access_denied"
+        assert envelope["status"] == 403
+        assert "Failed to search traces" in envelope["error_description"]
+        assert "campus audit keys" in envelope["error_description"]
+
+    def test_cli_side_failures_carry_null_code_and_status(self):
+        with (
+            mock.patch(
+                "campus_cli.audit.client.print_error_json"
+            ) as mock_print,
+            pytest.raises(typer.Exit),
+        ):
+            fail_command("Nothing to update.", as_json=True)
+        assert mock_print.call_args[0][0] == {
+            "error": None,
+            "error_description": "Nothing to update.",
+            "status": None,
+        }
+
+    def test_text_mode_still_reports_a_sentence(self):
+        error = errors.APIError(
+            status_code=401, error_description="Invalid API key"
+        )
+        with (
+            mock.patch("campus_cli.audit.client.print_error") as mock_print,
+            mock.patch(
+                "campus_cli.audit.client.print_error_json"
+            ) as mock_json,
+            pytest.raises(typer.Exit),
+        ):
+            fail_api("list traces", error)
+        message = mock_print.call_args[0][0]
+        assert message.startswith("Failed to list traces")
+        assert "Re-run 'campus audit login'" in message
+        mock_json.assert_not_called()
 
 
 class TestCredentialStoreFailures:
@@ -1082,3 +1166,92 @@ class TestKeysRole:
 
         assert result.exit_code == 1
         assert "not both" in result.output
+
+
+class TestAuditJsonErrorsEndToEnd:
+    """Invoking with --json fails with a parseable envelope on stdout.
+
+    Guards (not authenticated, endpoint mismatch), argument validation,
+    and API failures all flow through the same flat envelope, so a
+    --json caller parses one stream regardless of outcome and reads
+    the exit code for success/failure.
+    """
+
+    def test_api_failure_envelope(self):
+        api = mock.Mock()
+        api.traces.list.side_effect = errors.AccessDeniedError(
+            error_description="Missing required scope: traces:read"
+        )
+        with (
+            mock.patch(
+                "campus_cli.audit.traces.get_audit_client", return_value=api
+            ),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            result = CliRunner().invoke(
+                app, ["audit", "traces", "list", "--json"]
+            )
+
+        assert result.exit_code == 1
+        envelope = json.loads(result.stdout)
+        assert envelope["error"] == "access_denied"
+        assert envelope["status"] == 403
+        assert "traces:read" in envelope["error_description"]
+
+    def test_validation_failure_envelope(self):
+        api = mock.Mock()
+        with (
+            mock.patch(
+                "campus_cli.audit.keys.get_audit_client", return_value=api
+            ),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            result = CliRunner().invoke(app, [
+                "audit", "keys", "new", "--json",
+                "--name", "Alice", "--owner", "alice@school.edu",
+                "--role", "traces-viewer", "--scope", "traces:read",
+            ])
+
+        assert result.exit_code == 1
+        envelope = json.loads(result.stdout)
+        assert envelope["error"] is None
+        assert envelope["status"] is None
+        assert "not both" in envelope["error_description"]
+        api.apikeys.new.assert_not_called()
+
+    def test_unauthenticated_guard_envelope(self):
+        creds = mock.Mock()
+        creds.get_audit_api_key.return_value = None
+        with (
+            mock.patch("campus_cli.audit.client.credentials", creds),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            result = CliRunner().invoke(
+                app, ["audit", "traces", "list", "--json"]
+            )
+
+        assert result.exit_code == 1
+        envelope = json.loads(result.stdout)
+        assert envelope["error"] is None
+        assert envelope["status"] is None
+        assert "Not authenticated" in envelope["error_description"]
+
+    def test_endpoint_mismatch_guard_envelope(self):
+        creds = mock.Mock()
+        creds.get_audit_api_key.return_value = "audit_v1_x"
+        creds.get_audit_key_url.return_value = (
+            "https://campusaudit-development.up.railway.app"
+        )
+        with (
+            mock.patch("campus_cli.audit.client.credentials", creds),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            result = CliRunner().invoke(
+                app, ["audit", "traces", "list", "--json"]
+            )
+
+        assert result.exit_code == 1
+        envelope = json.loads(result.stdout)
+        assert envelope["error"] is None
+        assert envelope["status"] is None
+        assert "Re-run 'campus audit login'" in envelope["error_description"]

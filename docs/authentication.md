@@ -127,5 +127,19 @@ campus audit keys new --name "Alice" --owner alice@school.edu \
 campus audit traces list --limit 10
 ```
 
+**Machine-readable failures:** every audit read accepts `--json`, and
+failures respect it — instead of a sentence on stderr, the command
+prints the flat error envelope on stdout and exits non-zero:
+
+```json
+{"error": "access_denied", "error_description": "Failed to search traces: Missing required scope: traces:read. The stored key lacks the required scope; mint or update it with 'campus audit keys'.", "status": 403}
+```
+
+`error` carries the server's error code (the SDK's mapping for known
+statuses) and `status` the HTTP status; CLI-side failures
+(unauthenticated, endpoint mismatch, argument validation) leave both
+null. Scripts and agents parse stdout and read the exit code — one
+stream, regardless of outcome.
+
 See the [command reference](reference/commands.md#campus-audit) for
 the full audit surface.
