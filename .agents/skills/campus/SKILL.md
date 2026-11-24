@@ -107,7 +107,12 @@ removes the row outright. Downgrading a level = revoke then grant.
 
 - **`--json` is the machine-readable form on every read** — raw, spec-valid
   JSON, never soft-wrapped. Agents in a pty can force it with
-  `CAMPUS_CLI_AGENT=1`. Parse stdout; don't screen-scrape.
+  `CAMPUS_CLI_AGENT=1`. Parse stdout; don't screen-scrape. Failures
+  respect it too (≥0.10.6, the audit set): with `--json`, an error
+  prints the campus flat envelope `{"error", "error_description",
+  "status"}` raw on stdout and exits 1 — `error`/`status` are null for
+  CLI-side failures (guards, argument validation); without `--json`
+  the sentence goes to stderr as before.
 - **`--dry-run` on every mutating command** prints the equivalent Python
   SDK snippet instead of calling the API — use it to show intent before
   acting.
