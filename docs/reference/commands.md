@@ -29,7 +29,7 @@ Campus CLI - Command-line interface for Campus API
 | [`campus subjcombi`](#campus-subjcombi) | Subjcombi mapping commands (campus.api) (5) |
 | [`campus submission`](#campus-submission) | Submission commands (campus.api) (10) |
 | [`campus timetable`](#campus-timetable) | Timetable commands (campus.api) (9) |
-| [`campus user`](#campus-user) | User management commands (1) |
+| [`campus user`](#campus-user) | User management commands (2) |
 | [`campus vault`](#campus-vault) | Vault management commands (5) |
 | [`campus venue`](#campus-venue) | Venue commands (campus.api) (5) |
 | [`campus version`](#campus-version) | — |
@@ -1435,6 +1435,20 @@ Arguments/options:
 ## `campus user`
 
 User management commands
+
+### `campus user get`
+
+Get details of a Campus user. Reads run through campus.api's directory facade (#1226): every authenticated user sees their own record; staff see any record. An invisible record is indistinguishable from an absent one (404).
+
+```
+campus user get [OPTIONS]
+```
+
+Arguments/options:
+
+- `--user-id/-u`, text, required — User ID (email).
+- `--json` — Output as JSON.
+- `--dry-run` — Show the equivalent Python API code without calling the API.
 
 ### `campus user list`
 

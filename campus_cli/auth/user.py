@@ -145,3 +145,44 @@ def user_list(
         raise typer.Exit(1) from e
 
 
+
+
+@user_app.command("get")
+def user_get(
+    user_id: str = typer.Option(..., "--user-id", "-u", help="User ID (email)"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    dry_run: bool = dry_run_option(),
+) -> None:
+    """
+    Get details of a Campus user.
+
+    Reads run through campus.api's directory facade (#1226): every
+    authenticated user sees their own record; staff see any record.
+    An invisible record is indistinguishable from an absent one (404).
+    """
+    if dry_run:
+        print_python_api(
+            "campus user get",
+            [
+                f"user = campus.api.users.get({user_id!r})",
+                "print(user['name'], user['activated_at'])",
+            ],
+        )
+        return
+
+    try:
+        api = get_api_client()
+        user = api.api_users.get(user_id)
+
+        result = _format_user(user)
+
+        if output_json:
+            print_json(result)
+        else:
+            _print_user_details(result)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to get user: {e}")
+        raise typer.Exit(1) from e
