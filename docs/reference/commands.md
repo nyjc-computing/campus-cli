@@ -382,7 +382,6 @@ Arguments/options:
 - `--since`, text — ISO 8601 lower bound on trace time.
 - `--until`, text — ISO 8601 upper bound on trace time.
 - `--limit`, integer — Page size.
-- `--cursor`, text — Opaque token from a previous page.
 - `--json` — Output as JSON.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
 
