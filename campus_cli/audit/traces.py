@@ -17,7 +17,7 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from campus_cli.audit.client import fail_api, get_audit_client
+from campus_cli.audit.client import fail_api, get_audit_client, unwrap_payload
 from campus_cli.auth.common import dry_run_option
 from campus_cli.utils.output import (
     AUDIT_PYTHON_API_PREAMBLE,
@@ -153,17 +153,6 @@ def _child_line(child: dict) -> str:
     )
 
 
-def _unwrap_payload(result):
-    """Return the parsed JSON payload for either SDK response shape.
-
-    SDK v0.11.0 query methods are annotated ``-> JsonResponse`` but
-    return the ``CampusResponse`` wrapper (campus-cli#112); older pins
-    returned parsed payloads directly. Duck-type on ``.json()`` so the
-    CLI renders correctly against both.
-    """
-    return result.json() if hasattr(result, "json") else result
-
-
 def _print_trace_page(result: dict, *, paginated: bool = True) -> None:
     """Print a list/search result page with its continuation cursor.
 
@@ -239,7 +228,7 @@ def traces_list(
 
     try:
         api = get_audit_client(as_json=output_json)
-        result = _unwrap_payload(
+        result = unwrap_payload(
             api.traces.list(since=since, until=until, limit=limit)
         )
 
@@ -279,7 +268,7 @@ def traces_get(
 
     try:
         api = get_audit_client(as_json=output_json)
-        tree = _unwrap_payload(api.traces[trace_id].get_tree())
+        tree = unwrap_payload(api.traces[trace_id].get_tree())
         if output_json:
             print_json(tree)
         else:
@@ -344,7 +333,7 @@ def traces_search(
 
     try:
         api = get_audit_client(as_json=output_json)
-        result = _unwrap_payload(
+        result = unwrap_payload(
             api.traces.search(
                 path=path,
                 status=status,

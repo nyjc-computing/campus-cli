@@ -22,6 +22,20 @@ from campus_cli.utils.output import print_error, print_error_json
 AUDIT_KEY_PREFIX = "audit_v1_"
 
 
+def unwrap_payload(result):
+    """Return the parsed JSON payload for either SDK response shape.
+
+    SDK v0.11.0 methods are annotated ``-> JsonResponse`` but return the
+    ``CampusResponse`` wrapper, which has ``.json()`` and no ``.get()``
+    (campus-cli#112); older pins returned parsed payloads directly.
+    Duck-type on ``.json()`` so every audit command renders correctly
+    against both. The traces commands did this privately first; it moved
+    here when the keys commands were found still reading the wrapper as
+    a dict, which lost the one-time plaintext of a minted key.
+    """
+    return result.json() if hasattr(result, "json") else result
+
+
 def resolve_audit_url(*, as_json: bool = False) -> str:
     """Resolve the audit service base URL the CLI currently targets.
 
