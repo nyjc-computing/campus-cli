@@ -263,8 +263,13 @@ def test_client_new_confidential():
         )
 
         assert result.exit_code == 0
+        # The fail-closed privilege fields (allowed_scopes /
+        # upstream_scopes / token_bridge, campus#730/#883) joined the
+        # new() signature after this test was written; without the
+        # flags they are all None at registration.
         mock_get.return_value.auth_clients.new.assert_called_once_with(
-            name="Test", description="D", is_public=False, redirect_uris=None
+            name="Test", description="D", is_public=False, redirect_uris=None,
+            allowed_scopes=None, upstream_scopes=None, token_bridge=None,
         )
         assert "created successfully" in result.stdout
         assert "client revoke" in result.stdout
@@ -290,6 +295,9 @@ def test_client_new_public():
             description="D",
             is_public=True,
             redirect_uris=["https://a/cb"],
+            allowed_scopes=None,
+            upstream_scopes=None,
+            token_bridge=None,
         )
         assert "created successfully" in result.stdout
         assert "Public client" in result.stdout
