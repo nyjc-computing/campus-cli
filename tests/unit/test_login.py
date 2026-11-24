@@ -373,6 +373,75 @@ def _run_login_with_token_data(token_data):
     return creds
 
 
+def _invoke_login(device_data, token_data, args):
+    """Invoke `auth login` with the device flow mocked end to end.
+
+    Returns (CliRunner result, webbrowser.open mock) so tests can
+    assert on the local browser open.
+    """
+    creds = mock.Mock()
+    creds.get_token.return_value = None  # no short-circuit
+    with (
+        mock.patch("campus_cli.auth.login.credentials", creds),
+        mock.patch(
+            "campus_cli.auth.login.request_device_code", return_value=device_data
+        ),
+        mock.patch(
+            "campus_cli.auth.login.poll_for_token", return_value=token_data
+        ),
+        mock.patch(
+            "campus_cli.auth.login.webbrowser.open"
+        ) as mock_open,
+        mock.patch("campus_cli.auth.login.copy_to_clipboard"),
+        mock.patch(
+            "campus_cli.auth.login.create_login_session", return_value=None
+        ),
+    ):
+        result = CliRunner().invoke(app, ["auth", "login", *args])
+    return result, mock_open
+
+
+def _device_data():
+    """Device-authorize response including the pre-filled link (#39)."""
+    return {
+        "device_code": "dc",
+        "user_code": "ABCD-EFGH",
+        "verification_uri": "https://auth.example.com/activate",
+        "verification_uri_complete": (
+            "https://auth.example.com/activate?user_code=ABCD-EFGH"
+        ),
+        "interval": 1,
+        "expires_in": 300,
+    }
+
+
+def _token_data():
+    return {
+        "access_token": "tok-123",
+        "refresh_token": "refresh-123",
+        "expires_in": 3600,
+    }
+
+
+def test_login_opens_browser_by_default():
+    """Without --no-browser the verification page opens on this machine."""
+    result, mock_open = _invoke_login(
+        _device_data(), _token_data(), args=[]
+    )
+    assert result.exit_code == 0, result.output
+    mock_open.assert_called_once()
+
+
+def test_login_no_browser_skips_webbrowser_open():
+    """--no-browser keeps the local browser shut; the link stays printed (#114)."""
+    result, mock_open = _invoke_login(
+        _device_data(), _token_data(), args=["--no-browser"]
+    )
+    assert result.exit_code == 0, result.output
+    mock_open.assert_not_called()
+    assert "https://auth.example.com/activate?user_code=ABCD-EFGH" in result.output
+
+
 def test_login_records_scopes_and_principal():
     """The granted scopes and authorizing user are stored (#45)."""
     creds = _run_login_with_token_data({

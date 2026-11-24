@@ -414,7 +414,7 @@ Authentication commands
 
 ### `campus auth login`
 
-Authenticate with Campus API using Device Authorization Flow. This will: 1. Request a device code from the server 2. Display a code for you to enter at the verification URL 3. Poll for the token while you complete authentication in a browser 4. Store the received token in your credential manager The auth endpoint is resolved from the CAMPUS_AUTH_URL environment variable, the config file, or ENV/CAMPUS_ENV (see campus_cli.config).
+Authenticate with Campus API using Device Authorization Flow. This will: 1. Request a device code from the server 2. Display a code for you to enter at the verification URL 3. Poll for the token while you complete authentication in a browser 4. Store the received token in your credential manager With --no-browser, no browser is opened on this machine: the printed verification link can be opened from any other session or device to authorize the pending request (remote/agent-mediated login). The auth endpoint is resolved from the CAMPUS_AUTH_URL environment variable, the config file, or ENV/CAMPUS_ENV (see campus_cli.config).
 
 ```
 campus auth login [OPTIONS]
@@ -424,6 +424,7 @@ Arguments/options:
 
 - `--output-token/-t` — Output the access token to stdout.
 - `--scope/-s`, text, default: `[]` — Request a management scope for the token (#865); repeat for multiple (e.g. --scope clients:write). The server rejects scopes outside this client's registered allowlist — an operator must widen it first..
+- `--no-browser` — Don't open a browser on this machine. The verification link is printed as usual — open it from any other session or device (e.g. relayed from a remote shell or an agent) to authorize..
 
 ### `campus auth logout`
 
