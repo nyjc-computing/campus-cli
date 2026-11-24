@@ -2,6 +2,6 @@
 
 # Keep in sync with pyproject.toml — test_version_matches_pyproject pins them
 # together (the 0.6.0 bump #84 missed this constant, #85).
-__version__ = "0.10.5"
+__version__ = "0.10.6"
 
 __all__ = ["__version__"]
