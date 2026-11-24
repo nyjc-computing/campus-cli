@@ -122,7 +122,7 @@ class CampusClient:
 
     @property
     def api_users(self):
-        """Access the API users resource (membership queries)."""
+        """Access the API users resource (directory facade + roles query)."""
         return self.campus.api.users
 
     @property
