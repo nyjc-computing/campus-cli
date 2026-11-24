@@ -23,6 +23,13 @@ PUBLIC_OAUTH_CLIENT_ID = "guest"
 # Config key holding this install's stable device id (#837).
 DEVICE_ID_CONFIG_KEY = "device_id"
 
+# Config keys for named login sessions (#113): the active-session
+# pointer and the index of named sessions. The index lives in
+# config.json (no secrets) because neither keyring backend can
+# enumerate a service's keys.
+ACTIVE_SESSION_CONFIG_KEY = "active_session"
+SESSIONS_CONFIG_KEY = "sessions"
+
 
 # --- Deployment routing -----------------------------------------------------
 #
@@ -313,6 +320,42 @@ class Config:
             device_id = f"uid-device-{uuid.uuid4().hex[:16]}"
             self.set(DEVICE_ID_CONFIG_KEY, device_id)
         return str(device_id)
+
+    @property
+    def active_session(self) -> str | None:
+        """The active login session slot (#113).
+
+        A session name, or None for the default slot. Every command
+        reads and writes credentials through whichever slot is active.
+        """
+        value = self.get(ACTIVE_SESSION_CONFIG_KEY)
+        return value if isinstance(value, str) and value else None
+
+    @active_session.setter
+    def active_session(self, value: str | None) -> None:
+        """Point the active session at a named slot (or None)."""
+        self.set(ACTIVE_SESSION_CONFIG_KEY, value)
+
+    def get_sessions(self) -> list[str]:
+        """Named sessions known to this install (unordered index)."""
+        names = self.get(SESSIONS_CONFIG_KEY, [])
+        if not isinstance(names, list):
+            return []
+        return [n for n in names if isinstance(n, str) and n]
+
+    def add_session(self, name: str) -> None:
+        """Record a named session in the index (idempotent)."""
+        names = self.get_sessions()
+        if name not in names:
+            names.append(name)
+            self.set(SESSIONS_CONFIG_KEY, names)
+
+    def remove_session(self, name: str) -> None:
+        """Drop a named session from the index (no-op when unknown)."""
+        names = self.get_sessions()
+        if name in names:
+            names.remove(name)
+            self.set(SESSIONS_CONFIG_KEY, names)
 
     @property
     def refresh_threshold(self) -> int:

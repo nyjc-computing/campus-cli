@@ -3,10 +3,13 @@
 import contextlib
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import keyring
+
+from campus_cli.config import config
 
 
 class CredentialError(Exception):
@@ -15,13 +18,53 @@ class CredentialError(Exception):
     pass
 
 
+# Named session slots (#113). The legacy flat keys are the default
+# slot; a named session namespaces every key as session/<name>/<key>,
+# so both backends (keyring entries and the fallback file's single
+# JSON dict) address slots through one key scheme.
+SESSION_KEY_PREFIX = "session/"
+
+# Session name rule: safe as a path segment and as a keyring account
+# name. Case-sensitive.
+SESSION_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+def validate_session_name(name: str) -> str:
+    """Validate a session name, returning it unchanged.
+
+    Raises:
+        ValueError: When the name is not 1-64 characters of letters,
+                    digits, dots, dashes or underscores (starting
+                    with a letter or digit).
+    """
+    if not SESSION_NAME_PATTERN.fullmatch(name):
+        raise ValueError(
+            "Session names are 1-64 characters: letters, digits, dots,"
+            " dashes and underscores, starting with a letter or digit."
+        )
+    return name
+
+
+def session_key(session: str | None, key: str) -> str:
+    """Final storage key for ``key`` in the given session slot."""
+    if session is None:
+        return key
+    return f"{SESSION_KEY_PREFIX}{session}/{key}"
+
+
 class CredentialStorage:
     """Abstract credential storage with keyring backend and file fallback."""
 
     SERVICE_NAME = "campus-cli"
 
-    def __init__(self) -> None:
-        """Initialize credential storage."""
+    def __init__(self, session: str | None = None) -> None:
+        """Initialize credential storage.
+
+        Args:
+            session: Session slot this instance reads and writes.
+                     None is the default slot (the legacy flat keys).
+        """
+        self.session = session
         self._fallback_path = self._get_fallback_path()
 
     def _get_fallback_path(self) -> Path:
@@ -71,7 +114,7 @@ class CredentialStorage:
 
     def get_password(self, key: str) -> str | None:
         """
-        Retrieve a password/credential by key.
+        Retrieve a password/credential by key, from this instance's slot.
 
         Args:
             key: The credential key to retrieve.
@@ -79,43 +122,21 @@ class CredentialStorage:
         Returns:
             The credential value or None if not found.
         """
-        # Try keyring first
-        if self._try_keyring():
-            try:
-                value = keyring.get_password(self.SERVICE_NAME, key)
-                if value is not None:
-                    return value
-            except Exception:
-                pass
-
-        # Fall back to file storage
-        data = self._read_fallback_file()
-        return data.get(key)
+        return self.get_password_at(self.session, key)
 
     def set_password(self, key: str, value: str) -> None:
         """
-        Store a password/credential by key.
+        Store a password/credential by key, into this instance's slot.
 
         Args:
             key: The credential key to store.
             value: The credential value to store.
         """
-        # Try keyring first
-        if self._try_keyring():
-            try:
-                keyring.set_password(self.SERVICE_NAME, key, value)
-                return
-            except Exception:
-                pass  # Fall back to file storage
-
-        # Fall back to file storage
-        data = self._read_fallback_file()
-        data[key] = value
-        self._write_fallback_file(data)
+        self.set_password_at(self.session, key, value)
 
     def delete_password(self, key: str) -> None:
         """
-        Delete a password/credential by key.
+        Delete a password/credential by key, from this instance's slot.
 
         Args:
             key: The credential key to delete.
@@ -123,20 +144,57 @@ class CredentialStorage:
         Raises:
             CredentialError: If the credential doesn't exist or deletion fails.
         """
+        self.delete_password_at(self.session, key)
+
+    def get_password_at(self, session: str | None, key: str) -> str | None:
+        """Retrieve ``key`` from an explicit session slot."""
+        full_key = session_key(session, key)
         # Try keyring first
         if self._try_keyring():
             try:
-                keyring.delete_password(self.SERVICE_NAME, key)
+                value = keyring.get_password(self.SERVICE_NAME, full_key)
+                if value is not None:
+                    return value
+            except Exception:
+                pass
+
+        # Fall back to file storage
+        data = self._read_fallback_file()
+        return data.get(full_key)
+
+    def set_password_at(self, session: str | None, key: str, value: str) -> None:
+        """Store ``key`` into an explicit session slot."""
+        full_key = session_key(session, key)
+        # Try keyring first
+        if self._try_keyring():
+            try:
+                keyring.set_password(self.SERVICE_NAME, full_key, value)
                 return
             except Exception:
                 pass  # Fall back to file storage
 
         # Fall back to file storage
         data = self._read_fallback_file()
-        if key not in data:
-            raise CredentialError(f"Credential not found: {key}")
+        data[full_key] = value
+        self._write_fallback_file(data)
 
-        del data[key]
+    def delete_password_at(self, session: str | None, key: str) -> None:
+        """Delete ``key`` from an explicit session slot."""
+        full_key = session_key(session, key)
+        # Try keyring first
+        if self._try_keyring():
+            try:
+                keyring.delete_password(self.SERVICE_NAME, full_key)
+                return
+            except Exception:
+                pass  # Fall back to file storage
+
+        # Fall back to file storage
+        data = self._read_fallback_file()
+        if full_key not in data:
+            raise CredentialError(f"Credential not found: {full_key}")
+
+        del data[full_key]
         self._write_fallback_file(data)
 
     def get_token(self) -> str | None:
@@ -271,17 +329,22 @@ class CredentialStorage:
         """
         Get the stored campus.audit API key (#54).
 
+        The audit key is global, not per-session (#113): one API key
+        per install, always read from the default slot regardless of
+        this instance's session binding.
+
         Returns:
             The API key (audit_v1_...), or None if not found.
         """
-        return self.get_password("audit_api_key")
+        return self.get_password_at(None, "audit_api_key")
 
     def set_audit_api_key(self, api_key: str, audit_url: str) -> None:
         """
         Store the campus.audit API key, bound to the service URL (#54).
 
         Records the storage time, for 'campus audit status' (#62) to
-        report the key's age.
+        report the key's age. Always written to the default slot
+        (global credential, #113).
 
         Args:
             api_key: The plaintext API key.
@@ -289,9 +352,9 @@ class CredentialStorage:
                        (and verified) against.
         """
         stored_at = datetime.now(timezone.utc).isoformat()
-        self.set_password("audit_api_key", api_key)
-        self.set_password("audit_key_url", audit_url)
-        self.set_password("audit_key_stored_at", stored_at)
+        self.set_password_at(None, "audit_api_key", api_key)
+        self.set_password_at(None, "audit_key_url", audit_url)
+        self.set_password_at(None, "audit_key_stored_at", stored_at)
 
     def get_audit_key_url(self) -> str | None:
         """
@@ -300,7 +363,7 @@ class CredentialStorage:
         Returns:
             The audit URL, or None if not found.
         """
-        return self.get_password("audit_key_url")
+        return self.get_password_at(None, "audit_key_url")
 
     def get_audit_key_stored_at(self) -> str | None:
         """
@@ -310,22 +373,24 @@ class CredentialStorage:
             The timestamp, or None for keys stored before recording
             was introduced (unknown, not missing).
         """
-        return self.get_password("audit_key_stored_at")
+        return self.get_password_at(None, "audit_key_stored_at")
 
     def delete_audit_api_key(self) -> None:
         """
         Delete the stored campus.audit API key and its URL binding (#54).
 
+        Always deletes from the default slot (global credential, #113).
+
         Raises:
             CredentialError: If no audit key is stored.
         """
-        self.delete_password("audit_api_key")
+        self.delete_password_at(None, "audit_api_key")
         with contextlib.suppress(CredentialError):
             # May not exist (keys stored before URL binding, #54)
-            self.delete_password("audit_key_url")
+            self.delete_password_at(None, "audit_key_url")
         with contextlib.suppress(CredentialError):
             # May not exist (keys stored before timestamp recording, #62)
-            self.delete_password("audit_key_stored_at")
+            self.delete_password_at(None, "audit_key_stored_at")
 
     def get_login_session_id(self) -> str | None:
         """
@@ -398,5 +463,20 @@ class CredentialStorage:
             return True
 
 
-# Global credential storage instance
-credentials = CredentialStorage()
+def session_storage(name: str | None) -> CredentialStorage:
+    """A storage view bound to one named session slot (#113).
+
+    Args:
+        name: The session slot to bind; None is the default slot.
+
+    Returns:
+        A CredentialStorage whose reads and writes address that slot.
+    """
+    return CredentialStorage(session=name)
+
+
+# Global credential storage instance, bound to the ACTIVE session
+# (#113): the config file's active-session pointer, read at process
+# start. Named-slot writes (`campus auth login --as`) go through an
+# explicit session_storage(name) instead.
+credentials = CredentialStorage(session=config.active_session)
