@@ -25,7 +25,12 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from campus_cli.audit.client import fail_api, fail_command, get_audit_client
+from campus_cli.audit.client import (
+    fail_api,
+    fail_command,
+    get_audit_client,
+    unwrap_payload,
+)
 from campus_cli.auth.common import (
     confirm_destructive,
     dry_run_option,
@@ -185,9 +190,9 @@ def keys_list(
 
     try:
         api = get_audit_client(as_json=output_json)
-        result = api.apikeys.list(
+        result = unwrap_payload(api.apikeys.list(
             owner_id=owner, active_only=not include_inactive, limit=limit
-        )
+        ))
         keys = result.get("api_keys", [])
 
         if output_json:
@@ -307,7 +312,7 @@ def keys_new(
 
     try:
         api = get_audit_client(as_json=output_json)
-        record = api.apikeys.new(
+        record = unwrap_payload(api.apikeys.new(
             name=name,
             owner_id=owner,
             scopes=list(scope) if scope else None,
@@ -316,7 +321,7 @@ def keys_new(
             expires_at=expires_at,
             trace_user_id=trace_user_id,
             trace_client_id=trace_client_id,
-        )
+        ))
 
         if output_json:
             print_json(record)
@@ -352,7 +357,7 @@ def keys_get(
 
     try:
         api = get_audit_client(as_json=output_json)
-        record = api.apikeys[key_id].get()
+        record = unwrap_payload(api.apikeys[key_id].get())
 
         if output_json:
             print_json(record)
@@ -429,12 +434,12 @@ def keys_update(
 
     try:
         api = get_audit_client(as_json=output_json)
-        record = api.apikeys[key_id].update(
+        record = unwrap_payload(api.apikeys[key_id].update(
             name=name,
             scopes=list(scope) if scope is not None else None,
             role=role,
             rate_limit=rate_limit,
-        )
+        ))
 
         if output_json:
             print_json(record)
@@ -519,7 +524,12 @@ def keys_regenerate(
 
     try:
         api = get_audit_client(as_json=output_json)
-        key_value = api.apikeys[key_id].regenerate()
+        # The server answers {"key": <plaintext>}; the plaintext rides
+        # in that field, it is not the body itself.
+        payload = unwrap_payload(api.apikeys[key_id].regenerate())
+        key_value = (
+            payload.get("key", "") if isinstance(payload, dict) else payload
+        )
 
         if output_json:
             print_json({"id": key_id, "api_key": key_value})

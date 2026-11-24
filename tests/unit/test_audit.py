@@ -1255,3 +1255,98 @@ class TestAuditJsonErrorsEndToEnd:
         assert envelope["error"] is None
         assert envelope["status"] is None
         assert "Re-run 'campus audit login'" in envelope["error_description"]
+
+
+class TestKeysSdk011Compat:
+    """Keys commands speak SDK v0.11.0's response shape.
+
+    The pinned v0.11.0 wheel returns CampusResponse wrappers, not parsed
+    payloads (campus-cli#112). The traces commands were fixed for that;
+    the keys commands were not, and read the wrapper as a dict: `keys
+    list` exited 1 with "'CampusResponse' object has no attribute
+    'get'", and `keys new` and `keys regenerate` reached the server and
+    then failed before showing the one-time plaintext.
+    """
+
+    LIST_PAGE = {"api_keys": [{"id": "k1", "name": "Alice"}], "count": 1}
+    MINTED = {"id": "k1", "api_key": "audit_v1_newplaintext"}
+    ROTATED = {"key": "audit_v1_rotatedplaintext"}
+
+    def _invoke(self, argv, *, wrapped=True):
+        def shape(payload):
+            return _Sdk011Response(payload) if wrapped else payload
+
+        api = mock.MagicMock()
+        api.apikeys.list.return_value = shape(self.LIST_PAGE)
+        api.apikeys.new.return_value = shape(self.MINTED)
+        key = api.apikeys.__getitem__.return_value
+        key.get.return_value = shape({"id": "k1"})
+        key.update.return_value = shape({"id": "k1"})
+        key.regenerate.return_value = shape(self.ROTATED)
+        with (
+            mock.patch("campus_cli.audit.keys.get_audit_client", return_value=api),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            result = CliRunner().invoke(app, ["audit", "keys", *argv])
+        return result, api
+
+    NEW_ARGS = [
+        "new", "--name", "Alice", "--owner", "alice@school.edu",
+        "--role", "traces-viewer",
+    ]
+
+    def test_list_json_unwraps_the_wrapper(self):
+        result, _ = self._invoke(["list", "--json"])
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == self.LIST_PAGE
+
+    def test_list_text_renders_the_records(self):
+        result, _ = self._invoke(["list"])
+        assert result.exit_code == 0, result.output
+        assert "Found 1 API key(s)" in result.output
+        assert "Alice" in result.output
+
+    def test_new_json_unwraps_the_wrapper(self):
+        result, _ = self._invoke([*self.NEW_ARGS, "--json"])
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == self.MINTED
+
+    def test_new_text_shows_the_one_time_plaintext(self):
+        """A mint that cannot display its plaintext leaves an unusable key."""
+        result, _ = self._invoke(self.NEW_ARGS)
+        assert result.exit_code == 0, result.output
+        assert "audit_v1_newplaintext" in result.output
+
+    def test_get_json_unwraps_the_wrapper(self):
+        result, _ = self._invoke(["get", "--key-id", "k1", "--json"])
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == {"id": "k1"}
+
+    def test_update_json_unwraps_the_wrapper(self):
+        result, _ = self._invoke([
+            "update", "--key-id", "k1", "--role", "traces-searcher", "--json",
+        ])
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == {"id": "k1"}
+
+    def test_regenerate_text_shows_the_new_plaintext(self):
+        """The plaintext is the body's "key" field, not the body itself."""
+        result, _ = self._invoke(["regenerate", "--key-id", "k1", "--confirm"])
+        assert result.exit_code == 0, result.output
+        assert "audit_v1_rotatedplaintext" in result.output
+        assert "{'key'" not in result.output
+
+    def test_regenerate_json_names_the_new_plaintext(self):
+        result, _ = self._invoke([
+            "regenerate", "--key-id", "k1", "--confirm", "--json",
+        ])
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == {
+            "id": "k1", "api_key": "audit_v1_rotatedplaintext",
+        }
+
+    def test_plain_dict_payloads_still_render(self):
+        """Older pins return parsed payloads directly; both shapes work."""
+        result, _ = self._invoke(["list", "--json"], wrapped=False)
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == self.LIST_PAGE
