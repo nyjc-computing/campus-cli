@@ -13,13 +13,13 @@ Install a versioned release with [pipx](https://pipx.pypa.io) (recommended —
 isolated venv, the `campus` command on your PATH):
 
 ```bash
-pipx install https://github.com/nyjc-computing/campus-cli/releases/download/v0.8.0/campus_cli-0.8.0-py3-none-any.whl
+pipx install https://github.com/nyjc-computing/campus-cli/releases/download/v0.10.5/campus_cli-0.10.5-py3-none-any.whl
 ```
 
 or with pip into your Python environment:
 
 ```bash
-pip install https://github.com/nyjc-computing/campus-cli/releases/download/v0.8.0/campus_cli-0.8.0-py3-none-any.whl
+pip install https://github.com/nyjc-computing/campus-cli/releases/download/v0.10.5/campus_cli-0.10.5-py3-none-any.whl
 ```
 
 Releases are tagged `vX.Y.Z`; swap the URL for the version you want. Every
@@ -46,6 +46,19 @@ campus auth login
 # client's registered allowlist to include it — the server rejects
 # unknown scopes)
 campus auth login --scope clients:write
+
+# Hold several logins at once — named sessions (#113): one session is
+# one account on one environment. Every command uses the ACTIVE one.
+campus auth login --as dev-alice     # store as a named session + activate it
+campus auth use                      # list sessions (active one marked)
+campus auth use prod-admin           # switch the active session
+campus auth status --all             # inventory every stored session
+campus auth logout --as dev-alice    # remove one slot; --all clears every slot
+
+# Headless/agent login: print the verification link instead of opening
+# a browser here; approve from any machine's browser (consent page shows
+# client + scopes; the code expires in ~10-15 minutes)
+campus auth login --as agent --no-browser
 
 # Show what the stored token can do: client, endpoint, principal,
 # scopes, expiry — plus a lightweight server-side validity check
@@ -252,18 +265,22 @@ Override and base values must be bare origins (`scheme://host[:port]`, no
 path or trailing slash); a malformed value raises `ValueError` naming the
 variable. For one-off calls against another deployment, prefix the env vars:
 
-For one-off calls against another deployment, prefix the env vars:
-
 ```bash
 CAMPUS_AUTH_URL=https://nyjc-campus.up.railway.app/auth/v1 CAMPUS_API_URL=https://campusapi.up.railway.app campus circle list
 ```
 
-**One credential slot.** The OS keyring holds a single token pair, so a
-login against a different deployment replaces the previous one outright.
-Each login records the auth endpoint that minted it, and `campus auth
-status` flags the mismatch — switching environments always costs one
-device flow per side, so batch your work per environment instead of
-interleaving.
+**Named sessions, one active.** The OS keyring holds each login in its
+own slot (#113): one session is one account on one environment, and the
+config file's active-session pointer decides which one every command
+uses (`campus auth use` to switch, `campus auth status --all` to
+inventory). Each slot still records the auth endpoint that minted it,
+and the endpoint-mismatch check applies per session. The supersession
+rule still applies inside one (account, environment) pair — the server
+keeps a single live credential per user and client, so re-logging the
+same account on the same environment invalidates that account's older
+slots. See [Named login sessions](docs/authentication.md#named-login-sessions).
+Pre-0.10.4 installs upgrade in place: their existing credentials become
+the default slot.
 
 **Polling note (campus-cli ≥0.7.3):** production strips
 `details.oauth_error` from token-error envelopes — the RFC 8628 error

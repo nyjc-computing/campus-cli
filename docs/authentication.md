@@ -26,7 +26,7 @@ only when you are not logged in or the server rejects the token. When
 your account may read grant rows (operator, root, or grants admin) it
 also shows them.
 
-## Named sessions
+## Named login sessions
 
 One session is one account on one environment (auth endpoint). Named
 sessions (#113) let one machine hold several at once — e.g. a
@@ -39,25 +39,84 @@ campus auth login --as dev-alice      # store as a named session + activate it
 campus auth use                       # list sessions (active one marked)
 campus auth use prod-admin            # switch the active session
 campus auth use --default             # back to the unnamed default slot
+campus auth status                    # describes the ACTIVE session
 campus auth status --all              # inventory every stored session
 campus auth logout --as dev-alice     # revoke + remove one named session
 campus auth logout --all              # revoke + clear every session
 ```
 
-Every command reads whichever session is active; tokens expire and
-refresh per session as usual, and the endpoint-mismatch check applies
-per session. Plain `campus auth login` overwrites the ACTIVE session's
-credentials, and `campus auth logout` logs out the active session.
-The campus.audit API key (`campus audit login`) is a global per-install
-credential: no session logout touches it.
+### How it works
 
-**Supersession still applies within one (account, environment)**: the
-server keeps a single live credential per user and client, so a fresh
-login for the same account on the same endpoint invalidates that
-account's older token — including the copy stored in another session
-slot. Named sessions are fully independent only when they differ in
-account or environment; agents should use their own named session (or
-`--no-browser`) rather than re-logging the human's account.
+Every command reads whichever session is **active** — the config
+file's `active_session` pointer. Without one, that is the unnamed
+default slot: installs upgrading from before #113 keep working
+unchanged, and their existing credentials simply become the default
+slot. Tokens expire and refresh per session as usual, the
+endpoint-mismatch check applies per session, plain `campus auth login`
+overwrites the ACTIVE session's credentials, and plain `campus auth
+logout` logs the active session out (run `campus auth use` first if
+you are not where you think you are).
+
+Credentials live in the OS keyring, namespaced per slot
+(`session/<name>/access_token`, ...), so each slot is one entry per
+field in Windows Credential Manager / your desktop's equivalent. The
+campus.audit API key (`campus audit login`) is a **global per-install
+credential**: no session logout touches it.
+
+Session names are 1–64 characters of letters, digits, dots, dashes and
+underscores (starting with a letter or digit) — safe both as keyring
+account names and as path segments.
+
+### The one caveat: supersession
+
+The server keeps **one live credential per (user, client)**, and a new
+login for the same pair deletes the old token outright (campus
+invariant A5). Named sessions therefore give true isolation only when
+they differ in **account or environment**:
+
+- `--as dev` on the development gateway and `--as prod` on production:
+  fully independent.
+- Two sessions logged into the *same* account on the *same*
+  environment: the newer login invalidates the older slot's token
+  server-side — `campus auth status` in that older slot then reports
+  the token as rejected.
+
+So give agents their own named session and never re-login the human's
+account from one; and when a slot reports invalid right after another
+login, that is supersession, not a bug — log in again for that slot or
+drop it with `campus auth logout --as <name>`.
+
+### Agent-mediated login (headless machines)
+
+On a headless box — or whenever an agent runs the login — combine a
+named session with `--no-browser`:
+
+```bash
+campus auth login --as agent --no-browser
+```
+
+The CLI prints the verification link (the user code is pre-embedded,
+RFC 8628 §3.3.1) and polls; no browser is opened on the machine
+running the command. Open the link in **any** browser — a remote
+shell, another desktop, a phone — review the consent page (it names
+the client and the requested scopes), and approve: the polling command
+completes and stores the token. The code expires in ~10–15 minutes, so
+click it promptly. An explicit `--scope` set rides along as usual.
+
+This is the safe default for agents: the human's click is the consent
+act, the agent never disturbs the human's active session, and no
+localhost redirect is involved, so "remote" costs nothing extra.
+
+### Troubleshooting
+
+- `campus auth use ghost` fails with "No stored session" — log in
+  first: `campus auth login --as ghost`.
+- A slot shows `EXPIRED` in `campus auth status --all` — activate it
+  (`campus auth use <name>`) and run `campus auth refresh`; a stored
+  refresh token reissues the same scopes.
+- A slot reports the server-side check as `invalid` right after
+  another login for the same account/environment — supersession (see
+  above), not a bug.
 
 ## How scopes work
 
