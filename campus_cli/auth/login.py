@@ -306,6 +306,16 @@ def login_cmd(
             " operator must widen it first."
         ),
     ),
+    no_browser: bool = typer.Option(
+        False,
+        "--no-browser",
+        help=(
+            "Don't open a browser on this machine. The verification"
+            " link is printed as usual — open it from any other session"
+            " or device (e.g. relayed from a remote shell or an agent)"
+            " to authorize."
+        ),
+    ),
 ) -> None:
     """
     Authenticate with Campus API using Device Authorization Flow.
@@ -315,6 +325,11 @@ def login_cmd(
     2. Display a code for you to enter at the verification URL
     3. Poll for the token while you complete authentication in a browser
     4. Store the received token in your credential manager
+
+    With --no-browser, no browser is opened on this machine: the
+    printed verification link can be opened from any other session or
+    device to authorize the pending request (remote/agent-mediated
+    login).
 
     The auth endpoint is resolved from the CAMPUS_AUTH_URL environment
     variable, the config file, or ENV/CAMPUS_ENV (see campus_cli.config).
@@ -400,9 +415,17 @@ def login_cmd(
                 " if it doesn't paste, copy it manually.[/dim]"
             )
 
-        # Open browser automatically
-        console.print("Opening browser to verification page...")
-        webbrowser.open(verification_uri_complete or verification_uri)
+        # Open a browser here unless asked not to: --no-browser serves
+        # headless/remote flows where the authorizing browser lives on
+        # another machine (the printed link is the whole handoff).
+        if no_browser:
+            console.print(
+                "[dim]Not opening a browser (--no-browser);"
+                " open the link above on any machine to authorize.[/dim]"
+            )
+        else:
+            console.print("Opening browser to verification page...")
+            webbrowser.open(verification_uri_complete or verification_uri)
 
         # Step 3: Poll for token
         console.print("\nWaiting for authentication to complete...")
