@@ -4,6 +4,11 @@ Read-only access to the traces the audit service records: recent
 traces, full span trees, and filtered search, gated on traces:read.
 Trace IDs are 32-char hex, span IDs 16-char hex (OpenTelemetry
 convention).
+
+With --json, failures ship the campus flat error envelope
+({"error", "error_description", "status"}) on stdout with exit 1
+instead of a sentence on stderr; the envelope's code and status are
+null for CLI-side failures (guards, argument validation).
 """
 
 import re
@@ -233,7 +238,7 @@ def traces_list(
         return
 
     try:
-        api = get_audit_client()
+        api = get_audit_client(as_json=output_json)
         result = _unwrap_payload(
             api.traces.list(since=since, until=until, limit=limit)
         )
@@ -246,7 +251,7 @@ def traces_list(
     except typer.Exit:
         raise
     except Exception as e:
-        fail_api("list traces", e)
+        fail_api("list traces", e, as_json=output_json)
 
 
 @traces_app.command("get")
@@ -273,7 +278,7 @@ def traces_get(
         return
 
     try:
-        api = get_audit_client()
+        api = get_audit_client(as_json=output_json)
         tree = _unwrap_payload(api.traces[trace_id].get_tree())
         if output_json:
             print_json(tree)
@@ -283,7 +288,7 @@ def traces_get(
     except typer.Exit:
         raise
     except Exception as e:
-        fail_api(f"get trace '{trace_id}'", e)
+        fail_api(f"get trace '{trace_id}'", e, as_json=output_json)
 
 
 @traces_app.command("search")
@@ -338,7 +343,7 @@ def traces_search(
         return
 
     try:
-        api = get_audit_client()
+        api = get_audit_client(as_json=output_json)
         result = _unwrap_payload(
             api.traces.search(
                 path=path,
@@ -362,4 +367,4 @@ def traces_search(
     except typer.Exit:
         raise
     except Exception as e:
-        fail_api("search traces", e)
+        fail_api("search traces", e, as_json=output_json)

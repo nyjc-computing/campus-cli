@@ -25,6 +25,7 @@ from campus_cli.audit.client import (
     AUDIT_KEY_PREFIX,
     api_error_details,
     api_error_message,
+    fail_command,
     mismatch_message,
     resolve_audit_url,
 )
@@ -222,8 +223,11 @@ def status_cmd(
         key_url = credentials.get_audit_key_url()
         stored_at = credentials.get_audit_key_stored_at()
     except CredentialError as e:
-        print_error(f"Failed to read the stored audit API key: {e}")
-        raise typer.Exit(1) from e
+        fail_command(
+            f"Failed to read the stored audit API key: {e}",
+            as_json=output_json,
+            cause=e,
+        )
 
     # A local view must not die on an unresolvable target: an invalid
     # ENV/CAMPUS_ENV is exactly the state worth diagnosing here.
