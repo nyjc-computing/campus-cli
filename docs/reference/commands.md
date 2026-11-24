@@ -22,13 +22,13 @@ Campus CLI - Command-line interface for Campus API
 | [`campus assignment`](#campus-assignment) | Assignment commands (campus.api) (6) |
 | [`campus audit`](#campus-audit) | Campus Audit service commands (12) |
 | [`campus auth`](#campus-auth) | Authentication commands (4) |
-| [`campus circle`](#campus-circle) | Circle commands (campus.api) (11) |
+| [`campus circle`](#campus-circle) | Circle commands (campus.api) (9) |
 | [`campus client`](#campus-client) | OAuth client management commands (10) |
 | [`campus file`](#campus-file) | File storage commands (campus.api) (5) |
 | [`campus grant`](#campus-grant) | Access-grant store commands (5) |
 | [`campus subjcombi`](#campus-subjcombi) | Subjcombi mapping commands (campus.api) (5) |
 | [`campus submission`](#campus-submission) | Submission commands (campus.api) (10) |
-| [`campus timetable`](#campus-timetable) | Timetable commands (campus.api) (9) |
+| [`campus timetable`](#campus-timetable) | Timetable commands (campus.api) (10) |
 | [`campus user`](#campus-user) | User management commands (6) |
 | [`campus vault`](#campus-vault) | Vault management commands (5) |
 | [`campus venue`](#campus-venue) | Venue commands (campus.api) (5) |
@@ -528,22 +528,6 @@ Arguments/options:
 - `--access`, integer, required — Access value.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
 
-### `campus circle members check`
-
-Check whether a member belongs to a circle. Membership resolves transitively through member group circles by default — the same question campus.api's enforcement gate answers, through the same shared resolver (campus#1202), so this command agrees with the API's 403 wall by construction. Pass --direct for the circle's direct members dict only.
-
-```
-campus circle members check [OPTIONS]
-```
-
-Arguments/options:
-
-- `--circle-id`, text, required — Circle name (e.g. timetable.admin) or ID.
-- `--member-id`, text, required — Member (user) ID.
-- `--direct` — Probe the direct members dict only (not the gate's semantics).
-- `--json` — Output as JSON.
-- `--dry-run` — Show the equivalent Python API code without calling the API.
-
 ### `campus circle members list`
 
 List a circle's members with their access values.
@@ -601,20 +585,6 @@ Arguments/options:
 - `--name/-n`, text, required — Circle name (unique).
 - `--tag`, text, required — Circle tag, e.g. 'class', 'project'.
 - `--description/-d`, text — Circle description.
-- `--json` — Output as JSON.
-- `--dry-run` — Show the equivalent Python API code without calling the API.
-
-### `campus circle roles`
-
-List the role circles a user holds, resolved transitively. The inverted membership check (campus#1202): every role circle (tag "role", e.g. the seeded "<resource>.admin" circles) the user is reachable from — including through member group circles — sorted by role circle name. The query the 11-22 prod ops run previously had to hand-roll by diffing members dicts.
-
-```
-campus circle roles [OPTIONS]
-```
-
-Arguments/options:
-
-- `--user-id`, text, required — User ID (email account, naming their user circle).
 - `--json` — Output as JSON.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
 
@@ -1227,7 +1197,7 @@ Arguments/options:
 
 ### `campus timetable delete`
 
-Delete a timetable version and all of its rows (deployment-wide, destructive). Cascades the version's entries, group members and lessongroup rows, then the version itself. This is the cleanup surface for the label-drift create 409: stale duplicate-label rows are owned by the superseded versions that minted them. The derived current and next versions (validity windows covering today / starting next, campus#1222) are refused by the API — adjust the windows first. Cannot be undone.
+Delete a timetable version and all of its rows (deployment-wide, destructive). Cascades the version's entries, group members and lessongroup rows, then the version itself. This is the cleanup surface for the label-drift create 409: stale duplicate-label rows are owned by the superseded versions that minted them. The current and next pointer targets are refused by the API — move/cancel the pointer first. Cannot be undone.
 
 ```
 campus timetable delete [OPTIONS]
@@ -1341,6 +1311,24 @@ campus timetable next [OPTIONS]
 Arguments/options:
 
 - `--json` — Output as JSON.
+- `--dry-run` — Show the equivalent Python API code without calling the API.
+
+### `campus timetable patch`
+
+Patch exactly one timetable pointer (deployment-wide). --current flips now; --next schedules (or reschedules) the pending switch; --cancel-next cancels it. Scheduled switches apply at their effective_from without any further action.
+
+```
+campus timetable patch [OPTIONS]
+```
+
+Arguments/options:
+
+- `--current`, text — Timetable ID to make current, effective now.
+- `--next`, text — Timetable ID to schedule as the pending switch (reschedules any previous pending switch).
+- `--cancel-next` — Cancel the pending switch.
+- `--effective-from`, text — When the pending switch applies (ISO datetime, or YYYY-MM-DD for 07:00 school time); with --next only.
+- `--json` — Output as JSON.
+- `--confirm/-y` — Skip confirmation.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
 
 ## `campus user`
