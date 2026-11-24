@@ -148,8 +148,25 @@ def _child_line(child: dict) -> str:
     )
 
 
-def _print_trace_page(result: dict) -> None:
-    """Print a list/search result page with its continuation cursor."""
+def _unwrap_payload(result):
+    """Return the parsed JSON payload for either SDK response shape.
+
+    SDK v0.11.0 query methods are annotated ``-> JsonResponse`` but
+    return the ``CampusResponse`` wrapper (campus-cli#112); older pins
+    returned parsed payloads directly. Duck-type on ``.json()`` so the
+    CLI renders correctly against both.
+    """
+    return result.json() if hasattr(result, "json") else result
+
+
+def _print_trace_page(result: dict, *, paginated: bool = True) -> None:
+    """Print a list/search result page with its continuation cursor.
+
+    ``paginated=False`` (traces list) suppresses the --cursor hint:
+    the SDK's list call takes no cursor kwarg (campus-cli#112), so a
+    list page cannot be continued — narrow with the time filters or
+    use search.
+    """
     traces = result.get("traces", [])
     if not traces:
         console.print("[dim]No traces found.[/dim]")
@@ -162,10 +179,16 @@ def _print_trace_page(result: dict) -> None:
         console.print()
     cursor = result.get("cursor") or {}
     if cursor.get("has_more") and cursor.get("next"):
-        console.print(
-            "[dim]More traces available; continue with "
-            f"--cursor {cursor['next']}[/dim]"
-        )
+        if paginated:
+            console.print(
+                "[dim]More traces available; continue with "
+                f"--cursor {cursor['next']}[/dim]"
+            )
+        else:
+            console.print(
+                "[dim]More traces available; narrow with --since/--until "
+                "or use search to continue.[/dim]"
+            )
 
 
 def _dry_run(command: str, operation: list[str]) -> None:
@@ -196,9 +219,6 @@ def traces_list(
         None, "--until", help="ISO 8601 upper bound on trace time"
     ),
     limit: Optional[int] = typer.Option(None, "--limit", help="Page size"),
-    cursor: Optional[str] = typer.Option(
-        None, "--cursor", help="Opaque token from a previous page"
-    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     dry_run: bool = dry_run_option(),
 ) -> None:
@@ -207,22 +227,21 @@ def traces_list(
         _dry_run(
             "campus audit traces list",
             _query_operation("list", {
-                "since": since, "until": until,
-                "limit": limit, "cursor": cursor,
+                "since": since, "until": until, "limit": limit,
             }),
         )
         return
 
     try:
         api = get_audit_client()
-        result = api.traces.list(
-            since=since, until=until, limit=limit, cursor=cursor
+        result = _unwrap_payload(
+            api.traces.list(since=since, until=until, limit=limit)
         )
 
         if output_json:
             print_json(result)
         else:
-            _print_trace_page(result)
+            _print_trace_page(result, paginated=False)
 
     except typer.Exit:
         raise
@@ -247,7 +266,7 @@ def traces_get(
         _dry_run(
             "campus audit traces get",
             [
-                f"tree = campus_audit.traces[{trace_id!r}].get()",
+                f"tree = campus_audit.traces[{trace_id!r}].get_tree()",
                 "print(tree)",
             ],
         )
@@ -255,7 +274,7 @@ def traces_get(
 
     try:
         api = get_audit_client()
-        tree = api.traces[trace_id].get()
+        tree = _unwrap_payload(api.traces[trace_id].get_tree())
         if output_json:
             print_json(tree)
         else:
@@ -320,17 +339,19 @@ def traces_search(
 
     try:
         api = get_audit_client()
-        result = api.traces.search(
-            path=path,
-            status=status,
-            user_id=user,
-            client_id=client,
-            api_key_id=api_key_id,
-            journey_id=journey,
-            since=since,
-            until=until,
-            limit=limit,
-            cursor=cursor,
+        result = _unwrap_payload(
+            api.traces.search(
+                path=path,
+                status=status,
+                user_id=user,
+                client_id=client,
+                api_key_id=api_key_id,
+                journey_id=journey,
+                since=since,
+                until=until,
+                limit=limit,
+                cursor=cursor,
+            )
         )
 
         if output_json:

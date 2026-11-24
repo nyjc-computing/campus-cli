@@ -310,12 +310,12 @@ def test_audit_traces_list_dry_run():
 
 
 def test_audit_traces_get_dry_run():
-    """audit traces get --dry-run shows indexed trace access."""
+    """audit traces get --dry-run shows the get_tree() accessor (#112)."""
     result = _invoke_audit_dry_run(
         "audit", "traces", "get", "--trace-id", "a" * 32
     )
 
-    assert f"campus_audit.traces[{'a' * 32!r}].get()" in result.stdout
+    assert f"campus_audit.traces[{'a' * 32!r}].get_tree()" in result.stdout
 
 
 def test_audit_traces_search_dry_run():

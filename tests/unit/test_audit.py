@@ -859,6 +859,141 @@ class TestTracesSearchJourney:
         assert api.traces.search.call_args.kwargs["journey_id"] is None
 
 
+class _Sdk011Response:
+    """Stands in for SDK v0.11.0's CampusResponse wrapper (campus-cli#112).
+
+    The v0.11.0 query methods are annotated -> JsonResponse but return
+    this wrapper; parsed payloads come out of .json().
+    """
+
+    def __init__(self, payload):
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+class _Sdk011TracesList:
+    """Traces.list with the exact SDK v0.11.0 signature (campus-cli#112).
+
+    The real list() takes no cursor kwarg — passing one is the TypeError
+    bug — so the fake carries the strict signature instead of a Mock.
+    """
+
+    def __init__(self, payload):
+        self._payload = payload
+        self.calls: list[dict] = []
+
+    def list(self, *, since=None, until=None, limit=50):
+        self.calls.append({"since": since, "until": until, "limit": limit})
+        return _Sdk011Response(self._payload)
+
+
+class TestTracesSdk011Compat:
+    """Traces commands speak SDK v0.11.0's shapes (campus-cli#112).
+
+    The pinned v0.11.0 wheel: list() has no cursor kwarg, query methods
+    return CampusResponse wrappers (not the parsed payloads their
+    JsonResponse annotation suggests), and the single-trace accessor is
+    get_tree() — Resource.get is gone. The CLI unwraps .json() before
+    rendering and passes plain-dict payloads through untouched.
+    """
+
+    PAGE = {
+        "traces": [{"trace_id": "a" * 32}],
+        "cursor": {"next": "tok-2", "has_more": True},
+    }
+
+    def _invoke(self, argv, api):
+        with (
+            mock.patch("campus_cli.audit.traces.get_audit_client", return_value=api),
+            mock.patch.dict("os.environ", {"CAMPUS_AUDIT_URL": AUDIT_URL}),
+        ):
+            return CliRunner().invoke(app, ["audit", "traces", *argv])
+
+    def test_list_json_unwraps_sdk_response_wrapper(self):
+        api = mock.Mock()
+        api.traces = _Sdk011TracesList(self.PAGE)
+
+        result = self._invoke(["list", "--json"], api)
+
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == self.PAGE
+
+    def test_list_human_output_renders_without_cursor_hint(self):
+        """A list page cannot be continued via --cursor (no such SDK
+        kwarg), so the continuation hint must not offer one."""
+        api = mock.Mock()
+        api.traces = _Sdk011TracesList(self.PAGE)
+
+        result = self._invoke(["list"], api)
+
+        assert result.exit_code == 0, result.output
+        assert "Showing 1 trace(s)" in result.output
+        assert "--cursor" not in result.output
+
+    def test_list_does_not_pass_cursor_to_sdk(self):
+        api = mock.Mock()
+        api.traces = _Sdk011TracesList(self.PAGE)
+
+        result = self._invoke(["list"], api)
+
+        assert result.exit_code == 0, result.output
+        assert api.traces.calls == [{"since": None, "until": None, "limit": None}]
+
+    def test_list_rejects_removed_cursor_option(self):
+        """The removed --cursor must be a usage error, not a silent no-op."""
+        api = mock.Mock()
+        api.traces = _Sdk011TracesList(self.PAGE)
+
+        result = self._invoke(["list", "--cursor", "tok-1"], api)
+
+        assert result.exit_code == 2
+        assert api.traces.calls == []
+
+    def test_search_json_unwraps_sdk_response_wrapper(self):
+        api = mock.Mock()
+        api.traces.search.return_value = _Sdk011Response(self.PAGE)
+
+        result = self._invoke(
+            ["search", "--since", "2026-11-17", "--json"], api
+        )
+
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == self.PAGE
+
+    def test_search_human_output_keeps_cursor_hint(self):
+        api = mock.Mock()
+        api.traces.search.return_value = _Sdk011Response(self.PAGE)
+
+        result = self._invoke(["search"], api)
+
+        assert result.exit_code == 0, result.output
+        assert "--cursor tok-2" in result.output
+
+    def test_search_forwards_cursor_to_sdk(self):
+        api = mock.Mock()
+        api.traces.search.return_value = _Sdk011Response({"traces": []})
+
+        result = self._invoke(["search", "--cursor", "tok-1"], api)
+
+        assert result.exit_code == 0, result.output
+        assert api.traces.search.call_args.kwargs["cursor"] == "tok-1"
+
+    def test_get_calls_get_tree_and_unwraps(self):
+        """Resource.get is gone in v0.11.0 — the accessor is get_tree()."""
+        tree = {"trace_id": "b" * 32, "root_span": {"path": "/x"}}
+        api = mock.MagicMock()
+        api.traces.__getitem__.return_value.get_tree.return_value = \
+            _Sdk011Response(tree)
+
+        result = self._invoke(["get", "--trace-id", "b" * 32, "--json"], api)
+
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == tree
+        api.traces.__getitem__.return_value.get_tree.assert_called_once()
+
+
 class TestKeysRole:
     """`campus audit keys new/update --role` grants a named role (#67).
 
