@@ -21,7 +21,7 @@ Campus CLI - Command-line interface for Campus API
 | [`campus app`](#campus-app) | Hosted-app publishing commands (campus.api) (5) |
 | [`campus assignment`](#campus-assignment) | Assignment commands (campus.api) (6) |
 | [`campus audit`](#campus-audit) | Campus Audit service commands (12) |
-| [`campus auth`](#campus-auth) | Authentication commands (4) |
+| [`campus auth`](#campus-auth) | Authentication commands (10) |
 | [`campus circle`](#campus-circle) | Circle commands (campus.api) (11) |
 | [`campus client`](#campus-client) | OAuth client management commands (10) |
 | [`campus file`](#campus-file) | File storage commands (campus.api) (5) |
@@ -29,7 +29,7 @@ Campus CLI - Command-line interface for Campus API
 | [`campus subjcombi`](#campus-subjcombi) | Subjcombi mapping commands (campus.api) (5) |
 | [`campus submission`](#campus-submission) | Submission commands (campus.api) (10) |
 | [`campus timetable`](#campus-timetable) | Timetable commands (campus.api) (9) |
-| [`campus user`](#campus-user) | User management commands (6) |
+| [`campus user`](#campus-user) | User management commands (1) |
 | [`campus vault`](#campus-vault) | Vault management commands (5) |
 | [`campus venue`](#campus-venue) | Venue commands (campus.api) (5) |
 | [`campus version`](#campus-version) | — |
@@ -463,6 +463,95 @@ Arguments/options:
 
 - `--json` — Output status as JSON.
 - `--offline` — Skip the authenticated validity check (no network calls; the check verifies the stored token against GET users/, where FORBIDDEN means valid and UNAUTHORIZED invalid). Exit codes: 0 when a stored token is present and valid — or its check was skipped, unreachable, or inconclusive; 1 when not logged in or the token was rejected by the server..
+
+## `campus auth user`
+
+Manage users through campus.auth (grant-store authority)
+
+### `campus auth user activate`
+
+Activate a Campus user. Requires users:mod authority or higher: a users:mod grant row AND the matching scope on your token (see `campus grant list`; the super-admin root needs neither).
+
+```
+campus auth user activate [OPTIONS]
+```
+
+Arguments/options:
+
+- `--user-id/-u`, text, required — User ID (email).
+- `--json` — Output as JSON.
+- `--dry-run` — Show the equivalent Python API code without calling the API.
+
+### `campus auth user delete`
+
+Delete a Campus user. Permanently deletes the user record. Requires users:admin authority: a users:admin grant row AND the users:admin scope on your token (see `campus grant list`; the super-admin root needs neither).
+
+```
+campus auth user delete [OPTIONS]
+```
+
+Arguments/options:
+
+- `--user-id/-u`, text, required — User ID (email).
+- `--confirm/-y` — Skip confirmation.
+- `--dry-run` — Show the equivalent Python API code without calling the API.
+
+### `campus auth user edit`
+
+Rename a Campus user. Requires users:write authority: a users:write grant row AND the users:write scope on your token (see `campus grant list`; the super-admin root needs neither). Name is the only editable field: a user's ID IS its email, so identity fields stay fixed.
+
+```
+campus auth user edit [OPTIONS]
+```
+
+Arguments/options:
+
+- `--user-id/-u`, text, required — User ID (email).
+- `--name/-n`, text, required — New display name.
+- `--json` — Output as JSON.
+- `--dry-run` — Show the equivalent Python API code without calling the API.
+
+### `campus auth user get`
+
+Get details of a Campus user (campus.auth management surface). Requires users:read authority: a users:read grant row AND the users:read scope on your token (see `campus grant list`; the super-admin root needs neither). Directory reads for ordinary staff are `campus user get` (the campus.api facade).
+
+```
+campus auth user get [OPTIONS]
+```
+
+Arguments/options:
+
+- `--user-id/-u`, text, required — User ID (email).
+- `--json` — Output as JSON.
+- `--dry-run` — Show the equivalent Python API code without calling the API.
+
+### `campus auth user list`
+
+List all Campus users (campus.auth management surface). Requires users:read authority: a users:read grant row AND the users:read scope on your token (see `campus grant list`; the super-admin root needs neither). Directory reads for ordinary staff are `campus user list` (the campus.api facade).
+
+```
+campus auth user list [OPTIONS]
+```
+
+Arguments/options:
+
+- `--json` — Output as JSON.
+- `--dry-run` — Show the equivalent Python API code without calling the API.
+
+### `campus auth user new`
+
+Create a new Campus user. Requires users:write authority: a users:write grant row AND the users:write scope on your token (see `campus grant list`; the super-admin root needs neither). The user starts inactive; activate them with 'campus auth user activate'.
+
+```
+campus auth user new [OPTIONS]
+```
+
+Arguments/options:
+
+- `--email/-e`, text, required — User email (also the user ID).
+- `--name/-n`, text, required — User display name.
+- `--json` — Output as JSON.
+- `--dry-run` — Show the equivalent Python API code without calling the API.
 
 ## `campus circle`
 
@@ -1347,63 +1436,6 @@ Arguments/options:
 
 User management commands
 
-### `campus user activate`
-
-Activate a Campus user. Requires users:mod authority or higher: a users:mod grant row AND the matching scope on your token (see `campus grant list`; the super-admin root needs neither).
-
-```
-campus user activate [OPTIONS]
-```
-
-Arguments/options:
-
-- `--user-id/-u`, text, required — User ID (email).
-- `--json` — Output as JSON.
-- `--dry-run` — Show the equivalent Python API code without calling the API.
-
-### `campus user delete`
-
-Delete a Campus user. Permanently deletes the user record. Requires users:admin authority: a users:admin grant row AND the users:admin scope on your token (see `campus grant list`; the super-admin root needs neither).
-
-```
-campus user delete [OPTIONS]
-```
-
-Arguments/options:
-
-- `--user-id/-u`, text, required — User ID (email).
-- `--confirm/-y` — Skip confirmation.
-- `--dry-run` — Show the equivalent Python API code without calling the API.
-
-### `campus user edit`
-
-Rename a Campus user. Requires users:write authority: a users:write grant row AND the users:write scope on your token (see `campus grant list`; the super-admin root needs neither). Name is the only editable field: a user's ID IS its email, so identity fields stay fixed.
-
-```
-campus user edit [OPTIONS]
-```
-
-Arguments/options:
-
-- `--user-id/-u`, text, required — User ID (email).
-- `--name/-n`, text, required — New display name.
-- `--json` — Output as JSON.
-- `--dry-run` — Show the equivalent Python API code without calling the API.
-
-### `campus user get`
-
-Get details of a Campus user. Reads run through campus.api's directory facade (#1226): every authenticated user sees their own record; staff see any record. An invisible record is indistinguishable from an absent one (404).
-
-```
-campus user get [OPTIONS]
-```
-
-Arguments/options:
-
-- `--user-id/-u`, text, required — User ID (email).
-- `--json` — Output as JSON.
-- `--dry-run` — Show the equivalent Python API code without calling the API.
-
 ### `campus user list`
 
 List Campus users (searchable). Reads run through campus.api's directory facade (#1226): staff see the full base via the staff:viewer baseline — no grant row — while other authenticated callers see the members of circles they can read, plus their own record.
@@ -1415,21 +1447,6 @@ campus user list [OPTIONS]
 Arguments/options:
 
 - `--q`, text — Substring filter over name/email.
-- `--json` — Output as JSON.
-- `--dry-run` — Show the equivalent Python API code without calling the API.
-
-### `campus user new`
-
-Create a new Campus user. Requires users:write authority: a users:write grant row AND the users:write scope on your token (see `campus grant list`; the super-admin root needs neither). The user starts inactive; activate them with 'campus user activate'.
-
-```
-campus user new [OPTIONS]
-```
-
-Arguments/options:
-
-- `--email/-e`, text, required — User email (also the user ID).
-- `--name/-n`, text, required — User display name.
 - `--json` — Output as JSON.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
 

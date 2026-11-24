@@ -1,25 +1,22 @@
-"""User management commands (#42).
+"""User directory commands — the campus.api facade (#1226).
 
-Reads (list/get) run through campus.api's read-only directory facade
-(#1226): staff read the full user base via the staff:viewer baseline
-— no grant row needed — and other authenticated callers get their
-circle-visible slice plus their own record. Mutation commands
-unchanged: the campus#883 grant store authority model still applies,
-each needing a matching grant row AND the matching users:* scope on
-the token — either leg alone confers nothing (campus invariant A8).
-The env-nominated super-admin root needs neither. Inspect and
-administer rows with `campus grant`:
+Read-only: list/search the user base and fetch single records through
+campus.api's /users facade. Staff read the full base via the
+staff:viewer baseline — no grant row needed — and other authenticated
+callers get their circle-visible slice plus their own record.
 
-- activate: users:mod (implies read)
-- new/edit: users:write (implies mod and read)
-- delete:   users:admin (implies write)
+User MUTATION (create/activate/rename/delete) lives in
+`campus auth user`: it is campus.auth management work, walled behind
+the #883 grant store authority model (a matching grant row AND the
+matching users:* scope on the token — either leg alone confers
+nothing, campus invariant A8; the env-nominated super-admin root
+needs neither). Inspect and administer rows with `campus grant`.
 """
 
 import typer
 from rich.console import Console
 
 from campus_cli.auth.common import (
-    confirm_destructive,
     dry_run_option,
     get_api_client,
 )
@@ -27,10 +24,9 @@ from campus_cli.utils.output import (
     print_error,
     print_json,
     print_python_api,
-    print_success,
 )
 
-user_app = typer.Typer(help="User management commands")
+user_app = typer.Typer(help="User directory commands (campus.api facade)")
 console = Console()
 
 
@@ -149,218 +145,3 @@ def user_list(
         raise typer.Exit(1) from e
 
 
-@user_app.command("new")
-def user_new(
-    email: str = typer.Option(
-        ..., "--email", "-e", help="User email (also the user ID)"
-    ),
-    name: str = typer.Option(..., "--name", "-n", help="User display name"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
-    dry_run: bool = dry_run_option(),
-) -> None:
-    """
-    Create a new Campus user.
-
-    Requires users:write authority: a users:write grant row AND
-    the users:write scope on your token (see `campus grant list`;
-    the super-admin root needs neither). The user starts inactive;
-    activate them with 'campus user activate'.
-    """
-    if dry_run:
-        print_python_api(
-            "campus user new",
-            [
-                "user = campus.auth.users.new(",
-                f"    email={email!r},",
-                f"    name={name!r},",
-                ")",
-                "print(user.id)",
-            ],
-        )
-        return
-
-    try:
-        api = get_api_client()
-        user = api.auth_users.new(email=email, name=name)
-
-        result = _format_user(user)
-
-        if output_json:
-            print_json(result)
-        else:
-            print_success(f"User '{email}' created successfully!")
-            _print_user_details(result)
-            console.print(
-                "\n[dim]New users start inactive: activate with"
-                " 'campus user activate'.[/dim]"
-            )
-
-    except typer.Exit:
-        raise
-    except Exception as e:
-        print_error(f"Failed to create user: {e}")
-        raise typer.Exit(1) from e
-
-
-@user_app.command("get")
-def user_get(
-    user_id: str = typer.Option(..., "--user-id", "-u", help="User ID (email)"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
-    dry_run: bool = dry_run_option(),
-) -> None:
-    """
-    Get details of a Campus user.
-
-    Reads run through campus.api's directory facade (#1226): every
-    authenticated user sees their own record; staff see any record.
-    An invisible record is indistinguishable from an absent one (404).
-    """
-    if dry_run:
-        print_python_api(
-            "campus user get",
-            [
-                f"user = campus.api.users.get({user_id!r})",
-                "print(user['name'], user['activated_at'])",
-            ],
-        )
-        return
-
-    try:
-        api = get_api_client()
-        user = api.api_users.get(user_id)
-
-        result = _format_user(user)
-
-        if output_json:
-            print_json(result)
-        else:
-            _print_user_details(result)
-
-    except typer.Exit:
-        raise
-    except Exception as e:
-        print_error(f"Failed to get user: {e}")
-        raise typer.Exit(1) from e
-
-
-@user_app.command("activate")
-def user_activate(
-    user_id: str = typer.Option(..., "--user-id", "-u", help="User ID (email)"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
-    dry_run: bool = dry_run_option(),
-) -> None:
-    """
-    Activate a Campus user.
-
-    Requires users:mod authority or higher: a users:mod grant row
-    AND the matching scope on your token (see `campus grant list`;
-    the super-admin root needs neither).
-    """
-    if dry_run:
-        print_python_api(
-            "campus user activate",
-            [
-                f"user = campus.auth.users[{user_id!r}].activate()",
-                "print(user.activated_at)",
-            ],
-        )
-        return
-
-    try:
-        api = get_api_client()
-        user = api.auth_users[user_id].activate()
-
-        result = _format_user(user)
-
-        if output_json:
-            print_json(result)
-        else:
-            print_success(f"User '{user_id}' activated successfully!")
-            _print_user_details(result)
-
-    except typer.Exit:
-        raise
-    except Exception as e:
-        print_error(f"Failed to activate user: {e}")
-        raise typer.Exit(1) from e
-
-
-@user_app.command("edit")
-def user_edit(
-    user_id: str = typer.Option(..., "--user-id", "-u", help="User ID (email)"),
-    name: str = typer.Option(..., "--name", "-n", help="New display name"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
-    dry_run: bool = dry_run_option(),
-) -> None:
-    """
-    Rename a Campus user.
-
-    Requires users:write authority: a users:write grant row AND
-    the users:write scope on your token (see `campus grant list`;
-    the super-admin root needs neither). Name is the only editable
-    field: a user's ID IS its email, so identity fields stay fixed.
-    """
-    if dry_run:
-        print_python_api(
-            "campus user edit",
-            [
-                f"user = campus.auth.users[{user_id!r}].update(",
-                f"    name={name!r},",
-                ")",
-                "print(user.name)",
-            ],
-        )
-        return
-
-    try:
-        api = get_api_client()
-        user = api.auth_users[user_id].update(name=name)
-
-        result = _format_user(user)
-
-        if output_json:
-            print_json(result)
-        else:
-            print_success(f"User '{user_id}' updated successfully!")
-            _print_user_details(result)
-
-    except typer.Exit:
-        raise
-    except Exception as e:
-        print_error(f"Failed to update user: {e}")
-        raise typer.Exit(1) from e
-
-
-@user_app.command("delete")
-def user_delete(
-    user_id: str = typer.Option(..., "--user-id", "-u", help="User ID (email)"),
-    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
-    dry_run: bool = dry_run_option(),
-) -> None:
-    """
-    Delete a Campus user.
-
-    Permanently deletes the user record. Requires users:admin
-    authority: a users:admin grant row AND the users:admin scope on
-    your token (see `campus grant list`; the super-admin root needs
-    neither).
-    """
-    if dry_run:
-        print_python_api(
-            "campus user delete",
-            [f"campus.auth.users[{user_id!r}].delete()"],
-        )
-        return
-
-    confirm_destructive(f"delete user '{user_id}'", confirm)
-
-    try:
-        api = get_api_client()
-        api.auth_users[user_id].delete()
-        print_success(f"User '{user_id}' deleted successfully.")
-
-    except typer.Exit:
-        raise
-    except Exception as e:
-        print_error(f"Failed to delete user: {e}")
-        raise typer.Exit(1) from e

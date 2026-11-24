@@ -42,6 +42,7 @@ from campus_cli.auth import (  # noqa: E402
     client_app,
     grants_app,
     login_app,
+    manage_user_app,
     user_app,
     vault_app,
 )
@@ -58,6 +59,11 @@ from campus_cli.resources import (  # noqa: E402
 
 # Register sub-apps
 app.add_typer(login_app, name="auth", help="Authentication commands")
+login_app.add_typer(
+    manage_user_app,
+    name="user",
+    help="Manage users through campus.auth (grant-store authority)",
+)
 app.add_typer(client_app, name="client", help="OAuth client management commands")
 app.add_typer(user_app, name="user", help="User management commands")
 app.add_typer(grants_app, name="grant", help="Access-grant store commands")
