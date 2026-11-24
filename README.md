@@ -64,10 +64,15 @@ campus client new --name "My App" --description "My application"
 # Generate the client's secret (only time it is shown)
 campus client revoke --client-id <id>
 
-# Manage users (needs a users:* grant row AND the matching scope)
-campus user list
-campus user new --email "new.member@school.edu" --name "New Member"
-campus user activate --user-id "new.member@school.edu"
+# User directory (campus.api facade, campus#1226 - staff read via the
+# staff:viewer baseline; no grant row)
+campus user list                # or: --q "substring"
+campus user get --user-id "someone@school.edu"
+
+# Manage users (campus.auth management surface - needs a users:* grant
+# row AND the matching scope; campus#883/#887)
+campus auth user new --email "new.member@school.edu" --name "New Member"
+campus auth user activate --user-id "new.member@school.edu"
 
 # Campus API resources — reads (campus-cli#4 Phase A)
 campus assignment list --created-by "teacher@school.edu"
