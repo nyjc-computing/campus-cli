@@ -1392,7 +1392,7 @@ Arguments/options:
 
 ### `campus user get`
 
-Get details of a Campus user. Requires users:read authority: a users:read grant row AND the users:read scope on your token (see `campus grant list`; the super-admin root needs neither).
+Get details of a Campus user. Reads run through campus.api's directory facade (#1226): every authenticated user sees their own record; staff see any record. An invisible record is indistinguishable from an absent one (404).
 
 ```
 campus user get [OPTIONS]
@@ -1406,7 +1406,7 @@ Arguments/options:
 
 ### `campus user list`
 
-List all Campus users. Requires users:read authority: a users:read grant row AND the users:read scope on your token (see `campus grant list`; the super-admin root needs neither).
+List Campus users (searchable). Reads run through campus.api's directory facade (#1226): staff see the full base via the staff:viewer baseline — no grant row — while other authenticated callers see the members of circles they can read, plus their own record.
 
 ```
 campus user list [OPTIONS]
@@ -1414,6 +1414,7 @@ campus user list [OPTIONS]
 
 Arguments/options:
 
+- `--q`, text — Substring filter over name/email.
 - `--json` — Output as JSON.
 - `--dry-run` — Show the equivalent Python API code without calling the API.
 
