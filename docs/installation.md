@@ -4,13 +4,13 @@ Install a versioned release with [pipx](https://pipx.pypa.io)
 (recommended — isolated venv, the `campus` command on your PATH):
 
 ```bash
-pipx install https://github.com/nyjc-computing/campus-cli/releases/download/v0.8.0/campus_cli-0.8.0-py3-none-any.whl
+pipx install https://github.com/nyjc-computing/campus-cli/releases/download/v0.10.5/campus_cli-0.10.5-py3-none-any.whl
 ```
 
 or with pip into your Python environment:
 
 ```bash
-pip install https://github.com/nyjc-computing/campus-cli/releases/download/v0.8.0/campus_cli-0.8.0-py3-none-any.whl
+pip install https://github.com/nyjc-computing/campus-cli/releases/download/v0.10.5/campus_cli-0.10.5-py3-none-any.whl
 ```
 
 Releases are tagged `vX.Y.Z`; swap the URL for the version you want —

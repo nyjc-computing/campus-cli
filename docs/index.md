@@ -21,8 +21,12 @@ campus assignment list
 
 ## Highlights
 
+- **Named login sessions** — hold several logins at once (one account
+  × one environment each) and switch with `campus auth use`; agents
+  can log in remotely with `--as <name> --no-browser`. See
+  [Named login sessions](authentication.md#named-login-sessions).
 - **Device-flow login** — no client secrets on your machine; the token
-  lands in your system keyring via the SDK.
+  lands in your system keyring.
 - **Every write is previewable** — pass `--dry-run` to any mutating
   command to print the equivalent Python API code without calling the
   API.
@@ -41,5 +45,5 @@ campus assignment list
 | If you want to... | Read |
 |---|---|
 | install the CLI | [Installation](installation.md) |
-| log in, manage scopes | [Authentication & scopes](authentication.md) |
+| log in, manage scopes or named sessions | [Authentication & scopes](authentication.md) |
 | look up any command | [Command reference](reference/commands.md) |
