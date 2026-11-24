@@ -40,7 +40,8 @@ import typer
 from campus_cli.auth import common
 from campus_cli.auth.common import get_token_status
 from campus_cli.auth.grants import _format_access
-from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID
+from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
+from campus_cli.credentials import session_storage
 from campus_cli.utils.output import console, print_success, print_warning
 
 # Validity states for the token check. "not_checked" is the --offline
@@ -183,6 +184,9 @@ def build_status(offline: bool) -> dict:
         # None means "not recorded" (credential predates #45 or no
         # token), never "no scopes": an empty list is a real answer.
         "scopes": scopes,
+        # The session slot this status describes (#113): a name, or
+        # null for the default slot. Additive; never carries a secret.
+        "session": config.active_session,
         "expires_in_seconds": (
             _expires_in_seconds(token["expires_at"]) if authenticated else None
         ),
@@ -287,6 +291,8 @@ def _print_human(status: dict) -> None:
     print_success("Authenticated")
     console.print(f"Client: {status['client_id']}")
     console.print(f"Auth endpoint: {status['auth_url']}")
+    if status.get("session"):
+        console.print(f"Session: {status['session']} (active)")
 
     if not status["endpoint_match"]:
         console.print(
@@ -348,13 +354,88 @@ def _print_grants_line(status: dict) -> None:
     console.print(f"Grant rows: {rendered}")
 
 
-def run_status(output_json: bool, offline: bool) -> None:
+def build_slot_summary(
+    session: str | None, label: str, active: str | None
+) -> dict:
+    """One slot's locally-held identity, for `status --all` (#113).
+
+    Offline by design: --all inventories every slot without network
+    probes, so it stays fast and works against unreachable servers.
+
+    Args:
+        session: The slot to read (None = default slot).
+        label: Display name for the slot.
+        active: The currently active session name (None = default).
+
+    Returns:
+        Summary dict: session, active, authenticated, user_id, scopes,
+        token_auth_url, expires_at, is_expired.
+    """
+    creds = session_storage(session)
+    authenticated = creds.get_token() is not None
+    return {
+        "session": label,
+        "active": active == session,
+        "authenticated": authenticated,
+        "user_id": creds.get_token_user_id() if authenticated else None,
+        "scopes": creds.get_token_scopes() if authenticated else None,
+        "token_auth_url": creds.get_token_auth_url() if authenticated else None,
+        "expires_at": creds.get_token_expires_at() if authenticated else None,
+        "is_expired": creds.is_token_expired() if authenticated else False,
+    }
+
+
+def _print_slot_summaries(slots: list[dict]) -> None:
+    """Render the per-slot `status --all` listing."""
+    for slot in slots:
+        marker = " [cyan](active)[/cyan]" if slot["active"] else ""
+        console.print(f"Session [bold]{slot['session']}[/bold]{marker}")
+        if not slot["authenticated"]:
+            console.print("  [dim]no stored credentials[/dim]")
+            continue
+        console.print(f"  Principal: {slot['user_id'] or 'unknown'}")
+        console.print(f"  Issued by: {slot['token_auth_url'] or 'unknown'}")
+        scopes = slot["scopes"]
+        console.print(f"  Scopes: {', '.join(scopes) if scopes else '(none)'}")
+        if slot["expires_at"]:
+            state = (
+                "[red bold]EXPIRED[/red bold]" if slot["is_expired"] else "valid"
+            )
+            console.print(f"  Expires at: {slot['expires_at']} ({state})")
+        else:
+            console.print("  [dim]No expiry information[/dim]")
+
+
+def run_status(
+    output_json: bool, offline: bool, show_all: bool = False
+) -> None:
     """Entry point for the `campus auth status` command.
 
-    Exits 1 when not logged in (both modes) or when the token check
-    finds the stored token rejected; every other outcome — including
-    an unreachable server or an inconclusive check — is non-fatal.
+    With show_all (#113): prints a per-slot inventory of every stored
+    session (no network calls) and exits 1 only when NO slot holds a
+    token. Otherwise: exits 1 when not logged in (both modes) or when
+    the token check finds the stored token rejected; every other
+    outcome — including an unreachable server or an inconclusive check
+    — is non-fatal.
     """
+    if show_all:
+        active = config.active_session
+        slots = [build_slot_summary(None, "default", active)]
+        slots += [
+            build_slot_summary(name, name, active)
+            for name in config.get_sessions()
+        ]
+        if output_json:
+            # Plain stdout write: Rich's word wrap can split long
+            # values mid-string and corrupt machine-readable JSON.
+            typer.echo(json.dumps(slots))
+        else:
+            console.print(f"Auth endpoint: {common.resolve_auth_url()}")
+            _print_slot_summaries(slots)
+        if not any(slot["authenticated"] for slot in slots):
+            raise typer.Exit(1)
+        return
+
     status = build_status(offline)
 
     if output_json:

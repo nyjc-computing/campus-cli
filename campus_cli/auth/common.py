@@ -7,7 +7,7 @@ import requests
 import typer
 
 from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
-from campus_cli.credentials import credentials
+from campus_cli.credentials import CredentialStorage, credentials
 from campus_cli.utils.output import print_error
 
 
@@ -162,16 +162,23 @@ def normalize_auth_url(url: str) -> str:
     return url.rstrip("/")
 
 
-def endpoint_mismatch() -> tuple[str, str] | None:
+def endpoint_mismatch(
+    storage: CredentialStorage | None = None,
+) -> tuple[str, str] | None:
     """
     Check whether the stored credentials were issued by the targeted endpoint.
+
+    Args:
+        storage: The credential slot to check; defaults to the global
+                 store (the active session, #113). `login --as` passes
+                 the named slot it is about to (re)authenticate.
 
     Returns:
         (stored_auth_url, current_auth_url) on mismatch, None otherwise.
         Credentials stored before endpoint binding (no stored URL) are
         treated as matching; they bind at the next login or refresh.
     """
-    stored = credentials.get_token_auth_url()
+    stored = (storage or credentials).get_token_auth_url()
     if not stored:
         return None
     current = resolve_auth_url()

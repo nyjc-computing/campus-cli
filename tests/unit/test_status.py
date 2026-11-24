@@ -27,6 +27,21 @@ runner = CliRunner()
 
 
 @pytest.fixture(autouse=True)
+def _isolated_session_config(tmp_path, monkeypatch):
+    """Pin the active-session pointer for payload determinism (#113).
+
+    The status payload carries the config file's active session; tests
+    must not depend on the developer's real one.
+    """
+    from campus_cli.config import Config
+
+    monkeypatch.setattr(
+        "campus_cli.auth.status.config",
+        Config(config_path=tmp_path / "config.json"),
+    )
+
+
+@pytest.fixture(autouse=True)
 def _no_grant_fetch(monkeypatch):
     """Default-stub the grants readout (#50); row tests re-patch it.
 

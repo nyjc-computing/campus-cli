@@ -13,6 +13,11 @@ pre-filled code, and the minted token lands in your system keyring
 (through the SDK's session store). Public clients need no secrets on
 your machine.
 
+On a headless box — or when an agent runs the login and you authorize
+from your own session — add `--no-browser`: the verification link is
+printed instead of a browser being opened here, and you click it from
+any machine to approve the pending request.
+
 `campus auth status` reports the stored token's client, endpoints,
 principal, scopes, and expiry, plus a lightweight server-side validity
 check (network errors are reported without failing; exit code stays
@@ -20,6 +25,39 @@ check (network errors are reported without failing; exit code stays
 only when you are not logged in or the server rejects the token. When
 your account may read grant rows (operator, root, or grants admin) it
 also shows them.
+
+## Named sessions
+
+One session is one account on one environment (auth endpoint). Named
+sessions (#113) let one machine hold several at once — e.g. a
+development student account, a production operator account, and an
+agent's everyday token — without re-running the device flow at every
+switch:
+
+```bash
+campus auth login --as dev-alice      # store as a named session + activate it
+campus auth use                       # list sessions (active one marked)
+campus auth use prod-admin            # switch the active session
+campus auth use --default             # back to the unnamed default slot
+campus auth status --all              # inventory every stored session
+campus auth logout --as dev-alice     # revoke + remove one named session
+campus auth logout --all              # revoke + clear every session
+```
+
+Every command reads whichever session is active; tokens expire and
+refresh per session as usual, and the endpoint-mismatch check applies
+per session. Plain `campus auth login` overwrites the ACTIVE session's
+credentials, and `campus auth logout` logs out the active session.
+The campus.audit API key (`campus audit login`) is a global per-install
+credential: no session logout touches it.
+
+**Supersession still applies within one (account, environment)**: the
+server keeps a single live credential per user and client, so a fresh
+login for the same account on the same endpoint invalidates that
+account's older token — including the copy stored in another session
+slot. Named sessions are fully independent only when they differ in
+account or environment; agents should use their own named session (or
+`--no-browser`) rather than re-logging the human's account.
 
 ## How scopes work
 

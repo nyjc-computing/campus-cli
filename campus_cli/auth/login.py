@@ -19,7 +19,12 @@ from campus_cli.auth.common import (
     revoke_token,
 )
 from campus_cli.config import PUBLIC_OAUTH_CLIENT_ID, config
-from campus_cli.credentials import CredentialError, credentials
+from campus_cli.credentials import (
+    CredentialError,
+    credentials,
+    session_storage,
+    validate_session_name,
+)
 from campus_cli.utils.clipboard import copy_to_clipboard
 from campus_cli.utils.output import print_error, print_success
 
@@ -316,6 +321,16 @@ def login_cmd(
             " to authorize."
         ),
     ),
+    as_session: str | None = typer.Option(
+        None,
+        "--as",
+        help=(
+            "Store the login as a NAMED session (#113) — one account on"
+            " one environment per session — instead of overwriting the"
+            " current slot, and switch the active session to it. List"
+            " sessions with 'campus auth use'."
+        ),
+    ),
 ) -> None:
     """
     Authenticate with Campus API using Device Authorization Flow.
@@ -331,25 +346,43 @@ def login_cmd(
     device to authorize the pending request (remote/agent-mediated
     login).
 
+    With --as <name>, the login is stored as a named session (#113)
+    and becomes the active session; without it, the login overwrites
+    the currently active session's credentials.
+
     The auth endpoint is resolved from the CAMPUS_AUTH_URL environment
     variable, the config file, or ENV/CAMPUS_ENV (see campus_cli.config).
     """
+    if as_session is not None:
+        try:
+            validate_session_name(as_session)
+        except ValueError as e:
+            print_error(str(e))
+            raise typer.Exit(1) from e
+        # The named slot is addressed explicitly; the global store keeps
+        # serving the active session for the rest of this process.
+        creds = session_storage(as_session)
+    else:
+        creds = credentials
+
     # The endpoint this invocation targets; tokens minted below are bound to it.
     auth_url = resolve_auth_url()
 
-    # Check if already logged in. An endpoint mismatch does not
-    # short-circuit: login is the remediation for stale credentials,
-    # so re-authentication proceeds against the current target.
-    # An explicit --scope request bypasses the short-circuit too (#38):
-    # it asks for a token minted with those scopes, so a valid stored
-    # token must not swallow it as a no-op (the documented upgrade path
-    # is re-login with the wider scope).
-    existing_token = credentials.get_token()
-    if existing_token and not credentials.is_token_expired():
-        mismatch = endpoint_mismatch()
+    # Check if already logged in — in the slot being logged into. An
+    # endpoint mismatch does not short-circuit: login is the remediation
+    # for stale credentials, so re-authentication proceeds against the
+    # current target. An explicit --scope request bypasses the
+    # short-circuit too (#38): it asks for a token minted with those
+    # scopes, so a valid stored token must not swallow it as a no-op
+    # (the documented upgrade path is re-login with the wider scope).
+    existing_token = creds.get_token()
+    if existing_token and not creds.is_token_expired():
+        mismatch = endpoint_mismatch(creds)
         if mismatch is None and not scope:
             console.print("[yellow]Already authenticated.[/yellow]")
             console.print(f"[dim]Authenticated against: {auth_url}[/dim]")
+            if as_session is not None:
+                _activate_session(as_session)
             if output_token:
                 console.print(existing_token)
             return
@@ -445,10 +478,10 @@ def login_cmd(
         expires_in = token_data.get("expires_in")
 
         if access_token:
-            credentials.set_token(access_token, expires_in=expires_in)
+            creds.set_token(access_token, expires_in=expires_in)
             if refresh_token:
-                credentials.set_refresh_token(refresh_token)
-            credentials.set_token_auth_url(auth_url)
+                creds.set_refresh_token(refresh_token)
+            creds.set_token_auth_url(auth_url)
 
             # Record the granted scopes and authorizing principal
             # locally (#45), so `campus auth status` can report them
@@ -458,10 +491,10 @@ def login_cmd(
             # keys and status reports them as unknown.
             scopes = token_data.get("scope")
             if isinstance(scopes, str) and scopes.strip():
-                credentials.set_token_scopes(scopes.split())
+                creds.set_token_scopes(scopes.split())
             user_id = token_data.get("user_id")
             if user_id:
-                credentials.set_token_user_id(user_id)
+                creds.set_token_user_id(user_id)
 
             # Record the login server-side (#837): the device grant
             # echoes the authorizing user (already extracted above for
@@ -473,10 +506,14 @@ def login_cmd(
             if user_id:
                 login_session_id = create_login_session(auth_url, user_id)
                 if login_session_id:
-                    credentials.set_login_session_id(login_session_id)
+                    creds.set_login_session_id(login_session_id)
 
             print_success("Authentication successful!")
             console.print(f"[dim]Authenticated against: {auth_url}[/dim]")
+            if as_session is not None:
+                _activate_session(as_session)
+            elif config.active_session:
+                console.print(f"[dim]Session: {config.active_session}[/dim]")
             if output_token:
                 console.print(access_token)
         else:
@@ -493,37 +530,37 @@ def login_cmd(
         raise typer.Exit(1) from e
 
 
-@login_app.command("logout")
-def logout_cmd(
-    confirm: bool = typer.Option(
-        False,
-        "--confirm",
-        "-y",
-        help="Skip confirmation prompt",
-    ),
-) -> None:
-    """
-    Log out and clear stored credentials.
+def _logout_slot(creds, label: str, confirm: bool) -> bool:
+    """Log out one session slot: revoke server-side, clear locally (#113).
 
-    Removes the stored access and refresh tokens from the credential store,
-    after attempting server-side revocation (RFC 7009). Revocation is
-    best-effort: logout still succeeds when the server is unreachable or
-    deployed without a revocation endpoint. Logging out while not
-    authenticated is a no-op reported as success.
+    Args:
+        creds: The slot's storage view.
+        label: Slot name for messages ("default" for the unnamed slot).
+        confirm: Skip the confirmation prompt (e.g. --all confirmed once
+                 up front).
+
+    Returns:
+        True when the slot had credentials to clear.
     """
     try:
-        access_token = credentials.get_token()
+        access_token = creds.get_token()
         had_token = access_token is not None
         if had_token:
             # Only confirm when there is something to log out of; the
-            # not-logged-in path below stays a promptless no-op.
-            confirm_destructive("log out and revoke the stored tokens", confirm)
+            # not-logged-in path below stays a promptless no-op. The
+            # default slot keeps the historical phrasing.
+            clause = (
+                "log out and revoke the stored tokens"
+                if label == "default"
+                else f"log out of session '{label}' and revoke its stored tokens"
+            )
+            confirm_destructive(clause, confirm)
             revoked = True
-            refresh_token = credentials.get_refresh_token()
+            refresh_token = creds.get_refresh_token()
             # Revoke where the tokens are valid: the endpoint that minted
             # them. After a target switch the current endpoint would
             # reject them as unknown tokens and they would stay live.
-            issuing_auth_url = credentials.get_token_auth_url()
+            issuing_auth_url = creds.get_token_auth_url()
             if refresh_token:
                 revoked = (
                     revoke_token(
@@ -549,29 +586,124 @@ def logout_cmd(
             # Best-effort like token revocation; the local id is always
             # cleared.
             with contextlib.suppress(CredentialError):
-                login_session_id = credentials.get_login_session_id()
+                login_session_id = creds.get_login_session_id()
                 if login_session_id and issuing_auth_url:
                     delete_login_session(
                         issuing_auth_url, login_session_id, access_token
                     )
-                credentials.delete_login_session_id()
-            credentials.delete_token()
+                creds.delete_login_session_id()
+            creds.delete_token()
         # A stray refresh token without an access token is still cleared
         # locally (no revocation attempt on the logged-out path).
         with contextlib.suppress(CredentialError):
-            credentials.delete_refresh_token()
+            creds.delete_refresh_token()
     except CredentialError as e:
         print_error(f"Failed to log out: {e}")
         raise typer.Exit(1) from e
+    return had_token
 
-    if had_token:
-        print_success("Logged out successfully.")
+
+@login_app.command("logout")
+def logout_cmd(
+    confirm: bool = typer.Option(
+        False,
+        "--confirm",
+        "-y",
+        help="Skip confirmation prompt",
+    ),
+    as_session: str | None = typer.Option(
+        None,
+        "--as",
+        help=(
+            "Log out the NAMED session instead of the active one (#113);"
+            " removes it from the session list, and resets the active"
+            " session when it was active."
+        ),
+    ),
+    all_sessions: bool = typer.Option(
+        False,
+        "--all",
+        help=(
+            "Log out EVERY stored session — the default slot and all"
+            " named sessions (#113) — and reset the active session."
+        ),
+    ),
+) -> None:
+    """
+    Log out and clear stored credentials.
+
+    Removes the stored access and refresh tokens from the credential
+    store, after attempting server-side revocation (RFC 7009).
+    Revocation is best-effort: logout still succeeds when the server is
+    unreachable or deployed without a revocation endpoint. Logging out
+    while not authenticated is a no-op reported as success.
+
+    Without --as/--all this logs out the ACTIVE session (#113) — the
+    default slot on an install that never named a session.
+    """
+    if as_session is not None and all_sessions:
+        print_error("Pass either --as <name> or --all, not both.")
+        raise typer.Exit(1)
+    if as_session is not None:
+        try:
+            validate_session_name(as_session)
+        except ValueError as e:
+            print_error(str(e))
+            raise typer.Exit(1) from e
+
+    if all_sessions:
+        slots: list[tuple[str, str | None]] = [("default", None)] + [
+            (name, name) for name in config.get_sessions()
+        ]
+        # One upfront confirmation for the batch (only when there is
+        # something to log out of); each slot then runs confirmed.
+        if any(session_storage(slot).get_token() for _, slot in slots):
+            confirm_destructive(
+                "log out of ALL stored sessions and revoke their tokens",
+                confirm,
+            )
+        cleared = sum(
+            1
+            for label, slot in slots
+            if _logout_slot(session_storage(slot), label, confirm=True)
+        )
+        for name in list(config.get_sessions()):
+            config.remove_session(name)
+        config.active_session = None
+        if cleared:
+            print_success(f"Logged out {cleared} session(s).")
+        else:
+            print_success("Not logged in.")
+    elif as_session is not None:
+        had_token = _logout_slot(
+            session_storage(as_session), as_session, confirm
+        )
+        config.remove_session(as_session)
+        if config.active_session == as_session:
+            config.active_session = None
+        if had_token:
+            print_success(f"Logged out session '{as_session}'.")
+        else:
+            print_success(f"Session '{as_session}' was not logged in.")
     else:
-        print_success("Not logged in.")
+        # The active slot; the default slot (and today's exact behavior)
+        # on an install that never named a session.
+        active = config.active_session
+        had_token = _logout_slot(
+            credentials, active if active is not None else "default", confirm
+        )
+        if active is not None:
+            config.remove_session(active)
+            config.active_session = None
+        if had_token:
+            print_success("Logged out successfully.")
+        else:
+            print_success("Not logged in.")
 
     # The campus.audit API key rides the same credential store but is a
     # separate credential (#54): say so, so "logged out" does not read
-    # as "every stored credential is gone".
+    # as "every stored credential is gone". It is a global credential
+    # (#113): no logout variant touches it.
     try:
         audit_key_stored = bool(credentials.get_audit_api_key())
     except CredentialError:
@@ -581,6 +713,103 @@ def logout_cmd(
             "[dim]Note: the stored campus.audit API key is unchanged;"
             " run 'campus audit logout' to clear it.[/dim]"
         )
+
+
+def _activate_session(name: str) -> None:
+    """Make ``name`` the active session and say so (#113)."""
+    config.active_session = name
+    config.add_session(name)
+    console.print(f"[dim]Active session: {name}[/dim]")
+
+
+def _list_sessions() -> None:
+    """Print every known session slot with the active marker (#113)."""
+    active = config.active_session
+    slots: list[tuple[str, str | None]] = [("default", None)] + [
+        (name, name) for name in config.get_sessions()
+    ]
+    console.print("Sessions:")
+    for label, slot in slots:
+        creds = session_storage(slot)
+        marker = " [cyan](active)[/cyan]" if active == slot else ""
+        if creds.get_token() is None:
+            detail = "no stored credentials"
+        else:
+            bits = []
+            user_id = creds.get_token_user_id()
+            if user_id:
+                bits.append(user_id)
+            auth_url = creds.get_token_auth_url()
+            if auth_url:
+                bits.append(auth_url)
+            if creds.is_token_expired():
+                bits.append("expired")
+            detail = " — ".join(bits) if bits else "stored credentials"
+        console.print(f"  {label}{marker}: {detail}")
+
+
+@login_app.command("use")
+def use_cmd(
+    name: str | None = typer.Argument(
+        None,
+        help="Session name to make active. Omit to list known sessions.",
+    ),
+    default: bool = typer.Option(
+        False,
+        "--default",
+        help="Switch back to the default (unnamed) session slot.",
+    ),
+) -> None:
+    """
+    Switch the active login session, or list known sessions (#113).
+
+    One session is one account on one environment: its tokens expire
+    and refresh as usual, and every command reads whichever session is
+    active. `campus auth login --as <name>` creates and activates a
+    session; `campus auth use` without arguments lists what exists.
+    """
+    if name is not None and default:
+        print_error("Pass either a session name or --default, not both.")
+        raise typer.Exit(1)
+
+    if name is None and not default:
+        _list_sessions()
+        return
+
+    if default:
+        config.active_session = None
+        print_success("Switched to the default session slot.")
+        return
+
+    try:
+        validate_session_name(name)
+    except ValueError as e:
+        print_error(str(e))
+        raise typer.Exit(1) from e
+
+    creds = session_storage(name)
+    if name not in config.get_sessions() and creds.get_token() is None:
+        # Neither in the index nor holding a token: nothing to switch
+        # to. The index can lag reality in both directions, so either
+        # signal is accepted; neither means the session doesn't exist.
+        print_error(
+            f"No stored session '{name}'. Log in first with"
+            f" 'campus auth login --as {name}'."
+        )
+        _list_sessions()
+        raise typer.Exit(1)
+
+    config.active_session = name
+    # Self-heal the index: a session holding tokens but missing from
+    # the list becomes addressable from here on.
+    config.add_session(name)
+    print_success(f"Switched to session '{name}'.")
+    user_id = creds.get_token_user_id()
+    if user_id:
+        console.print(f"[dim]Principal: {user_id}[/dim]")
+    issuing_auth_url = creds.get_token_auth_url()
+    if issuing_auth_url:
+        console.print(f"[dim]Issued by: {issuing_auth_url}[/dim]")
 
 
 @login_app.command("refresh")
@@ -670,6 +899,17 @@ def status_cmd(
             " server."
         ),
     ),
+    show_all: bool = typer.Option(
+        False,
+        "--all",
+        help=(
+            "Inventory every stored session slot (#113) — the default"
+            " slot and all named sessions — with principal, issuer,"
+            " scopes and expiry, marking the active one. No network"
+            " calls (--offline is implied). Exit code: 1 only when no"
+            " slot holds a token."
+        ),
+    ),
 ) -> None:
     """
     Show the stored credential's identity and scopes (#45).
@@ -682,9 +922,13 @@ def status_cmd(
     whether the token still authenticates (network errors are
     non-fatal: they are reported without failing the command).
 
+    With --all, lists every stored session slot (#113) instead of
+    probing the active one.
+
     Exit code: 1 when not logged in, or when the stored token is
-    rejected by the server; 0 otherwise.
+    rejected by the server; 0 otherwise. With --all: 1 only when no
+    slot holds a token.
     """
     from campus_cli.auth.status import run_status
 
-    run_status(output_json=output_json, offline=offline)
+    run_status(output_json=output_json, offline=offline, show_all=show_all)

@@ -17,6 +17,21 @@ from campus_cli.cli import app
 from campus_cli.credentials import CredentialError
 
 
+@pytest.fixture(autouse=True)
+def _isolated_session_config(tmp_path, monkeypatch):
+    """Point login.py's config at a tmp file (#113).
+
+    The session commands persist the active-session pointer and the
+    session index; tests must never touch the developer's real file.
+    """
+    from campus_cli.config import Config
+
+    monkeypatch.setattr(
+        "campus_cli.auth.login.config",
+        Config(config_path=tmp_path / "config.json"),
+    )
+
+
 def _http_error(error_body):
     """Build an HTTPError whose response carries the given JSON error body."""
     response = mock.Mock(spec=requests.Response)

@@ -21,7 +21,7 @@ Campus CLI - Command-line interface for Campus API
 | [`campus app`](#campus-app) | Hosted-app publishing commands (campus.api) (5) |
 | [`campus assignment`](#campus-assignment) | Assignment commands (campus.api) (6) |
 | [`campus audit`](#campus-audit) | Campus Audit service commands (12) |
-| [`campus auth`](#campus-auth) | Authentication commands (10) |
+| [`campus auth`](#campus-auth) | Authentication commands (11) |
 | [`campus circle`](#campus-circle) | Circle commands (campus.api) (11) |
 | [`campus client`](#campus-client) | OAuth client management commands (10) |
 | [`campus file`](#campus-file) | File storage commands (campus.api) (5) |
@@ -414,7 +414,7 @@ Authentication commands
 
 ### `campus auth login`
 
-Authenticate with Campus API using Device Authorization Flow. This will: 1. Request a device code from the server 2. Display a code for you to enter at the verification URL 3. Poll for the token while you complete authentication in a browser 4. Store the received token in your credential manager With --no-browser, no browser is opened on this machine: the printed verification link can be opened from any other session or device to authorize the pending request (remote/agent-mediated login). The auth endpoint is resolved from the CAMPUS_AUTH_URL environment variable, the config file, or ENV/CAMPUS_ENV (see campus_cli.config).
+Authenticate with Campus API using Device Authorization Flow. This will: 1. Request a device code from the server 2. Display a code for you to enter at the verification URL 3. Poll for the token while you complete authentication in a browser 4. Store the received token in your credential manager With --no-browser, no browser is opened on this machine: the printed verification link can be opened from any other session or device to authorize the pending request (remote/agent-mediated login). With --as <name>, the login is stored as a named session (#113) and becomes the active session; without it, the login overwrites the currently active session's credentials. The auth endpoint is resolved from the CAMPUS_AUTH_URL environment variable, the config file, or ENV/CAMPUS_ENV (see campus_cli.config).
 
 ```
 campus auth login [OPTIONS]
@@ -425,10 +425,11 @@ Arguments/options:
 - `--output-token/-t` — Output the access token to stdout.
 - `--scope/-s`, text, default: `[]` — Request a management scope for the token (#865); repeat for multiple (e.g. --scope clients:write). The server rejects scopes outside this client's registered allowlist — an operator must widen it first..
 - `--no-browser` — Don't open a browser on this machine. The verification link is printed as usual — open it from any other session or device (e.g. relayed from a remote shell or an agent) to authorize..
+- `--as`, text — Store the login as a NAMED session (#113) — one account on one environment per session — instead of overwriting the current slot, and switch the active session to it. List sessions with 'campus auth use'..
 
 ### `campus auth logout`
 
-Log out and clear stored credentials. Removes the stored access and refresh tokens from the credential store, after attempting server-side revocation (RFC 7009). Revocation is best-effort: logout still succeeds when the server is unreachable or deployed without a revocation endpoint. Logging out while not authenticated is a no-op reported as success.
+Log out and clear stored credentials. Removes the stored access and refresh tokens from the credential store, after attempting server-side revocation (RFC 7009). Revocation is best-effort: logout still succeeds when the server is unreachable or deployed without a revocation endpoint. Logging out while not authenticated is a no-op reported as success. Without --as/--all this logs out the ACTIVE session (#113) — the default slot on an install that never named a session.
 
 ```
 campus auth logout [OPTIONS]
@@ -437,6 +438,8 @@ campus auth logout [OPTIONS]
 Arguments/options:
 
 - `--confirm/-y` — Skip confirmation prompt.
+- `--as`, text — Log out the NAMED session instead of the active one (#113); removes it from the session list, and resets the active session when it was active..
+- `--all` — Log out EVERY stored session — the default slot and all named sessions (#113) — and reset the active session..
 
 ### `campus auth refresh`
 
@@ -453,7 +456,7 @@ Arguments/options:
 
 ### `campus auth status`
 
-Show the stored credential's identity and scopes (#45). Prints the auth client id, the endpoint in use (and the endpoint that minted the token), the authenticated principal, the scopes the stored token carries, and token expiry — everything scripts need to answer "what can this token do?" before acting. Unless --offline is given, a lightweight authenticated check also reports whether the token still authenticates (network errors are non-fatal: they are reported without failing the command). Exit code: 1 when not logged in, or when the stored token is rejected by the server; 0 otherwise.
+Show the stored credential's identity and scopes (#45). Prints the auth client id, the endpoint in use (and the endpoint that minted the token), the authenticated principal, the scopes the stored token carries, and token expiry — everything scripts need to answer "what can this token do?" before acting. Unless --offline is given, a lightweight authenticated check also reports whether the token still authenticates (network errors are non-fatal: they are reported without failing the command). With --all, lists every stored session slot (#113) instead of probing the active one. Exit code: 1 when not logged in, or when the stored token is rejected by the server; 0 otherwise. With --all: 1 only when no slot holds a token.
 
 ```
 campus auth status [OPTIONS]
@@ -463,6 +466,20 @@ Arguments/options:
 
 - `--json` — Output status as JSON.
 - `--offline` — Skip the authenticated validity check (no network calls; the check verifies the stored token against GET users/, where FORBIDDEN means valid and UNAUTHORIZED invalid). Exit codes: 0 when a stored token is present and valid — or its check was skipped, unreachable, or inconclusive; 1 when not logged in or the token was rejected by the server..
+- `--all` — Inventory every stored session slot (#113) — the default slot and all named sessions — with principal, issuer, scopes and expiry, marking the active one. No network calls (--offline is implied). Exit code: 1 only when no slot holds a token..
+
+### `campus auth use`
+
+Switch the active login session, or list known sessions (#113). One session is one account on one environment: its tokens expire and refresh as usual, and every command reads whichever session is active. `campus auth login --as <name>` creates and activates a session; `campus auth use` without arguments lists what exists.
+
+```
+campus auth use [OPTIONS] [NAME]
+```
+
+Arguments/options:
+
+- `NAME` — name.
+- `--default` — Switch back to the default (unnamed) session slot..
 
 ## `campus auth user`
 
