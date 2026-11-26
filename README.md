@@ -290,6 +290,21 @@ strip. CLI 0.7.3+ recovers the code from the campus error code
 polling; older CLIs abort the flow after a single "Authorization
 pending".
 
+### Clients never speak browser namespaces
+
+The campus gateway serves consumer apps under browser namespaces
+(`/timetable/`, `/apps/`, `/admin/`, `/profile/`, `/classroom/`) — a
+browser-surface construct only, and invisible to this CLI. The CLI, the
+`campus_python` SDK, and any machine-to-machine caller address services
+directly by configured origin (see
+[Environment routing](#environment-routing)) plus the services'
+unprefixed paths: `/auth/v1/…`, `/api/v1/…`, `/audit/v1/…`.
+`X-Forwarded-Prefix`, `SCRIPT_NAME`, and `PUBLIC_URL` only shape
+generated browser-facing URLs; they never appear in CLI configuration
+or CLI traffic. Normative spec:
+[url-namespacing.md](https://github.com/nyjc-computing/campus/blob/weekly/docs/url-namespacing.md)
+(umbrella issue: campus#1295).
+
 ### campus.audit: API-key auth (#54)
 
 The audit service is a separate, user-blind deployment with two auth
